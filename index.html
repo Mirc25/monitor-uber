@@ -2,83 +2,86 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>PABLO SECURITY - CENTRAL MULTIVISOR</title>
+    <title>PABLO SECURITY - CENTRAL PERSISTENTE</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        body { background: #050505; color: #00ff00; font-family: 'Segoe UI', sans-serif; overflow-x: hidden; }
+        body { background: #050505; color: #00ff00; font-family: 'Segoe UI', sans-serif; }
         .grid-monitoreo { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; padding: 20px; }
-        .cam-container { border: 2px solid #00ff00; border-radius: 15px; background: #111; padding: 15px; box-shadow: 0 0 15px rgba(0,255,0,0.2); position: relative; }
+        .cam-container { border: 2px solid #00ff00; border-radius: 15px; background: #111; padding: 15px; position: relative; }
         video { width: 100%; border-radius: 10px; background: #000; object-fit: cover; height: 250px; }
         .panel-control { background: #181818; padding: 20px; border-bottom: 2px solid #00ff00; position: sticky; top: 0; z-index: 100; }
         .map-frame { width: 100%; height: 150px; border-radius: 10px; margin-top: 10px; border: 1px solid #333; }
-        .badge-live { position: absolute; top: 25px; right: 25px; background: red; color: white; padding: 5px 10px; border-radius: 5px; font-weight: bold; font-size: 0.7rem; animation: blinker 1.5s linear infinite; }
-        @keyframes blinker { 50% { opacity: 0; } }
+        .btn-delete { position: absolute; top: 10px; left: 10px; background: rgba(255,0,0,0.7); color: white; border: none; border-radius: 5px; cursor: pointer; z-index: 10; }
     </style>
 </head>
 <body>
     <div class="panel-control d-flex justify-content-between align-items-center">
         <h2 class="m-0">🛡️ CENTRAL PABLO SECURITY</h2>
-        <button onclick="crearEnlace()" class="btn btn-success fw-bold px-4">GENERAR ACCESO WHATSAPP</button>
+        <div class="d-flex gap-2">
+            <button onclick="crearEnlace()" class="btn btn-success fw-bold">GENERAR LINK</button>
+            <button onclick="location.reload()" class="btn btn-outline-warning btn-sm">REFRESCAR PANEL</button>
+        </div>
     </div>
 
-    <div id="linkOutput" class="alert alert-info m-3 d-none text-center fw-bold"></div>
+    <div id="linkOutput" class="alert alert-info m-3 d-none text-center fw-bold text-dark"></div>
 
     <div id="gridMonitoreo" class="grid-monitoreo">
         </div>
 
     <script>
-        // Conexión reforzada
+        // Mantenemos el ID fijo para que los conductores siempre te encuentren
         const peer = new Peer('pablo-master-control-vip', {
+            debug: 2,
             config: { 'iceServers': [{ 'urls': 'stun:stun.l.google.com:19302' }] }
-        }); 
+        });
 
+        // Escuchar llamadas entrantes
         peer.on('call', call => {
             call.answer(); 
             call.on('stream', remoteStream => {
-                // LLAMAMOS A LA FUNCIÓN QUE EVITA DUPLICADOS
                 gestionarCuadro(remoteStream, call.peer);
+            });
+            
+            // Si el conductor corta, eliminamos su cuadro
+            call.on('close', () => {
+                document.getElementById('div-' + call.peer)?.remove();
             });
         });
 
         function gestionarCuadro(stream, peerId) {
-            let contenedorExistente = document.getElementById('div-' + peerId);
+            let contenedor = document.getElementById('div-' + peerId);
 
-            if (contenedorExistente) {
-                // SI YA EXISTE, SOLO ACTUALIZAMOS EL VIDEO
-                const video = document.getElementById('video-' + peerId);
-                if (video.srcObject !== stream) {
-                    video.srcObject = stream;
-                }
-            } else {
-                // SI NO EXISTE, CREAMOS EL CUADRO NUEVO
-                const col = document.createElement('div');
-                col.id = 'div-' + peerId;
-                col.className = 'cam-container';
-                col.innerHTML = `
-                    <div class="badge-live">LIVE</div>
-                    <h5 class="text-info" style="font-size: 0.9rem;">MÓVIL ID: ${peerId.substring(0,6).toUpperCase()}</h5>
+            if (!contenedor) {
+                contenedor = document.createElement('div');
+                contenedor.id = 'div-' + peerId;
+                contenedor.className = 'cam-container';
+                contenedor.innerHTML = `
+                    <button class="btn-delete" onclick="document.getElementById('div-${peerId}').remove()">X</button>
+                    <h5 class="text-info" style="font-size: 0.9rem; margin-left: 25px;">MÓVIL: ${peerId.substring(0,6).toUpperCase()}</h5>
                     <video id="video-${peerId}" autoplay playsinline></video>
-                    <iframe class="map-frame" src="https://maps.google.com/maps?q=-31.5375,-68.5364&z=15&output=embed"></iframe>
-                    <div class="d-flex justify-content-between mt-2" style="font-size: 0.7rem;">
-                        <span class="text-secondary">📡 SEÑAL ACTIVA</span>
-                        <span class="text-success">CONECTADO</span>
-                    </div>
+                    <iframe class="map-frame" src="https://maps.google.com/maps?q=-31.5375,-68.5364&z=14&output=embed"></iframe>
                 `;
-                document.getElementById('gridMonitoreo').appendChild(col);
-                document.getElementById('video-' + peerId).srcObject = stream;
+                document.getElementById('gridMonitoreo').appendChild(col = contenedor);
             }
+            
+            const video = document.getElementById('video-' + peerId);
+            video.srcObject = stream;
         }
 
         function crearEnlace() {
             const token = Math.random().toString(36).substring(7);
             const link = window.location.origin + "/visor.html?auth=" + token;
             const output = document.getElementById('linkOutput');
-            output.innerHTML = `Link: <a href="${link}" target="_blank" class="text-dark">${link}</a>`;
+            output.innerHTML = `Link Activo: <a href="${link}" target="_blank">${link}</a>`;
             output.classList.remove('d-none');
             navigator.clipboard.writeText(link);
-            alert("¡Link copiado!");
         }
+
+        // Si hay un error de conexión, intentamos reconectar el Master automáticamente
+        peer.on('disconnected', () => {
+            peer.reconnect();
+        });
     </script>
 </body>
 </html>
