@@ -2,53 +2,66 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>PABLO SECURITY - CENTRAL MASTER</title>
+    <title>PABLO SECURITY - CENTRAL MULTIVISOR</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         body { background: #050505; color: #00ff00; font-family: 'Segoe UI', sans-serif; }
-        .monitor-video { width: 100%; border: 2px solid #00ff00; border-radius: 15px; background: #000; box-shadow: 0 0 20px #00ff0033; }
-        .panel-control { background: #111; padding: 20px; border-radius: 15px; border: 1px solid #222; }
+        .grid-monitoreo { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; padding: 20px; }
+        .cam-container { border: 2px solid #333; border-radius: 15px; background: #111; padding: 10px; position: relative; }
+        video { width: 100%; border-radius: 10px; background: #000; object-fit: contain; }
+        .panel-control { background: #181818; padding: 20px; border-bottom: 1px solid #00ff00; }
+        iframe { width: 100%; height: 200px; border-radius: 10px; margin-top: 10px; border: 1px solid #222; }
     </style>
 </head>
 <body>
-    <div class="container-fluid p-4">
-        <h2 class="text-center mb-4">🛡️ CENTRAL DE MONITOREO PABLO</h2>
-        <div class="row">
-            <div class="col-md-8">
-                <video id="remoteVideo" class="monitor-video" autoplay playsinline></video>
-                <p class="text-center mt-2" id="status">Esperando conexión...</p>
-            </div>
-            <div class="col-md-4">
-                <div class="panel-control">
-                    <h5>GENERADOR DE ACCESO</h5>
-                    <button onclick="crearEnlace()" class="btn btn-success w-100 mb-3">GENERAR LINK PARA WHATSAPP</button>
-                    <div id="linkOutput" class="small text-break p-2 border border-secondary d-none"></div>
-                </div>
-            </div>
+    <div class="panel-control d-flex justify-content-between align-items-center">
+        <h2>🛡️ CENTRAL DE INTELIGENCIA PABLO</h2>
+        <div>
+            <button onclick="crearEnlace()" class="btn btn-success fw-bold">+ GENERAR LINK WHATSAPP</button>
         </div>
     </div>
 
+    <div id="gridMonitoreo" class="grid-monitoreo">
+        </div>
+
+    <div id="linkOutput" class="alert alert-info m-3 d-none text-break"></div>
+
     <script>
-        // Tu ID Master fijo para que el conductor sepa a dónde llamar
         const peer = new Peer('pablo-master-control-vip'); 
+        const grid = document.getElementById('gridMonitoreo');
 
         peer.on('call', call => {
-            call.answer(); // Contesta la llamada automáticamente
+            call.answer();
             call.on('stream', remoteStream => {
-                document.getElementById('remoteVideo').srcObject = remoteStream;
-                document.getElementById('status').innerText = "🔴 EN VIVO - CONECTADO";
+                crearCuadroVideo(remoteStream, call.peer);
             });
         });
+
+        function crearCuadroVideo(stream, peerId) {
+            if(document.getElementById('div-' + peerId)) return;
+
+            const col = document.createElement('div');
+            col.id = 'div-' + peerId;
+            col.className = 'cam-container';
+            col.innerHTML = `
+                <h6 class="text-info">UBER ID: ${peerId.substring(0,5)} - EN VIVO</h6>
+                <video id="video-${peerId}" autoplay playsinline></video>
+                <iframe src="https://maps.google.com/maps?q=-31.5375,-68.5364&z=15&output=embed"></iframe>
+                <small class="text-secondary">Ubicación estimada: San Juan, ARG</small>
+            `;
+            grid.appendChild(col);
+            document.getElementById('video-' + peerId).srcObject = stream;
+        }
 
         function crearEnlace() {
             const token = Math.random().toString(36).substring(7);
             const link = window.location.origin + "/visor.html?auth=" + token;
             const output = document.getElementById('linkOutput');
-            output.innerText = link;
+            output.innerText = "Link para enviar: " + link;
             output.classList.remove('d-none');
             navigator.clipboard.writeText(link);
-            alert("Link generado y copiado. Envialo por WhatsApp.");
+            alert("Link generado y copiado.");
         }
     </script>
 </body>
