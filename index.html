@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PABLO SECURITY - MASTER PANEL</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #0d0d0d; color: #00ff00; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .master-card { border: 1px solid #333; background: #1a1a1a; border-radius: 15px; padding: 20px; box-shadow: 0 0 20px rgba(0,255,0,0.1); }
+        .btn-random { background-color: #00ff00; color: black; font-weight: bold; border: none; }
+        .btn-random:hover { background-color: #00cc00; }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <div class="text-center mb-4">
+            <h1>🛡️ PABLO SECURITY VIP</h1>
+            <p class="text-secondary">SISTEMA DE MONITOREO ESTRATÉGICO</p>
+        </div>
+        
+        <div class="master-card text-center">
+            <h3>Panel de Control Master</h3>
+            <hr class="bg-secondary">
+            <button onclick="generarLink()" class="btn btn-random btn-lg mt-3">GENERAR LINK ALEATORIO</button>
+            <div id="resultado" class="mt-4 p-3 border border-secondary d-none" style="word-break: break-all;">
+                <p>Link de acceso temporal:</p>
+                <a href="#" id="link-generado" class="text-info" target="_blank"></a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function generarLink() {
+            const token = Math.random().toString(36).substring(2, 10);
+            const linkBase = window.location.href.split('?')[0];
+            const linkFinal = linkBase + "?visor=" + token;
+            
+            document.getElementById('resultado').classList.remove('d-none');
+            document.getElementById('link-generado').innerText = linkFinal;
+            document.getElementById('link-generado').href = linkFinal;
+        }
+    </script>
+</body>
+</html>
