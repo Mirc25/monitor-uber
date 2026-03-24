@@ -2,115 +2,121 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>CENTRAL PABLO SECURITY - PRO</title>
+    <title>CENTRAL PABLO SECURITY - FIX</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        body { background: #000; color: #00ff00; font-family: 'Courier New', monospace; overflow: hidden; }
-        .panel-header { background: #111; padding: 10px 20px; border-bottom: 2px solid #00ff00; height: 70px; }
+        body { background: #000; color: #00ff00; font-family: sans-serif; margin: 0; padding: 0; overflow: hidden; }
+        .panel-header { background: #111; padding: 10px 20px; border-bottom: 2px solid #00ff00; height: 70px; display: flex; justify-content: space-between; align-items: center; }
         
-        /* Cuadrícula Fija */
+        /* CUADRICULA FIJA - No se mueve */
         .grid-monitoreo { 
             display: grid; 
-            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); 
-            gap: 15px; 
-            padding: 15px; 
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); 
+            gap: 10px; 
+            padding: 10px; 
             height: calc(100vh - 70px);
             overflow-y: auto;
         }
 
         .cam-container { 
-            border: 1px solid #00ff00; 
+            border: 1px solid #333; 
             background: #0a0a0a; 
             border-radius: 8px; 
-            padding: 5px;
+            overflow: hidden;
             display: flex;
             flex-direction: column;
         }
 
         .video-box { 
             width: 100%; 
-            aspect-ratio: 9/16; /* Formato Vertical Fijo */
+            aspect-ratio: 9/16; 
             background: #000;
             object-fit: cover;
-            border-radius: 4px;
         }
 
         .controls { 
             display: flex; 
-            justify-content: space-around; 
-            padding: 10px 0;
+            gap: 5px;
+            padding: 5px;
             background: #111;
-            margin-top: 5px;
         }
 
-        .map-mini { width: 100%; height: 120px; border: none; filter: invert(90%) hue-rotate(180deg); }
-        .btn-action { font-size: 0.7rem; font-weight: bold; }
-    </script>
+        .map-mini { width: 100%; height: 100px; border: none; background: #222; }
+        .btn-sm { font-size: 0.7rem; flex: 1; }
+    </style>
 </head>
 <body>
-    <div class="panel-header d-flex justify-content-between align-items-center">
-        <h4 class="m-0 text-uppercase">🛡️ Central Pablo Security</h4>
-        <div class="d-flex gap-3">
-            <button onclick="crearEnlace()" class="btn btn-sm btn-success">+ NUEVO MÓVIL</button>
-            <div id="linkContainer" class="small text-white pt-1"></div>
-        </div>
+    <div class="panel-header">
+        <h4 class="m-0">🛡️ PABLO SECURITY</h4>
+        <div id="status" class="badge bg-danger">DESCONECTADO</div>
+        <button onclick="crearEnlace()" class="btn btn-sm btn-success">GENERAR LINK</button>
     </div>
 
     <div id="gridMonitoreo" class="grid-monitoreo"></div>
 
     <script>
         const peer = new Peer('pablo-master-control-vip', {
+            debug: 3,
             config: { 'iceServers': [{ 'urls': 'stun:stun.l.google.com:19302' }] }
         });
 
-        let localStream;
-        // Capturar micro de la PC para hablarle a los choferes
-        navigator.mediaDevices.getUserMedia({ audio: true }).then(s => localStream = s);
+        let miStreamVoz;
+        // Pedir permiso de micro al inicio para poder hablarles
+        navigator.mediaDevices.getUserMedia({ audio: true }).then(s => miStreamVoz = s).catch(e => console.log("Micro no activo"));
 
-        peer.on('call', call => {
-            call.answer(localStream); // Enviamos nuestro audio al contestar
-            call.on('stream', remoteStream => gestionarCuadro(remoteStream, call.peer, call));
+        peer.on('open', () => {
+            document.getElementById('status').innerText = "CENTRAL ACTIVA";
+            document.getElementById('status').className = "badge bg-success";
         });
 
-        function gestionarCuadro(stream, peerId, call) {
-            if (document.getElementById('div-' + peerId)) return;
+        peer.on('call', call => {
+            call.answer(miStreamVoz); // Contestamos enviando nuestra voz
+            call.on('stream', remoteStream => {
+                crearCuadro(remoteStream, call.peer);
+            });
+        });
 
-            const col = document.createElement('div');
-            col.id = 'div-' + peerId;
-            col.className = 'cam-container';
-            col.innerHTML = `
-                <video id="video-${peerId}" class="video-box" autoplay playsinline></video>
+        function crearCuadro(stream, id) {
+            if (document.getElementById('div-' + id)) return;
+
+            const div = document.createElement('div');
+            div.id = 'div-' + id;
+            div.className = 'cam-container';
+            div.innerHTML = `
+                <video id="vid-${id}" class="video-box" autoplay playsinline></video>
                 <div class="controls">
-                    <button class="btn btn-outline-danger btn-action" id="mute-${peerId}" onclick="toggleMute('${peerId}')">MUTEAR</button>
-                    <button class="btn btn-outline-info btn-action" onclick="hablar('${peerId}')">HABLAR</button>
+                    <button class="btn btn-warning btn-sm" onclick="toggleMute('${id}')" id="btn-m-${id}">SILENCIAR</button>
+                    <button class="btn btn-danger btn-sm" onclick="cerrar('${id}')">X</button>
                 </div>
-                <iframe id="map-${peerId}" class="map-mini"></iframe>
-                <div class="text-center small py-1">ID: ${peerId.substring(0,6)}</div>
+                <div id="info-${id}" style="font-size:10px; padding:2px; color:white;">Esperando GPS...</div>
+                <iframe id="map-${id}" class="map-mini"></iframe>
             `;
-            document.getElementById('gridMonitoreo').appendChild(col);
-            document.getElementById('video-' + peerId).srcObject = stream;
-            
-            // GPS DINÁMICO: Escuchamos datos de ubicación
+            document.getElementById('gridMonitoreo').appendChild(div);
+            document.getElementById('vid-' + id).srcObject = stream;
+
+            // Escuchar GPS dinámico
             peer.on('connection', conn => {
-                if(conn.peer === peerId) {
-                    conn.on('data', data => {
-                        document.getElementById(`map-${peerId}`).src = `https://maps.google.com/maps?q=${data.lat},${data.lng}&z=15&output=embed`;
-                    });
-                }
+                conn.on('data', data => {
+                    if(data.lat) {
+                        document.getElementById('map-'+id).src = `https://maps.google.com/maps?q=${data.lat},${data.lng}&z=15&output=embed`;
+                        document.getElementById('info-'+id).innerText = `LAT: ${data.lat.toFixed(4)} | LNG: ${data.lng.toFixed(4)}`;
+                    }
+                });
             });
         }
 
         function toggleMute(id) {
-            const v = document.getElementById('video-' + id);
+            const v = document.getElementById('vid-' + id);
             v.muted = !v.muted;
-            document.getElementById('mute-' + id).innerText = v.muted ? "ESCUCHAR" : "MUTEAR";
+            document.getElementById('btn-m-' + id).innerText = v.muted ? "ESCUCHAR" : "SILENCIAR";
         }
 
+        function cerrar(id) { document.getElementById('div-' + id).remove(); }
+
         function crearEnlace() {
-            const token = Math.random().toString(36).substring(7);
-            const link = window.location.origin + "/visor.html?id=" + token;
-            document.getElementById('linkContainer').innerHTML = `WhatsApp: <b>${link}</b>`;
+            const link = window.location.origin + "/visor.html";
+            alert("Link copiado: " + link);
             navigator.clipboard.writeText(link);
         }
     </script>
