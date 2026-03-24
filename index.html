@@ -6,62 +6,69 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        body { background: #050505; color: #00ff00; font-family: 'Segoe UI', sans-serif; }
-        .grid-monitoreo { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; padding: 20px; }
-        .cam-container { border: 2px solid #333; border-radius: 15px; background: #111; padding: 10px; position: relative; }
-        video { width: 100%; border-radius: 10px; background: #000; object-fit: contain; }
-        .panel-control { background: #181818; padding: 20px; border-bottom: 1px solid #00ff00; }
-        iframe { width: 100%; height: 200px; border-radius: 10px; margin-top: 10px; border: 1px solid #222; }
+        body { background: #050505; color: #00ff00; font-family: 'Segoe UI', sans-serif; overflow-x: hidden; }
+        .grid-monitoreo { display: grid; grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); gap: 20px; padding: 20px; }
+        .cam-container { border: 2px solid #00ff00; border-radius: 15px; background: #111; padding: 15px; box-shadow: 0 0 15px rgba(0,255,0,0.2); }
+        video { width: 100%; border-radius: 10px; background: #000; object-fit: contain; height: 300px; }
+        .panel-control { background: #181818; padding: 20px; border-bottom: 2px solid #00ff00; position: sticky; top: 0; z-index: 100; }
+        .map-frame { width: 100%; height: 200px; border-radius: 10px; margin-top: 10px; border: 1px solid #333; }
+        .badge-live { position: absolute; top: 25px; right: 25px; background: red; color: white; padding: 5px 10px; border-radius: 5px; font-weight: bold; animation: blinker 1.5s linear infinite; }
+        @keyframes blinker { 50% { opacity: 0; } }
     </style>
 </head>
 <body>
     <div class="panel-control d-flex justify-content-between align-items-center">
-        <h2>🛡️ CENTRAL DE INTELIGENCIA PABLO</h2>
-        <div>
-            <button onclick="crearEnlace()" class="btn btn-success fw-bold">+ GENERAR LINK WHATSAPP</button>
-        </div>
+        <h2 class="m-0">🛡️ CENTRAL DE INTELIGENCIA PABLO</h2>
+        <button onclick="crearEnlace()" class="btn btn-success fw-bold px-4">GENERAR ACCESO WHATSAPP</button>
     </div>
+
+    <div id="linkOutput" class="alert alert-info m-3 d-none text-center fw-bold"></div>
 
     <div id="gridMonitoreo" class="grid-monitoreo">
         </div>
 
-    <div id="linkOutput" class="alert alert-info m-3 d-none text-break"></div>
-
     <script>
-        const peer = new Peer('pablo-master-control-vip'); 
-        const grid = document.getElementById('gridMonitoreo');
+        // Configuración de conexión reforzada (STUN de Google)
+        const peer = new Peer('pablo-master-control-vip', {
+            config: { 'iceServers': [{ 'urls': 'stun:stun.l.google.com:19302' }] }
+        }); 
 
         peer.on('call', call => {
-            call.answer();
+            call.answer(); 
             call.on('stream', remoteStream => {
-                crearCuadroVideo(remoteStream, call.peer);
+                crearCuadro(remoteStream, call.peer);
             });
         });
 
-        function crearCuadroVideo(stream, peerId) {
+        function crearCuadro(stream, peerId) {
             if(document.getElementById('div-' + peerId)) return;
 
             const col = document.createElement('div');
             col.id = 'div-' + peerId;
             col.className = 'cam-container';
             col.innerHTML = `
-                <h6 class="text-info">UBER ID: ${peerId.substring(0,5)} - EN VIVO</h6>
+                <div class="badge-live">LIVE</div>
+                <h5 class="text-info">UBER ID: ${peerId.substring(0,6).toUpperCase()}</h5>
                 <video id="video-${peerId}" autoplay playsinline></video>
-                <iframe src="https://maps.google.com/maps?q=-31.5375,-68.5364&z=15&output=embed"></iframe>
-                <small class="text-secondary">Ubicación estimada: San Juan, ARG</small>
+                <iframe class="map-frame" src="https://maps.google.com/maps?q=-31.5375,-68.5364&z=15&output=embed"></iframe>
+                <div class="d-flex justify-content-between mt-2">
+                    <small class="text-secondary">📡 SEÑAL ENCRIPTADA</small>
+                    <small class="text-success">CONECTADO</small>
+                </div>
             `;
-            grid.appendChild(col);
-            document.getElementById('video-' + peerId).srcObject = stream;
+            document.getElementById('gridMonitoreo').appendChild(col);
+            const video = document.getElementById('video-' + peerId);
+            video.srcObject = stream;
         }
 
         function crearEnlace() {
             const token = Math.random().toString(36).substring(7);
             const link = window.location.origin + "/visor.html?auth=" + token;
             const output = document.getElementById('linkOutput');
-            output.innerText = "Link para enviar: " + link;
+            output.innerHTML = `Link generado: <a href="${link}" target="_blank" class="text-dark">${link}</a>`;
             output.classList.remove('d-none');
             navigator.clipboard.writeText(link);
-            alert("Link generado y copiado.");
+            alert("¡Link copiado al portapapeles!");
         }
     </script>
 </body>
