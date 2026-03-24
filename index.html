@@ -2,43 +2,49 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PABLO SECURITY - MASTER PANEL</title>
+    <title>PABLO SECURITY - MASTER CONTROL</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        body { background-color: #0d0d0d; color: #00ff00; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        .master-card { border: 1px solid #333; background: #1a1a1a; border-radius: 15px; padding: 20px; box-shadow: 0 0 20px rgba(0,255,0,0.1); }
-        .btn-random { background-color: #00ff00; color: black; font-weight: bold; border: none; }
-        .btn-random:hover { background-color: #00cc00; }
+        body { background: #0a0a0a; color: #00ff00; font-family: sans-serif; }
+        .master-panel { border: 2px solid #333; padding: 30px; border-radius: 20px; background: #111; margin-top: 50px; }
+        .btn-pablo { background: #00ff00; color: #000; font-weight: bold; border-radius: 50px; }
+        .link-display { background: #222; padding: 15px; border-radius: 10px; border: 1px dashed #00ff00; color: #00d4ff; }
     </style>
 </head>
 <body>
-    <div class="container mt-5">
-        <div class="text-center mb-4">
-            <h1>🛡️ PABLO SECURITY VIP</h1>
-            <p class="text-secondary">SISTEMA DE MONITOREO ESTRATÉGICO</p>
-        </div>
-        
-        <div class="master-card text-center">
-            <h3>Panel de Control Master</h3>
-            <hr class="bg-secondary">
-            <button onclick="generarLink()" class="btn btn-random btn-lg mt-3">GENERAR LINK ALEATORIO</button>
-            <div id="resultado" class="mt-4 p-3 border border-secondary d-none" style="word-break: break-all;">
-                <p>Link de acceso temporal:</p>
-                <a href="#" id="link-generado" class="text-info" target="_blank"></a>
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-8 master-panel text-center">
+                <h1 class="mb-4">🛡️ CENTRAL DE INTELIGENCIA PABLO</h1>
+                <p class="text-secondary">Generador de Enlaces de Monitoreo en Tiempo Real</p>
+                
+                <button onclick="generarAcceso()" class="btn btn-pablo btn-lg px-5 mt-3">GENERAR LINK DE MONITOREO</button>
+
+                <div id="seccion-link" class="mt-5 d-none">
+                    <p>Link dinámico listo para seguimiento:</p>
+                    <div class="link-display mb-3" id="link-final"></div>
+                    <button class="btn btn-outline-light btn-sm" onclick="copiar()">Copiar Enlace</button>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
-        function generarLink() {
-            const token = Math.random().toString(36).substring(2, 10);
-            const linkBase = window.location.href.split('?')[0];
-            const linkFinal = linkBase + "?visor=" + token;
-            
-            document.getElementById('resultado').classList.remove('d-none');
-            document.getElementById('link-generado').innerText = linkFinal;
-            document.getElementById('link-generado').href = linkFinal;
+        function generarAcceso() {
+            // Genera un token aleatorio único
+            const token = Math.random().toString(36).substring(2, 12);
+            // Crea el link que apunta a la página de VISOR que haremos luego
+            const urlBase = window.location.origin + "/visor.html";
+            const linkCompleto = urlBase + "?auth=" + token;
+
+            document.getElementById('link-final').innerText = linkCompleto;
+            document.getElementById('seccion-link').classList.remove('d-none');
+        }
+
+        function copiar() {
+            const el = document.getElementById('link-final');
+            navigator.clipboard.writeText(el.innerText);
+            alert("Enlace copiado. Listo para enviar.");
         }
     </script>
 </body>
