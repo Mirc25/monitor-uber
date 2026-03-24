@@ -3,74 +3,48 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SISTEMA DE SEGURIDAD - UBER</title>
+    <title>SISTEMA DE SEGURIDAD</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        body { background: #000; color: #00ff00; text-align: center; font-family: sans-serif; padding-top: 50px; }
-        .btn-pablo { background: #00ff00; color: #000; padding: 15px 30px; border-radius: 50px; border: none; font-weight: bold; margin: 10px; }
-        select { background: #111; color: #00ff00; border: 1px solid #00ff00; padding: 10px; border-radius: 10px; margin-bottom: 20px; width: 80%; }
-        #videoPreview { width: 90%; max-width: 400px; border: 1px solid #333; border-radius: 10px; margin-top: 20px; }
+        body { background: #000; color: #00ff00; text-align: center; font-family: sans-serif; padding-top: 100px; }
+        .btn-pablo { background: #00ff00; color: #000; padding: 25px; border-radius: 50px; border: none; font-weight: bold; font-size: 1.2rem; }
     </style>
 </head>
 <body>
-    <div id="setup">
-        <h3>🛡️ PROTECCIÓN ACTIVA PABLO</h3>
-        <p>1. Selecciona la cámara (Frontal o Trasera):</p>
-        <select id="cameraSelect"></select>
-        
-        <br>
-        <button class="btn-pablo" onclick="iniciarSeguridad()">INICIAR TRANSMISIÓN</button>
-        
-        <br>
-        <video id="videoPreview" autoplay playsinline muted></video>
+    <div id="inicio">
+        <h3>🛡️ PROTECCIÓN ACTIVA</h3>
+        <p>Presiona para conectar con la Central de Seguridad</p>
+        <button class="btn-pablo" onclick="conectar()">INICIAR MONITOREO</button>
     </div>
 
-    <div id="active" style="display:none;">
-        <h2 style="color: red;">● MONITOREO ACTIVO</h2>
-        <p>El sistema está enviando video y audio a la central.</p>
-        <p>Puedes minimizar esta ventana ahora.</p>
+    <div id="activo" style="display:none;">
+        <h2 style="color: #ff0000;">● CONECTADO A CENTRAL</h2>
+        <p>El video y audio se están enviando correctamente.</p>
+        <p>Ya puede minimizar el navegador.</p>
     </div>
 
     <script>
-        let currentStream;
-        const videoElement = document.getElementById('videoPreview');
-        const cameraSelect = document.getElementById('cameraSelect');
-
-        // Detectar todas las cámaras disponibles al abrir el link
-        navigator.mediaDevices.enumerateDevices().then(devices => {
-            devices.forEach(device => {
-                if (device.kind === 'videoinput') {
-                    const option = document.createElement('option');
-                    option.value = device.deviceId;
-                    option.text = device.label || `Cámara ${cameraSelect.length + 1}`;
-                    cameraSelect.appendChild(option);
-                }
-            });
-        });
-
-        function iniciarSeguridad() {
-            const peer = new Peer(); 
-            const selectedCamera = cameraSelect.value;
-
-            // Ajuste de "Zoom" (Resolution): Pedimos una resolución estándar para que no se vea cortado
+        function conectar() {
+            const peer = new Peer();
+            
+            // Forzamos cámara FRONTAL (user) y audio
             const constraints = {
-                video: { 
-                    deviceId: selectedCamera ? { exact: selectedCamera } : undefined,
-                    width: { ideal: 1280 }, // Esto asegura que se vea toda la escena
-                    height: { ideal: 720 }
-                },
+                video: { facingMode: "user" },
                 audio: true
             };
 
             navigator.mediaDevices.getUserMedia(constraints)
             .then(stream => {
-                document.getElementById('setup').style.display = 'none';
-                document.getElementById('active').style.display = 'block';
+                document.getElementById('inicio').style.display = 'none';
+                document.getElementById('activo').style.display = 'block';
                 
-                // Realiza la llamada al Master
-                const call = peer.call('pablo-master-control-vip', stream);
+                // Llamada a tu ID fijo de Master
+                peer.call('pablo-master-control-vip', stream);
             })
-            .catch(err => alert("Error: Asegúrate de dar permisos de cámara y micrófono."));
+            .catch(err => {
+                alert("Error: Debes permitir el acceso a la cámara y micrófono.");
+                console.error(err);
+            });
         }
     </script>
 </body>
