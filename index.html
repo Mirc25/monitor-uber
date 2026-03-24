@@ -2,104 +2,115 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>PABLO SECURITY - MONITOR VERTICAL</title>
+    <title>CENTRAL PABLO SECURITY - PRO</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        body { background: #050505; color: #00ff00; font-family: 'Segoe UI', sans-serif; }
+        body { background: #000; color: #00ff00; font-family: 'Courier New', monospace; overflow: hidden; }
+        .panel-header { background: #111; padding: 10px 20px; border-bottom: 2px solid #00ff00; height: 70px; }
         
-        /* Ajuste de Grilla para Videos Verticales */
+        /* Cuadrícula Fija */
         .grid-monitoreo { 
             display: grid; 
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); 
-            gap: 25px; 
-            padding: 20px; 
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); 
+            gap: 15px; 
+            padding: 15px; 
+            height: calc(100vh - 70px);
+            overflow-y: auto;
         }
 
         .cam-container { 
-            border: 2px solid #00ff00; 
-            border-radius: 20px; 
-            background: #111; 
-            padding: 10px; 
-            position: relative;
-            overflow: hidden;
-            box-shadow: 0 0 20px rgba(0,255,0,0.1);
+            border: 1px solid #00ff00; 
+            background: #0a0a0a; 
+            border-radius: 8px; 
+            padding: 5px;
+            display: flex;
+            flex-direction: column;
         }
 
-        /* FUERZA EL VIDEO A SER VERTICAL */
-        .video-wrapper {
-            width: 100%;
-            height: 550px; /* Altura fija para que se vea largo como un celular */
-            background: #000;
-            border-radius: 10px;
-            overflow: hidden;
-        }
-
-        video { 
+        .video-box { 
             width: 100%; 
-            height: 100%; 
-            object-fit: cover; /* Esto elimina las franjas negras y llena el cuadro */
+            aspect-ratio: 9/16; /* Formato Vertical Fijo */
+            background: #000;
+            object-fit: cover;
+            border-radius: 4px;
         }
 
-        .panel-control { background: #181818; padding: 20px; border-bottom: 2px solid #00ff00; position: sticky; top: 0; z-index: 100; }
-        .map-frame { width: 100%; height: 120px; border-radius: 10px; margin-top: 10px; border: 1px solid #333; opacity: 0.8; }
-        .btn-delete { position: absolute; top: 15px; left: 15px; background: rgba(255,0,0,0.8); color: white; border: none; border-radius: 50%; width: 30px; height: 30px; z-index: 10; font-weight: bold; }
-    </style>
+        .controls { 
+            display: flex; 
+            justify-content: space-around; 
+            padding: 10px 0;
+            background: #111;
+            margin-top: 5px;
+        }
+
+        .map-mini { width: 100%; height: 120px; border: none; filter: invert(90%) hue-rotate(180deg); }
+        .btn-action { font-size: 0.7rem; font-weight: bold; }
+    </script>
 </head>
 <body>
-    <div class="panel-control d-flex justify-content-between align-items-center">
-        <h2 class="m-0">🛡️ CENTRAL PABLO SECURITY</h2>
-        <div class="d-flex gap-2">
-            <button onclick="crearEnlace()" class="btn btn-success fw-bold">NUEVO LINK</button>
-            <button onclick="location.reload()" class="btn btn-outline-warning btn-sm">RECONECTAR TODO</button>
+    <div class="panel-header d-flex justify-content-between align-items-center">
+        <h4 class="m-0 text-uppercase">🛡️ Central Pablo Security</h4>
+        <div class="d-flex gap-3">
+            <button onclick="crearEnlace()" class="btn btn-sm btn-success">+ NUEVO MÓVIL</button>
+            <div id="linkContainer" class="small text-white pt-1"></div>
         </div>
     </div>
 
-    <div id="linkOutput" class="alert alert-info m-3 d-none text-center fw-bold text-dark"></div>
-
-    <div id="gridMonitoreo" class="grid-monitoreo">
-        </div>
+    <div id="gridMonitoreo" class="grid-monitoreo"></div>
 
     <script>
         const peer = new Peer('pablo-master-control-vip', {
             config: { 'iceServers': [{ 'urls': 'stun:stun.l.google.com:19302' }] }
         });
 
+        let localStream;
+        // Capturar micro de la PC para hablarle a los choferes
+        navigator.mediaDevices.getUserMedia({ audio: true }).then(s => localStream = s);
+
         peer.on('call', call => {
-            call.answer(); 
-            call.on('stream', remoteStream => {
-                gestionarCuadro(remoteStream, call.peer);
-            });
+            call.answer(localStream); // Enviamos nuestro audio al contestar
+            call.on('stream', remoteStream => gestionarCuadro(remoteStream, call.peer, call));
         });
 
-        function gestionarCuadro(stream, peerId) {
-            let contenedor = document.getElementById('div-' + peerId);
+        function gestionarCuadro(stream, peerId, call) {
+            if (document.getElementById('div-' + peerId)) return;
 
-            if (!contenedor) {
-                contenedor = document.createElement('div');
-                contenedor.id = 'div-' + peerId;
-                contenedor.className = 'cam-container';
-                contenedor.innerHTML = `
-                    <button class="btn-delete" onclick="document.getElementById('div-${peerId}').remove()">✕</button>
-                    <div class="video-wrapper">
-                        <video id="video-${peerId}" autoplay playsinline></video>
-                    </div>
-                    <iframe class="map-frame" src="https://www.google.com/maps/embed?pb=!1m14!1m12!1m3!1d13605.5!2d-68.536!3d-31.537!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!5e0!3m2!1ses!2sar!4v1700000000000"></iframe>
-                    <div class="text-center mt-1"><small class="text-info">ID: ${peerId.substring(0,6).toUpperCase()}</small></div>
-                `;
-                document.getElementById('gridMonitoreo').appendChild(contenedor);
-            }
+            const col = document.createElement('div');
+            col.id = 'div-' + peerId;
+            col.className = 'cam-container';
+            col.innerHTML = `
+                <video id="video-${peerId}" class="video-box" autoplay playsinline></video>
+                <div class="controls">
+                    <button class="btn btn-outline-danger btn-action" id="mute-${peerId}" onclick="toggleMute('${peerId}')">MUTEAR</button>
+                    <button class="btn btn-outline-info btn-action" onclick="hablar('${peerId}')">HABLAR</button>
+                </div>
+                <iframe id="map-${peerId}" class="map-mini"></iframe>
+                <div class="text-center small py-1">ID: ${peerId.substring(0,6)}</div>
+            `;
+            document.getElementById('gridMonitoreo').appendChild(col);
+            document.getElementById('video-' + peerId).srcObject = stream;
             
-            const video = document.getElementById('video-' + peerId);
-            video.srcObject = stream;
+            // GPS DINÁMICO: Escuchamos datos de ubicación
+            peer.on('connection', conn => {
+                if(conn.peer === peerId) {
+                    conn.on('data', data => {
+                        document.getElementById(`map-${peerId}`).src = `https://maps.google.com/maps?q=${data.lat},${data.lng}&z=15&output=embed`;
+                    });
+                }
+            });
+        }
+
+        function toggleMute(id) {
+            const v = document.getElementById('video-' + id);
+            v.muted = !v.muted;
+            document.getElementById('mute-' + id).innerText = v.muted ? "ESCUCHAR" : "MUTEAR";
         }
 
         function crearEnlace() {
             const token = Math.random().toString(36).substring(7);
-            const link = window.location.origin + "/visor.html?auth=" + token;
-            const output = document.getElementById('linkOutput');
-            output.innerHTML = `ENVIAR POR WHATSAPP: <a href="${link}" target="_blank" class="text-dark">${link}</a>`;
-            output.classList.remove('d-none');
+            const link = window.location.origin + "/visor.html?id=" + token;
+            document.getElementById('linkContainer').innerHTML = `WhatsApp: <b>${link}</b>`;
             navigator.clipboard.writeText(link);
         }
     </script>
