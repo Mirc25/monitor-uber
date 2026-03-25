@@ -1,58 +1,78 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>CENTRAL - PABLO SECURITY</title>
+    <title>CENTRAL PABLO SECURITY</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        body { background: #111; color: #0f0; font-family: monospace; }
-        video { width: 100%; background: #000; border: 2px solid #0f0; border-radius: 10px; }
-        .panel { background: #222; padding: 20px; border-radius: 10px; border: 1px solid #444; }
+        body { background: #000; color: #0f0; font-family: 'Courier New', monospace; }
+        .monitor-card { border: 2px solid #0f0; background: #111; padding: 20px; border-radius: 15px; }
+        video { width: 100%; border: 1px solid #0f0; background: #222; border-radius: 10px; transform: scaleX(-1); }
+        .codigo-box { font-size: 40px; font-weight: bold; letter-spacing: 5px; color: #fff; background: #222; padding: 10px; border-radius: 10px; border: 1px dashed #0f0; }
     </style>
 </head>
-<body class="container py-4">
-    <div class="row">
-        <div class="col-md-4">
-            <div class="panel">
-                <h3>CENTRAL PABLO</h3>
-                <hr>
-                <input type="text" id="idDestino" class="form-control bg-dark text-success border-success mb-2" placeholder="CÓDIGO DEL CHOFER">
-                <button id="btnConectar" class="btn btn-success w-100">CONECTAR A UNIDAD</button>
-                <div class="mt-4">
-                    <p>UBICACIÓN: <span id="gps">---</span></p>
-                    <div id="alerta" class="alert alert-danger" style="display:none; animation: pulse 1s infinite;">
-                        🚨 ¡BOTÓN DE PÁNICO! 🚨
-                    </div>
+<body class="container py-4 text-center">
+
+    <div class="monitor-card">
+        <h2 class="mb-4 text-uppercase">Panel de Control de Enlace</h2>
+        
+        <div class="mb-4">
+            <p class="text-secondary">ENTREGÁ ESTE CÓDIGO AL CHOFER:</p>
+            <div id="displayCodigo" class="codigo-box">GENERANDO...</div>
+        </div>
+
+        <hr style="border-color: #0f0;">
+
+        <div class="row">
+            <div class="col-md-8">
+                <video id="remoteVideo" autoplay playsinline></video>
+                <div id="alertaSos" class="alert alert-danger mt-3" style="display:none; font-weight: bold;">
+                    🚨 ¡ALERTA S.O.S RECIBIDA! 🚨
                 </div>
             </div>
-        </div>
-        <div class="col-md-8">
-            <video id="videoRemoto" autoplay playsinline></video>
+            <div class="col-md-4 text-start">
+                <div class="p-3 border border-secondary rounded">
+                    <p>UNIDAD: <span id="nombreUnidad" class="text-white">---</span></p>
+                    <p>ESTADO: <span id="status" class="text-warning">ESPERANDO...</span></p>
+                    <p>UBICACIÓN: <span id="gps" class="text-white" style="font-size: 12px;">---</span></p>
+                </div>
+            </div>
         </div>
     </div>
 
     <script>
-        const peer = new Peer(); // ID aleatorio para la central
+        // Generamos un código aleatorio de 6 números
+        const codigoEnlace = Math.floor(100000 + Math.random() * 900000).toString();
+        document.getElementById('displayCodigo').innerText = codigoEnlace;
 
-        document.getElementById('btnConectar').onclick = () => {
-            const destId = document.getElementById('idDestino').value.trim().toLowerCase();
-            
-            // Llamar video
-            const call = peer.call(destId, new MediaStream()); // Mandamos stream vacío
-            call.on('stream', remoteStream => {
-                document.getElementById('videoRemoto').srcObject = remoteStream;
+        // La central se registra con ese código para que el celular la encuentre
+        const peer = new Peer('pablo-' + codigoEnlace);
+
+        peer.on('open', (id) => {
+            document.getElementById('status').innerText = "CENTRAL ACTIVA";
+        });
+
+        // Escuchar cuando el celular llama (Video)
+        peer.on('call', (call) => {
+            call.answer(); // Respondemos la llamada
+            call.on('stream', (remoteStream) => {
+                document.getElementById('remoteVideo').srcObject = remoteStream;
+                document.getElementById('status').innerText = "VIVO 🔴";
+                document.getElementById('status').className = "text-danger";
             });
+        });
 
-            // Conectar datos
-            const conn = peer.connect(destId);
-            conn.on('data', data => {
+        // Escuchar datos (Nombre, GPS, SOS)
+        peer.on('connection', (conn) => {
+            conn.on('data', (data) => {
+                if(data.tipo === 'nombre') document.getElementById('nombreUnidad').innerText = data.valor;
                 if(data.tipo === 'gps') document.getElementById('gps').innerText = data.lat + ", " + data.lng;
                 if(data.tipo === 'alerta') {
-                    document.getElementById('alerta').style.display = 'block';
+                    document.getElementById('alertaSos').style.display = 'block';
                     new Audio('https://www.soundjay.com/buttons/beep-01a.mp3').play();
                 }
             });
-        };
+        });
     </script>
 </body>
 </html>
