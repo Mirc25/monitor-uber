@@ -2,63 +2,91 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CHOFER - PABLO SECURITY</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>UNIDAD - PABLO SECURITY</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        body { background: #000; color: #0f0; font-family: sans-serif; text-align: center; padding: 20px; }
-        .btn-pablo { width: 100%; padding: 20px; background: #0f0; color: #000; border: none; font-weight: bold; border-radius: 10px; font-size: 18px; margin-top: 10px; }
-        .sos { background: #ff0000; color: white; height: 180px; width: 180px; border-radius: 50%; font-size: 30px; margin: 30px auto; border: 5px solid white; display: none; }
+        body { background: #000; color: #0f0; font-family: sans-serif; text-align: center; margin: 0; padding: 20px; }
+        .box { background: #111; border: 1px solid #0f0; padding: 20px; border-radius: 15px; }
+        input { width: 90%; padding: 15px; margin: 10px 0; background: #000; border: 1px solid #444; color: #0f0; border-radius: 10px; font-size: 18px; }
+        .btn-pablo { width: 100%; padding: 20px; background: #0f0; color: #000; border: none; font-weight: bold; border-radius: 10px; font-size: 18px; cursor: pointer; }
+        #videoChofer { width: 100%; height: 250px; background: #000; border-radius: 10px; margin-top: 15px; object-fit: cover; display: none; }
+        .sos-btn { background: red; color: white; width: 150px; height: 150px; border-radius: 50%; border: 5px solid white; font-size: 25px; font-weight: bold; margin: 20px auto; display: none; }
     </style>
 </head>
 <body>
-    <div id="login">
+
+    <div id="setup" class="box">
         <h1>PABLO SECURITY</h1>
-        <input type="text" id="nombre" placeholder="TU NOMBRE / MÓVIL" style="width:100%; padding:15px; border-radius:10px; border:1px solid #0f0; background:#111; color:#fff;">
-        <button class="btn-pablo" onclick="conectar()">INICIAR SERVICIO</button>
+        <p>1. Escribí tu nombre o móvil</p>
+        <input type="text" id="nombreChofer" placeholder="Ej: Movil 04">
+        <button class="btn-pablo" onclick="prepararCamara()">SIGUIENTE</button>
     </div>
-    <div id="app" style="display:none;">
-        <h2 id="uNom"></h2>
-        <div style="width:100%; height:200px; background:#111; border-radius:15px; overflow:hidden; margin-bottom:10px;">
-            <video id="webcam" autoplay playsinline muted style="width:100%; height:100%; object-fit:cover;"></video>
-        </div>
-        <button class="sos" id="sosBtn">S.O.S</button>
-        <audio id="vozCentral" autoplay></audio>
+
+    <div id="transmision" style="display:none;">
+        <h2 id="displayNombre"></h2>
+        <video id="videoChofer" autoplay playsinline muted></video>
+        <button id="btnConectar" class="btn-pablo" style="margin-top:10px;">CONECTAR A CENTRAL</button>
+        <button id="sosBtn" class="sos-btn">S.O.S</button>
+        <audio id="audioCentral" autoplay></audio>
     </div>
 
     <script>
-        async function conectar() {
-            const nombre = document.getElementById('nombre').value;
-            if(!nombre) return alert("Pon tu nombre");
+        let localStream;
+        let peer;
 
-            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: true });
-            document.getElementById('webcam').srcObject = stream;
-            document.getElementById('login').style.display = 'none';
-            document.getElementById('app').style.display = 'block';
-            document.getElementById('sosBtn').style.display = 'block';
-            document.getElementById('uNom').innerText = nombre;
+        async function prepararCamara() {
+            const nom = document.getElementById('nombreChofer').value;
+            if(!nom) return alert("Ingresá tu nombre");
+            
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } }, 
+                    audio: true 
+                });
+                document.getElementById('videoChofer').srcObject = localStream;
+                document.getElementById('videoChofer').style.display = "block";
+                document.getElementById('setup').style.display = "none";
+                document.getElementById('transmision').style.display = "block";
+                document.getElementById('displayNombre').innerText = nom.toUpperCase();
+            } catch (e) {
+                alert("Error: Debes permitir cámara y micrófono.");
+            }
+        }
 
-            const peer = new Peer();
+        document.getElementById('btnConectar').onclick = function() {
+            const nom = document.getElementById('nombreChofer').value;
+            this.innerText = "CONECTANDO...";
+            this.style.background = "#555";
+
+            peer = new Peer(); // ID aleatorio para el chofer
+
             peer.on('open', (id) => {
                 const conn = peer.connect('PABLO-CENTRAL-2026');
+                
                 conn.on('open', () => {
-                    conn.send({ tipo: 'login', nombre: nombre });
-                    peer.call('PABLO-CENTRAL-2026', stream);
+                    conn.send({ tipo: 'login', nombre: nom });
+                    peer.call('PABLO-CENTRAL-2026', localStream);
+                    
+                    document.getElementById('btnConectar').style.display = "none";
+                    document.getElementById('sosBtn').style.display = "block";
+
                     navigator.geolocation.watchPosition(p => {
                         conn.send({ tipo: 'gps', lat: p.coords.latitude, lng: p.coords.longitude });
                     }, null, { enableHighAccuracy: true });
-                    document.getElementById('sosBtn').onclick = () => conn.send({ tipo: 'sos' });
                 });
+
+                document.getElementById('sosBtn').onclick = () => conn.send({ tipo: 'sos' });
             });
 
-            // Recibir voz de la central
+            // Escuchar voz de la central
             peer.on('call', (call) => {
                 call.answer();
                 call.on('stream', (remoteStream) => {
-                    document.getElementById('vozCentral').srcObject = remoteStream;
+                    document.getElementById('audioCentral').srcObject = remoteStream;
                 });
             });
-        }
+        };
     </script>
 </body>
 </html>
