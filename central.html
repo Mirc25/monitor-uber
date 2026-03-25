@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>PABLO SECURITY - CENTRAL COMPACTA v10</title>
+    <title>PABLO SECURITY - CENTRAL PRO</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -10,57 +10,27 @@
     <style>
         body { background: #000; color: #0f0; font-family: sans-serif; margin: 0; overflow: hidden; }
         .top-bar { background: #0a0a0a; border-bottom: 2px solid #0f0; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; height: 60px; }
-        
-        .grid-fleet { 
-            display: grid; 
-            grid-template-columns: repeat(auto-fill, 300px); 
-            gap: 15px; 
-            padding: 15px; 
-            height: calc(100vh - 60px); 
-            overflow-y: auto;
-        }
+        .grid-fleet { display: grid; grid-template-columns: repeat(auto-fill, 300px); gap: 15px; padding: 15px; height: calc(100vh - 60px); overflow-y: auto; }
 
-        .unit-card { 
-            background: #050505; 
-            border: 1px solid #333; 
-            border-radius: 8px; 
-            width: 300px; 
-            height: fit-content; /* El bloque termina justo en los botones */
-            display: flex; 
-            flex-direction: column; 
-            position: relative; 
-            overflow: hidden;
-        }
-        
-        .unit-header { background: #111; padding: 4px; font-size: 11px; text-align: center; border-bottom: 1px solid #222; color: #0f0; font-weight: bold; }
+        /* TARJETA COMPACTA */
+        .unit-card { background: #050505; border: 1px solid #333; border-radius: 8px; width: 300px; height: fit-content; display: flex; flex-direction: column; position: relative; overflow: hidden; }
+        .unit-header { background: #111; padding: 4px; font-size: 11px; text-align: center; border-bottom: 1px solid #222; font-weight: bold; }
 
-        /* VIDEO SIN ZOOM (CONTAIN) */
-        .video-box { width: 300px; height: 220px; background: #000; cursor: pointer; }
-        video { width: 100%; height: 100%; object-fit: contain; background: #000; } 
+        /* VIDEO SIN NADA DE ZOOM */
+        .video-box { width: 300px; height: 225px; background: #000; overflow: hidden; }
+        video { 
+            width: 100%; 
+            height: 100%; 
+            object-fit: scale-down; /* ESTO ELIMINA EL ZOOM POR COMPLETO */
+            background: #000; 
+        } 
         
         .map-box { width: 300px; height: 140px; border-top: 1px solid #222; }
         .leaflet-container { filter: invert(100%) hue-rotate(180deg) brightness(95%); }
 
-        .controls { 
-            display: grid; 
-            grid-template-columns: 1fr 1fr; 
-            gap: 4px; 
-            padding: 6px; 
-            background: #0a0a0a;
-            border-top: 1px solid #222;
-        }
-        .btn-pablo { 
-            font-size: 10px; 
-            font-weight: bold; 
-            padding: 8px 0; 
-            border: 1px solid #0f0; 
-            background: transparent; 
-            color: #0f0; 
-            border-radius: 4px; 
-            text-transform: uppercase;
-        }
+        .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 6px; background: #0a0a0a; border-top: 1px solid #222; }
+        .btn-pablo { font-size: 10px; font-weight: bold; padding: 8px 0; border: 1px solid #0f0; background: transparent; color: #0f0; border-radius: 4px; text-transform: uppercase; }
         .btn-hablar:active { background: #0f0 !important; color: #000 !important; }
-
         .sos-overlay { position: absolute; top:0; left:0; width:100%; height:100%; background: rgba(255,0,0,0.9); display: none; z-index: 100; flex-direction: column; align-items: center; justify-content: center; }
     </style>
 </head>
@@ -113,9 +83,7 @@
                 <button class="btn btn-light btn-sm fw-bold" onclick="toggleSOS('${id}', false)">CERRAR</button>
             </div>
             <div class="unit-header">${nombre.toUpperCase()}</div>
-            <div class="video-box" onclick="expandir('${id}')">
-                <video id="v-${id}" autoplay playsinline muted></video>
-            </div>
+            <div class="video-box"><video id="v-${id}" autoplay playsinline muted></video></div>
             <div id="map-${id}" class="map-box"></div>
             <div class="controls">
                 <button class="btn-pablo" onclick="toggleAudio('${id}')">🔊 AUDIO</button>
@@ -125,16 +93,6 @@
         grid.appendChild(card);
         units[id] = { map: L.map('map-' + id, { zoomControl: false, attributionControl: false }).setView([0,0], 17), marker: null, ptt: null };
         L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(units[id].map);
-    }
-
-    function expandir(id) {
-        const card = document.getElementById('card-'+id);
-        if(card.style.position === 'fixed') {
-            card.style.position = 'relative'; card.style.inset = 'auto'; card.style.width = '300px'; card.style.height = 'fit-content'; card.style.zIndex = '1';
-        } else {
-            card.style.position = 'fixed'; card.style.inset = '0'; card.style.width = '100vw'; card.style.height = '100vh'; card.style.zIndex = '200';
-        }
-        setTimeout(() => units[id].map.invalidateSize(), 300);
     }
 
     async function hablar(id, on) {
