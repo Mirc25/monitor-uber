@@ -2,47 +2,55 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>CENTRAL PABLO SECURITY</title>
+    <title>CENTRAL DE MONITOREO - PABLO SECURITY</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        body { background: #000; color: #0f0; font-family: 'Courier New', monospace; }
-        .navbar-security { border-bottom: 2px solid #0f0; background: #0a0a0a; padding: 15px; display: flex; justify-content: space-between; align-items: center; }
-        .codigo-vivo { background: #1a1a1a; border: 2px dashed #0f0; padding: 10px 20px; border-radius: 8px; color: #fff; font-size: 1.5rem; font-weight: bold; }
-        .monitor-video { width: 100%; height: 70vh; background: #111; border: 1px solid #333; display: flex; align-items: center; justify-content: center; position: relative; border-radius: 10px; overflow: hidden; }
-        video { width: 100%; height: 100%; object-fit: contain; background: #000; }
-        .panel-lateral { background: #0a0a0a; border-left: 1px solid #0f0; height: 100vh; padding: 20px; }
-        .btn-update { background: #0f0; color: #000; font-weight: bold; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; }
-        .btn-update:hover { background: #0c0; }
+        body { background: #000; color: #0f0; font-family: 'Courier New', monospace; margin: 0; overflow: hidden; }
+        .header { border-bottom: 2px solid #0f0; background: #0a0a0a; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; }
+        .codigo-box { background: #1a1a1a; border: 2px dashed #0f0; padding: 10px; border-radius: 8px; color: #fff; font-size: 1.4rem; font-weight: bold; }
+        .main-container { display: flex; height: calc(100vh - 70px); }
+        .video-section { flex: 3; position: relative; background: #050505; display: flex; align-items: center; justify-content: center; border-right: 1px solid #333; }
+        video { width: 100%; height: 100%; object-fit: contain; }
+        .side-panel { flex: 1; background: #0a0a0a; padding: 20px; display: flex; flex-direction: column; }
+        .btn-danger-custom { background: #600; color: #fff; border: 2px solid #f00; width: 100%; padding: 15px; font-weight: bold; margin-top: 10px; }
+        .btn-danger-custom:hover { background: #a00; }
+        .status-card { border: 1px solid #444; padding: 15px; border-radius: 10px; margin-bottom: 20px; }
+        .alert-sos { background: #f00; color: #fff; padding: 20px; text-align: center; border-radius: 10px; display: none; animation: blink 1s infinite; }
+        @keyframes blink { 50% { opacity: 0; } }
     </style>
 </head>
 <body>
 
-<nav class="navbar-security">
-    <div><strong>PABLO SECURITY</strong> | CENTRAL V.2.2</div>
+<div class="header">
+    <div><strong style="font-size: 1.5rem;">PABLO SECURITY</strong> <span class="text-secondary">| MONITORING V.3</span></div>
     <div class="d-flex align-items-center">
-        <button onclick="window.location.reload()" class="btn-update me-3">NUEVO CÓDIGO / LIMPIAR</button>
-        <span class="me-3 text-secondary">CÓDIGO ACTUAL:</span>
-        <div id="numCodigo" class="codigo-vivo">------</div>
+        <span class="me-3 text-secondary">CÓDIGO DE ENLACE:</span>
+        <div id="numCodigo" class="codigo-box">------</div>
     </div>
-</nav>
+</div>
 
-<div class="container-fluid">
-    <div class="row">
-        <div class="col-md-9 p-4">
-            <div class="monitor-video">
-                <video id="videoApp" autoplay playsinline></video>
-                <div id="esperaTxt" style="position: absolute; color: #555;">SISTEMA LISTO - ESPERANDO SEÑAL...</div>
-            </div>
+<div class="main-container">
+    <div class="video-section">
+        <video id="videoRemote" autoplay playsinline></video>
+        <div id="no-signal" style="position: absolute; color: #333;">SIN SEÑAL DE VIDEO</div>
+    </div>
+
+    <div class="side-panel">
+        <div id="sosAlert" class="alert-sos mb-3">🚨 BOTÓN DE PÁNICO 🚨</div>
+        
+        <div class="status-card">
+            <h6 class="text-secondary border-bottom pb-2">DATOS DE UNIDAD</h6>
+            <p class="mb-1">UNIDAD: <strong id="txtNombre" class="text-white">---</strong></p>
+            <p class="mb-1">COORDENADAS: <strong id="txtGps" class="text-white">---</strong></p>
+            <p class="mb-0">ESTADO: <span id="txtStatus" class="text-warning">LISTO</span></p>
         </div>
-        <div class="col-md-3 panel-lateral">
-            <h5 class="border-bottom pb-2">DATOS DE UNIDAD</h5>
-            <div class="mt-3">
-                <p>MÓVIL: <strong id="txtNombre" class="text-white">---</strong></p>
-                <p>GPS: <strong id="txtGps" class="text-white">---</strong></p>
-                <p>ESTADO: <span id="txtStatus" class="text-warning">ESPERANDO...</span></p>
-            </div>
-            <div id="sosAlert" style="display:none; background:red; color:white; padding:15px; text-align:center; font-weight:bold; border-radius:10px; margin-top:20px;">🚨 ALERTA SOS 🚨</div>
+
+        <button onclick="window.location.reload()" class="btn-danger-custom">CORTAR LLAMADA / RESET</button>
+        
+        <div class="mt-auto">
+            <p class="small text-secondary mb-1">REGISTRO DE ACTIVIDAD:</p>
+            <div id="log" style="font-size: 10px; color: #444; height: 100px; overflow-y: auto; border-top: 1px solid #222;"></div>
         </div>
     </div>
 </div>
@@ -52,23 +60,24 @@
     document.getElementById('numCodigo').innerText = miCodigo;
 
     const peer = new Peer('pablo-' + miCodigo);
+    const log = (m) => { document.getElementById('log').innerHTML += `<div>[${new Date().toLocaleTimeString()}] ${m}</div>`; };
 
     peer.on('call', (call) => {
+        log("Llamada entrante...");
         call.answer();
         call.on('stream', (stream) => {
-            const v = document.getElementById('videoApp');
-            v.srcObject = stream;
-            v.play();
-            document.getElementById('esperaTxt').style.display = 'none';
-            document.getElementById('txtStatus').innerText = "EN VIVO 🔴";
+            document.getElementById('videoRemote').srcObject = stream;
+            document.getElementById('no-signal').style.display = 'none';
+            document.getElementById('txtStatus').innerText = "TRANSMITIENDO";
             document.getElementById('txtStatus').className = "text-danger";
         });
     });
 
     peer.on('connection', (conn) => {
+        log("Conexión de datos establecida.");
         conn.on('data', (data) => {
             if(data.tipo === 'nombre') document.getElementById('txtNombre').innerText = data.valor.toUpperCase();
-            if(data.tipo === 'gps') document.getElementById('txtGps').innerText = data.lat.toFixed(6) + ", " + data.lng.toFixed(6);
+            if(data.tipo === 'gps') document.getElementById('txtGps').innerText = data.lat.toFixed(6) + "," + data.lng.toFixed(6);
             if(data.tipo === 'alerta') {
                 document.getElementById('sosAlert').style.display = 'block';
                 new Audio('https://www.soundjay.com/buttons/beep-01a.mp3').play();
