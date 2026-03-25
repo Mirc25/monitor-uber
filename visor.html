@@ -10,9 +10,38 @@
     <style>
         body { background: #000; color: white; height: 100vh; overflow: hidden; display: flex; align-items: center; justify-content: center; font-family: sans-serif; }
         #setup { width: 90%; max-width: 400px; background: #1a1a1a; padding: 25px; border-radius: 15px; border: 1px solid #333; }
-        .btn-panic { width: 140px; height: 140px; border-radius: 50%; background: #ff0000; border: 6px solid #fff; color: white; font-size: 24px; font-weight: bold; box-shadow: 0 0 20px rgba(255,0,0,0.5); margin: 15px 0; }
-        #vLocal { width: 100%; height: 200px; background: #000; border-radius: 10px; object-fit: cover; border: 2px solid #444; }
-        .btn-pip { background: #222; color: #00ff00; border: 1px solid #00ff00; padding: 10px; width: 100%; border-radius: 5px; font-size: 12px; margin-top: 10px; }
+        
+        /* VIDEO ULTRA PEQUEÑO PARA QUE NO MOLESTE */
+        #vLocal { 
+            width: 80px; 
+            height: 60px; 
+            background: #000; 
+            border-radius: 5px; 
+            object-fit: cover; 
+            border: 1px solid #444;
+            margin: 10px auto;
+            display: block;
+        }
+
+        .btn-panic { 
+            width: 140px; height: 140px; 
+            border-radius: 50%; background: #ff0000; 
+            border: 6px solid #fff; color: white; 
+            font-size: 24px; font-weight: bold; 
+            box-shadow: 0 0 20px rgba(255,0,0,0.5); 
+            margin: 15px 0; 
+        }
+
+        .btn-pip-mini { 
+            background: transparent; 
+            color: #00ff00; 
+            border: 1px solid #00ff00; 
+            padding: 5px; 
+            width: 100%; 
+            border-radius: 5px; 
+            font-size: 10px; 
+            text-transform: uppercase;
+        }
     </style>
 </head>
 <body>
@@ -20,17 +49,20 @@
     <div id="setup" class="text-center">
         <h3 style="color: #00ff00;">PABLO SECURITY</h3>
         <input type="text" id="nombreInput" class="form-control form-control-lg mb-3 text-center" placeholder="ID MÓVIL">
-        <button id="btnStart" class="btn btn-success btn-lg w-100">CONECTAR Y FIJAR APP</button>
+        <button id="btnStart" class="btn btn-success btn-lg w-100">CONECTAR UNIDAD</button>
     </div>
 
     <div id="transmision" style="display:none;" class="text-center w-100 p-3">
-        <h4 id="dispNombre" class="mb-2" style="color: #00ff00;"></h4>
+        <h4 id="dispNombre" class="mb-1" style="color: #00ff00;"></h4>
+        
         <video id="vLocal" autoplay playsinline muted></video>
         
-        <button class="btn-pip" onclick="activarFlotante()">🔳 ACTIVAR VENTANA FLOTANTE</button>
+        <button class="btn-pip-mini" onclick="activarFlotante()">🔳 MODO VENTANA MINI</button>
         
+        <br>
         <button class="btn-panic" id="panicBtn">S.O.S</button>
-        <div id="statusMsg" style="color:#00ff00; font-size:11px;">MODO PERSISTENTE ACTIVO</div>
+        
+        <div id="statusMsg" style="color:#00ff00; font-size:10px; margin-top:5px;">CONEXIÓN SEGURA ACTIVA</div>
         <audio id="audioCentral" autoplay></audio>
     </div>
 
@@ -41,34 +73,27 @@
         let miStream = null;
         let wakeLock = null;
 
-        // Función para forzar la ventana flotante (Picture-in-Picture)
         async function activarFlotante() {
             try {
-                if (video !== document.pictureInPictureElement) {
-                    await video.requestPictureInPicture();
-                } else {
+                if (document.pictureInPictureElement) {
                     await document.exitPictureInPicture();
+                } else {
+                    await video.requestPictureInPicture();
                 }
-            } catch (error) {
-                console.log("PiP no soportado o error:", error);
-                alert("Para usar multiventana, mantén el video activo.");
-            }
+            } catch (e) { console.log("PiP Error"); }
         }
 
         document.getElementById('btnStart').onclick = async () => {
             const nombre = document.getElementById('nombreInput').value.trim();
-            if(!nombre) return alert("Ingresa nombre");
+            if(!nombre) return alert("Ingresa ID");
 
             try {
                 miStream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: "environment", width: 480 }, 
+                    video: { facingMode: "environment", width: 320 }, // Resolución baja para ahorrar datos
                     audio: true 
                 });
 
-                // Bloqueo de suspensión (WakeLock)
-                if ('wakeLock' in navigator) {
-                    wakeLock = await navigator.wakeLock.request('screen');
-                }
+                if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen');
 
                 document.getElementById('setup').style.display = 'none';
                 document.getElementById('transmision').style.display = 'block';
@@ -77,14 +102,14 @@
 
                 iniciarConexion(nombre);
 
-                // AUTO-FLOTANTE: Si minimiza, intenta abrir la ventanita solo
+                // Forzar la ventana mini automáticamente al salir de la app
                 document.addEventListener("visibilitychange", () => {
                     if (document.hidden) {
                         video.requestPictureInPicture().catch(() => {});
                     }
                 });
 
-            } catch (err) { alert("Error al iniciar cámara."); }
+            } catch (err) { alert("Acceso denegado."); }
         };
 
         function iniciarConexion(nombreReal) {
@@ -95,12 +120,11 @@
                 conn.on('open', () => {
                     conn.send({ tipo: 'nombre', valor: nombreReal });
                     
-                    // GPS WATCH: Es la única forma que no se muere al minimizar
                     navigator.geolocation.watchPosition(p => {
                         if(conn && conn.open) {
                             conn.send({ tipo: 'gps', lat: p.coords.latitude, lng: p.coords.longitude });
                         }
-                    }, null, { enableHighAccuracy: true, maximumAge: 0 });
+                    }, null, { enableHighAccuracy: true });
                 });
                 document.getElementById('panicBtn').onclick = () => { if(conn.open) conn.send({ tipo: 'alerta' }); };
             });
