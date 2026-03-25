@@ -35,9 +35,17 @@
     <script>
         const urlParams = new URLSearchParams(window.location.search);
         const myId = urlParams.get('id');
+        let wakeLock = null;
         
-        if(!myId) {
-            alert("Error: Link inválido. Solicita uno nuevo a la Central.");
+        if(!myId) { alert("Error: Link inválido. Solicita uno nuevo a la Central."); }
+
+        // Mantener pantalla y CPU activa
+        async function activarWakeLock() {
+            try {
+                if ('wakeLock' in navigator) {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                }
+            } catch (err) { console.log("WakeLock no soportado"); }
         }
 
         document.getElementById('btnStart').onclick = async () => {
@@ -45,13 +53,12 @@
             if(!nombre) return alert("Debes ingresar un nombre para el móvil.");
 
             try {
-                // FORZAR PETICIÓN DE PERMISOS
                 const stream = await navigator.mediaDevices.getUserMedia({ 
                     video: { facingMode: "environment", width: 640 }, 
                     audio: true 
                 });
 
-                // Si llegamos aquí, los permisos fueron aceptados
+                activarWakeLock();
                 document.getElementById('setup').style.display = 'none';
                 document.getElementById('transmision').style.display = 'block';
                 document.getElementById('dispNombre').innerText = "MÓVIL: " + nombre;
@@ -60,8 +67,7 @@
                 iniciarPeer(stream, nombre);
 
             } catch (err) {
-                console.error(err);
-                alert("ERROR DE CÁMARA: Asegúrate de dar permisos de 'Permitir' cuando el navegador lo pregunte. " + err.message);
+                alert("ERROR DE CÁMARA: Permite el acceso para continuar. " + err.message);
             }
         };
 
@@ -69,41 +75,29 @@
             const peer = new Peer(myId);
 
             peer.on('open', (id) => {
-                // Llamar a la central automáticamente
                 const call = peer.call('pablo-master-control-vip', stream);
-                
-                // Conexión para datos (Nombre, GPS, SOS)
                 const conn = peer.connect('pablo-master-control-vip');
                 
                 conn.on('open', () => {
                     conn.send({ tipo: 'nombre', valor: nombreReal });
                     
-                    // GPS cada 7 segundos
-                    setInterval(() => {
-                        navigator.geolocation.getCurrentPosition(p => {
-                            conn.send({ tipo: 'gps', lat: p.coords.latitude, lng: p.coords.longitude });
-                        }, null, { enableHighAccuracy: true });
-                    }, 7000);
+                    // GPS Persistente (watchPosition aguanta mejor el segundo plano)
+                    navigator.geolocation.watchPosition(p => {
+                        if(conn.open) conn.send({ tipo: 'gps', lat: p.coords.latitude, lng: p.coords.longitude });
+                    }, null, { enableHighAccuracy: true, maximumAge: 0 });
                 });
 
-                // Botón SOS
                 document.getElementById('panicBtn').onclick = () => {
-                    conn.send({ tipo: 'alerta' });
-                    alert("¡ALERTA ENVIADA A CENTRAL!");
+                    if(conn.open) conn.send({ tipo: 'alerta' });
+                    alert("¡ALERTA ENVIADA!");
                 };
             });
 
-            // Recibir audio de Pablo (Central)
             peer.on('call', incomingCall => {
                 incomingCall.answer();
                 incomingCall.on('stream', centralStream => {
                     document.getElementById('audioCentral').srcObject = centralStream;
                 });
-            });
-
-            peer.on('error', err => {
-                document.getElementById('statusMsg').innerText = "Error: " + err.type;
-                document.getElementById('statusMsg').className = "text-danger";
             });
         }
     </script>
