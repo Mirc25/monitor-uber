@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>PABLO SECURITY - PANEL CENTRAL</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        body { background: #000; color: #00ff00; font-family: 'Courier New', monospace; }
+        .monitor-box { border: 2px solid #00ff00; border-radius: 15px; padding: 20px; margin-top: 20px; background: #050505; }
+        video { width: 100%; border-radius: 10px; background: #222; transform: scaleX(-1); }
+        .alert-pablo { border: 2px solid red; color: red; animation: blinker 1s linear infinite; }
+        @keyframes blinker { 50% { opacity: 0; } }
+    </style>
+</head>
+<body class="container py-4">
+
+    <div class="monitor-box">
+        <h2 class="text-center font-weight-bold">CENTRAL DE MONITOREO VIP</h2>
+        <hr style="border-color: #00ff00;">
+        
+        <div class="row">
+            <div class="col-md-4">
+                <label>CÓDIGO DEL MÓVIL:</label>
+                <input type="text" id="codigoApp" class="form-control bg-dark text-success border-success mb-3" placeholder="Ej: 123456">
+                <button id="btnLlamar" class="btn btn-outline-success w-100 mb-4">CONECTAR CON CHOFER</button>
+                
+                <div id="infoUnidad" class="p-3 border border-secondary rounded">
+                    <p>ESTADO: <span id="status">DESCONECTADO</span></p>
+                    <p>UNIDAD: <span id="unidadNombre">---</span></p>
+                    <p>GPS: <span id="gpsDatos">---</span></p>
+                </div>
+            </div>
+            
+            <div class="col-md-8">
+                <video id="videoRemoto" autoplay playsinline></video>
+                <div id="alertaPanic" class="alert-pablo p-3 text-center mt-3" style="display:none;">
+                    <h1>🚨 ALERTA: BOTÓN DE PÁNICO 🚨</h1>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // La central SIEMPRE debe tener este ID para que el APK sepa a quién llamar
+        const peer = new Peer('pablo-master-control-vip');
+
+        document.getElementById('btnLlamar').onclick = () => {
+            const idChofer = document.getElementById('codigoApp').value.trim().toLowerCase();
+            if(!idChofer) return alert("Escribe el código que puso el chofer");
+
+            document.getElementById('status').innerText = "CONECTANDO...";
+
+            // 1. Llamada de Video
+            // Nota: Aquí la central espera que el chofer llame, o la central llama al chofer
+            const conn = peer.connect(idChofer);
+            
+            conn.on('open', () => {
+                document.getElementById('status').innerText = "ONLINE";
+                conn.on('data', (data) => {
+                    if(data.tipo === 'nombre') document.getElementById('unidadNombre').innerText = data.valor;
+                    if(data.tipo === 'gps') document.getElementById('gpsDatos').innerText = data.lat + ", " + data.lng;
+                    if(data.tipo === 'alerta') {
+                        document.getElementById('alertaPanic').style.display = 'block';
+                        const audio = new Audio('https://www.soundjay.com/buttons/beep-01a.mp3');
+                        audio.play();
+                    }
+                });
+            });
+        };
+
+        // Escuchar la llamada de video que viene del APK
+        peer.on('call', (call) => {
+            call.answer(); 
+            call.on('stream', (stream) => {
+                document.getElementById('videoRemoto').srcObject = stream;
+            });
+        });
+    </script>
+</body>
+</html>
