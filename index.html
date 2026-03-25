@@ -1,36 +1,74 @@
-<script>
-    async function conectar() {
-        const codigo = document.getElementById('cod').value.trim();
-        const nombre = document.getElementById('nom').value.trim();
-        if(!codigo || !nombre) return alert("Faltan datos");
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>PABLO SECURITY APP</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background: #000; color: #fff; font-family: sans-serif; height: 100vh; display: flex; align-items: center; justify-content: center; margin: 0; }
+        .app-card { width: 90%; max-width: 400px; padding: 30px; background: #111; border-radius: 30px; border: 1px solid #0f0; text-align: center; }
+        .form-control { background: #222 !important; border: 1px solid #444 !important; color: #0f0 !important; font-size: 1.2rem !important; text-align: center; margin-bottom: 15px; }
+        .btn-activate { background: #0f0; color: #000; font-weight: bold; border: none; border-radius: 15px; width: 100%; padding: 15px; font-size: 1.2rem; }
+        .sos-btn { width: 180px; height: 180px; border-radius: 50%; background: red; color: #fff; font-size: 30px; font-weight: bold; border: 8px solid #fff; box-shadow: 0 0 20px red; margin: 20px 0; }
+    </style>
+</head>
+<body>
 
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: true });
-            document.getElementById('login').style.display = 'none';
-            document.getElementById('transmision').style.display = 'block';
-            document.getElementById('idDisplay').innerText = nombre.toUpperCase();
+    <div id="login" class="app-card">
+        <h1 style="color:#0f0; font-weight:900;">PABLO SECURITY</h1>
+        <p class="text-secondary small mb-4">INGRESA LOS DATOS DE ENLACE</p>
+        <input type="text" id="cod" class="form-control" placeholder="CÓDIGO DE CENTRAL">
+        <input type="text" id="nom" class="form-control" placeholder="TU NOMBRE / MÓVIL">
+        <button onclick="conectar()" class="btn-activate">ACTIVAR SERVICIO</button>
+    </div>
 
-            const peer = new Peer();
-            peer.on('open', () => {
-                const centralID = 'pablo-' + codigo;
+    <div id="transmision" class="app-card" style="display:none;">
+        <h4 id="idDisplay" style="color:#0f0;">---</h4>
+        <p class="small text-success">✓ CONECTADO CON CENTRAL</p>
+        <button class="sos-btn" id="panic">S.O.S</button>
+        <p class="small text-secondary">TRANSMITIENDO EN VIVO</p>
+    </div>
+
+    <script>
+        async function conectar() {
+            const codigo = document.getElementById('cod').value.trim();
+            const nombre = document.getElementById('nom').value.trim();
+            if(!codigo || !nombre) return alert("Por favor, completa los campos.");
+
+            try {
+                // Pedimos permisos ANTES de ocultar nada para evitar pantalla blanca si falla
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: true });
                 
-                // Conectar datos primero
-                const conn = peer.connect(centralID);
-                conn.on('open', () => {
-                    conn.send({ tipo: 'nombre', valor: nombre });
+                // Si llegamos acá, los permisos están OK
+                document.getElementById('login').style.display = 'none';
+                document.getElementById('transmision').style.display = 'block';
+                document.getElementById('idDisplay').innerText = nombre.toUpperCase();
+
+                const peer = new Peer();
+                peer.on('open', () => {
+                    const centralID = 'pablo-' + codigo;
+                    const conn = peer.connect(centralID);
                     
-                    // Enviar Video
-                    peer.call(centralID, stream);
-
-                    navigator.geolocation.watchPosition(p => {
-                        conn.send({ tipo: 'gps', lat: p.coords.latitude, lng: p.coords.longitude });
+                    conn.on('open', () => {
+                        conn.send({ tipo: 'nombre', valor: nombre });
+                        peer.call(centralID, stream);
+                        
+                        navigator.geolocation.watchPosition(p => {
+                            conn.send({ tipo: 'gps', lat: p.coords.latitude, lng: p.coords.longitude });
+                        });
                     });
-                });
 
-                document.getElementById('panic').onclick = () => { conn.send({ tipo: 'alerta' }); };
-            });
-        } catch (e) {
-            alert("Error: Asegúrate de dar permisos de cámara.");
+                    document.getElementById('panic').onclick = () => {
+                        conn.send({ tipo: 'alerta' });
+                        alert("SOS ENVIADO");
+                    };
+                });
+            } catch (e) {
+                alert("ERROR DE PERMISOS: Debes aceptar el uso de la cámara y ubicación.");
+            }
         }
-    }
-</script>
+    </script>
+</body>
+</html>
