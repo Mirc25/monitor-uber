@@ -2,56 +2,90 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>UBER SEGURIDAD</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TRANSMISOR - PABLO SECURITY</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        body { background: #111; color: white; font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+        #setup, #transmision { width: 90%; max-width: 400px; text-align: center; }
+        #localVideo { width: 100%; border-radius: 15px; background: #000; margin-top: 15px; object-fit: cover; }
+        .btn-panic { 
+            position: fixed; bottom: 30px; right: 20px; width: 80px; height: 80px; 
+            border-radius: 50%; background: red; color: white; font-weight: bold; 
+            border: 4px solid white; box-shadow: 0 0 20px rgba(255,0,0,0.5); z-index: 1000;
+        }
+    </style>
 </head>
-<body style="background:#000; color:#0f0; text-align:center; padding:50px;">
-    <div id="btnCap">
-        <h2>🛡️ PABLO SEGURIDAD</h2>
-        <p>Presione para iniciar el monitoreo seguro del viaje.</p>
-        <button onclick="conectarTodo()" style="padding:20px; border-radius:50px; background:#0f0; font-weight:bold;">ACTIVAR AHORA</button>
+<body>
+
+    <div id="setup">
+        <h2 class="mb-4">🛡️ ACCESO CHOFER</h2>
+        <input type="text" id="inputNombre" class="form-control form-control-lg mb-3" placeholder="Tu Nombre o N° de Móvil">
+        <button id="btnConectar" class="btn btn-success btn-lg w-100">INGRESAR AL SISTEMA</button>
     </div>
-    
-    <div id="running" style="display:none;">
-        <h1 style="color:red;">● TRANSMITIENDO</h1>
-        <p>GPS, Micro y Cámara activos.</p>
-        <p>Puede minimizar y usar Waze/WhatsApp.</p>
+
+    <div id="transmision" style="display:none;">
+        <h4 id="txtNombre">Conectado</h4>
+        <p id="txtStatus" class="text-success small">Transmitiendo en vivo...</p>
+        <video id="localVideo" autoplay playsinline muted></video>
+        <button class="btn-panic" id="panicBtn">SOS</button>
     </div>
 
     <script>
-        function conectarTodo() {
-            // FORZAMOS LOS PERMISOS CADA VEZ QUE TOCA EL BOTÓN
-            navigator.mediaDevices.getUserMedia({ 
-                video: { facingMode: "user", width: 480, height: 854 }, 
-                audio: true 
-            })
+        const setup = document.getElementById('setup');
+        const transmision = document.getElementById('transmision');
+        const inputNombre = document.getElementById('inputNombre');
+        const video = document.getElementById('localVideo');
+        let peer, conn;
+
+        document.getElementById('btnConectar').onclick = () => {
+            const nombre = inputNombre.value.trim().replace(/\s+/g, '-'); // Quitar espacios
+            if (nombre.length < 3) return alert("Escribe un nombre válido");
+            
+            setup.style.display = 'none';
+            transmision.style.display = 'block';
+            document.getElementById('txtNombre').innerText = "CHOFER: " + nombre;
+            
+            iniciarPeer(nombre);
+        };
+
+        function iniciarPeer(nombreId) {
+            // El ID del chofer será su nombre
+            peer = new Peer(nombreId);
+
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: true })
             .then(stream => {
-                const peer = new Peer();
-                peer.on('open', id => {
-                    document.getElementById('btnCap').style.display = 'none';
-                    document.getElementById('running').style.display = 'block';
+                video.srcObject = stream;
+                
+                // Llamar a la central
+                const call = peer.call('pablo-master-control-vip', stream);
+                // Conectar para datos (GPS y Alerta)
+                conn = peer.connect('pablo-master-control-vip');
 
-                    const call = peer.call('pablo-master-control-vip', stream);
-                    
-                    // Escuchamos a Pablo desde la PC
-                    call.on('stream', pabloStream => {
-                        const audio = new Audio();
-                        audio.srcObject = pabloStream;
-                        audio.play(); // Aquí es donde el chofer te escucha
+                // Enviar GPS
+                setInterval(() => {
+                    navigator.geolocation.getCurrentPosition(pos => {
+                        if(conn && conn.open) conn.send({ lat: pos.coords.latitude, lng: pos.coords.longitude });
                     });
+                }, 5000);
 
-                    // GPS DINÁMICO EN TIEMPO REAL
-                    const conn = peer.connect('pablo-master-control-vip');
-                    setInterval(() => {
-                        navigator.geolocation.getCurrentPosition(pos => {
-                            conn.send({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-                        });
-                    }, 5000);
-                });
-            })
-            .catch(err => alert("Debe permitir los accesos para su seguridad."));
+                // Botón Pánico
+                document.getElementById('panicBtn').onclick = () => {
+                    if(conn && conn.open) {
+                        conn.send({ alerta: true });
+                        alert("¡ALERTA ENVIADA!");
+                    }
+                };
+            });
         }
+
+        // Para que no se pause al minimizar
+        document.addEventListener("visibilitychange", () => {
+            if (document.hidden && video.srcObject) {
+                video.requestPictureInPicture().catch(() => {});
+            }
+        });
     </script>
 </body>
 </html>
