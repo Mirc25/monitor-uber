@@ -3,104 +3,76 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SISTEMA CHOFER - PABLO SECURITY</title>
+    <title>SISTEMA SEGURIDAD - PABLO SECURITY</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         body { background: #000; color: #0f0; font-family: sans-serif; text-align: center; margin: 0; padding: 20px; }
-        .box { border: 2px solid #0f0; padding: 25px; border-radius: 20px; margin-top: 40px; background: #050505; }
-        input { width: 90%; padding: 18px; margin: 12px 0; background: #111; border: 1px solid #333; color: #0f0; border-radius: 12px; font-size: 22px; text-align: center; font-weight: bold; }
-        input:focus { border-color: #0f0; outline: none; }
-        .btn-p { width: 100%; padding: 22px; background: #0f0; color: #000; border: none; font-weight: bold; border-radius: 12px; font-size: 20px; cursor: pointer; text-transform: uppercase; }
-        #sos { width: 240px; height: 240px; background: #900; color: #fff; border-radius: 50%; font-size: 45px; border: 6px solid #fff; display: none; margin: 50px auto; font-weight: bold; box-shadow: 0 0 20px red; }
-        #status-msg { color: #666; margin-top: 25px; font-size: 16px; font-weight: bold; }
-        .loading { color: #f0f; display: none; margin-top: 10px; }
+        .box { border: 2px solid #0f0; padding: 30px; border-radius: 20px; margin-top: 40px; }
+        input { width: 90%; padding: 18px; margin: 15px 0; background: #111; border: 1px solid #333; color: #0f0; border-radius: 12px; font-size: 22px; text-align: center; }
+        .btn-p { width: 100%; padding: 22px; background: #0f0; color: #000; border: none; font-weight: bold; border-radius: 12px; font-size: 20px; text-transform: uppercase; }
+        #sos { width: 250px; height: 250px; background: #900; color: #fff; border-radius: 50%; font-size: 45px; border: 6px solid #fff; display: none; margin: 40px auto; font-weight: bold; box-shadow: 0 0 30px red; }
     </style>
 </head>
 <body>
     <div id="login" class="box">
-        <h2 style="letter-spacing: 2px;">ACCESO UNIDAD</h2>
+        <h2>PABLO SECURITY</h2>
         <input type="number" id="cod" placeholder="CÓDIGO DE PAGO" inputmode="numeric">
-        <input type="text" id="nom" placeholder="TU NOMBRE / MÓVIL">
-        <button class="btn-p" id="btnEntrar" onclick="validarYConectar()">ACTIVAR SERVICIO</button>
-        <div id="loader" class="loading">CONECTANDO CON CENTRAL...</div>
+        <input type="text" id="nom" placeholder="NOMBRE / MÓVIL">
+        <button class="btn-p" onclick="activarServicio()">ACTIVAR MONITOREO</button>
     </div>
 
     <div id="app" style="display:none;">
-        <h2 id="driverName" style="color: #0f0; margin-bottom: 5px;"></h2>
-        <p style="color: #444; margin: 0;">SISTEMA DE MONITOREO ACTIVO</p>
+        <h2 id="driver" style="color: #0f0;"></h2>
+        <p style="color: #444;">TRANSMISIÓN SEGURA ACTIVA</p>
         <button id="sos">S.O.S</button>
-        <p id="status-msg">● Transmitiendo Video y GPS</p>
         <video id="hiddenV" autoplay playsinline muted style="width:1px; height:1px; opacity:0; position: absolute;"></video>
         <audio id="audioCentral" autoplay></audio>
     </div>
 
     <script>
-        let peer = null;
-        let connection = null;
-
-        async function validarYConectar() {
+        async function activarServicio() {
             const cod = document.getElementById('cod').value;
             const nom = document.getElementById('nom').value;
-            const btn = document.getElementById('btnEntrar');
-            const loader = document.getElementById('loader');
-
-            if(!cod || !nom) return alert("Ingresá CÓDIGO y NOMBRE");
-
-            btn.disabled = true;
-            btn.style.opacity = "0.5";
-            loader.style.display = "block";
+            if(!cod || !nom) return alert("Ingresa datos");
 
             try {
-                // 1. Pedir permisos primero (Obligatorio para que PeerJS funcione)
+                // Forzamos resolución HD para abrir el lente de la cámara
                 const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: "user" }, 
+                    video: { facingMode: "user", width: 1280, height: 720 }, 
                     audio: true 
                 });
+                
                 document.getElementById('hiddenV').srcObject = stream;
-                
-                // 2. Crear instancia de Peer
-                peer = new Peer();
-                
-                peer.on('open', (id) => {
-                    // 3. Intentar conectar a la central con el código
-                    const centralID = 'PABLO-CENTRAL-' + cod;
-                    connection = peer.connect(centralID);
-                    
-                    // Tiempo límite para conexión
-                    const timeout = setTimeout(() => {
-                        if (!connection.open) {
-                            alert("ERROR: Código incorrecto o Central fuera de línea.");
-                            location.reload();
-                        }
-                    }, 6000);
+                const peer = new Peer();
 
-                    connection.on('open', () => {
-                        clearTimeout(timeout);
+                peer.on('open', (id) => {
+                    const centralID = 'PABLO-CENTRAL-' + cod;
+                    const conn = peer.connect(centralID);
+                    
+                    conn.on('open', () => {
                         document.getElementById('login').style.display = 'none';
                         document.getElementById('app').style.display = 'block';
                         document.getElementById('sos').style.display = 'block';
-                        document.getElementById('driverName').innerText = nom.toUpperCase();
+                        document.getElementById('driver').innerText = nom.toUpperCase();
                         
-                        // Enviar datos iniciales
-                        connection.send({ tipo: 'login', nombre: nom });
-                        
-                        // Iniciar video llamada
+                        conn.send({ tipo: 'login', nombre: nom });
                         peer.call(centralID, stream);
 
-                        // Iniciar GPS
                         navigator.geolocation.watchPosition(p => {
-                            connection.send({ tipo: 'gps', lat: p.coords.latitude, lng: p.coords.longitude });
+                            conn.send({ tipo: 'gps', lat: p.coords.latitude, lng: p.coords.longitude });
                         }, null, { enableHighAccuracy: true });
 
-                        // Configurar botón SOS
-                        document.getElementById('sos').onclick = () => {
-                            connection.send({ tipo: 'sos' });
-                            alert("ALERTA ENVIADA A CENTRAL");
-                        };
+                        document.getElementById('sos').onclick = () => conn.send({ tipo: 'sos' });
                     });
+
+                    setTimeout(() => {
+                        if(document.getElementById('app').style.display === 'none') {
+                            alert("CÓDIGO INVÁLIDO");
+                            location.reload();
+                        }
+                    }, 5000);
                 });
 
-                // Escuchar cuando la central te habla (PTT)
                 peer.on('call', call => {
                     call.answer();
                     call.on('stream', s => {
@@ -108,15 +80,7 @@
                     });
                 });
 
-                peer.on('error', (err) => {
-                    alert("Error de conexión: " + err.type);
-                    location.reload();
-                });
-
-            } catch(e) { 
-                alert("ERROR: Debes aceptar los permisos de Cámara y Micrófono.");
-                location.reload();
-            }
+            } catch(e) { alert("Acepta los permisos"); }
         }
     </script>
 </body>
