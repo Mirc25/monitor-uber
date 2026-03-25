@@ -1,86 +1,36 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-    <title>PABLO SECURITY APP</title>
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        body { background: #000; color: #fff; font-family: sans-serif; height: 100vh; display: flex; align-items: center; justify-content: center; margin: 0; }
-        .app-card { width: 90%; max-width: 400px; padding: 30px; background: #111; border-radius: 30px; border: 1px solid #00ff00; text-align: center; }
-        .form-control { background: #222 !important; border: 1px solid #444 !important; color: #00ff00 !important; font-size: 20px !important; text-align: center; padding: 12px; }
-        .btn-activate { background: #00ff00; color: #000; font-weight: bold; border: none; border-radius: 15px; font-size: 1.2rem; }
-        .sos-btn { width: 180px; height: 180px; border-radius: 50%; background: radial-gradient(#ff0000, #800000); border: 10px solid #fff; color: #fff; font-size: 35px; font-weight: bold; box-shadow: 0 0 30px rgba(255,0,0,0.5); margin: 30px 0; }
-    </style>
-</head>
-<body>
+<script>
+    async function conectar() {
+        const codigo = document.getElementById('cod').value.trim();
+        const nombre = document.getElementById('nom').value.trim();
+        if(!codigo || !nombre) return alert("Faltan datos");
 
-    <div id="login" class="app-card">
-        <h1 style="font-weight: 900; color: #00ff00; letter-spacing: -1px;">PABLO<br>SECURITY</h1>
-        <p class="text-secondary small mb-4">SISTEMA DE VIGILANCIA PROFESIONAL</p>
-        
-        <input type="text" id="cod" class="form-control mb-3" placeholder="CÓDIGO DE ENLACE">
-        <input type="text" id="nom" class="form-control mb-4" placeholder="ID UNIDAD (EJ: MOVIL 1)">
-        
-        <button onclick="conectar()" class="btn btn-activate w-100 py-3">ACTIVAR SERVICIO</button>
-    </div>
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: true });
+            document.getElementById('login').style.display = 'none';
+            document.getElementById('transmision').style.display = 'block';
+            document.getElementById('idDisplay').innerText = nombre.toUpperCase();
 
-    <div id="transmision" class="app-card" style="display:none;">
-        <div class="mb-2" id="idDisplay" style="color:#00ff00; font-weight: bold;"></div>
-        <p class="small text-secondary">ESTADO: <span class="text-success">CONECTADO</span></p>
-        
-        <button class="sos-btn" id="panic">S.O.S</button>
-        
-        <div style="background: #000; padding: 10px; border-radius: 10px; border: 1px solid #333;">
-            <p class="m-0 small text-success">✓ VIDEO EN VIVO</p>
-            <p class="m-0 small text-success">✓ RASTREO GPS ACTIVO</p>
-        </div>
-    </div>
-
-    <script>
-        async function conectar() {
-            const codigo = document.getElementById('cod').value.trim();
-            const nombre = document.getElementById('nom').value.trim();
-            if(!codigo || !nombre) return alert("Completá los datos");
-
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: "environment" }, 
-                    audio: true 
-                });
-
-                document.getElementById('login').style.display = 'none';
-                document.getElementById('transmision').style.display = 'block';
-                document.getElementById('idDisplay').innerText = nombre.toUpperCase();
-
-                const peer = new Peer();
-                peer.on('open', (id) => {
-                    const idCentral = 'pablo-' + codigo;
+            const peer = new Peer();
+            peer.on('open', () => {
+                const centralID = 'pablo-' + codigo;
+                
+                // Conectar datos primero
+                const conn = peer.connect(centralID);
+                conn.on('open', () => {
+                    conn.send({ tipo: 'nombre', valor: nombre });
                     
-                    // Conexión de datos
-                    const conn = peer.connect(idCentral);
-                    conn.on('open', () => {
-                        conn.send({ tipo: 'nombre', valor: nombre });
-                        
-                        // Enviar ubicación
-                        navigator.geolocation.watchPosition(p => {
-                            conn.send({ tipo: 'gps', lat: p.coords.latitude, lng: p.coords.longitude });
-                        }, null, { enableHighAccuracy: true });
+                    // Enviar Video
+                    peer.call(centralID, stream);
 
-                        // Llamar con Video
-                        peer.call(idCentral, stream);
+                    navigator.geolocation.watchPosition(p => {
+                        conn.send({ tipo: 'gps', lat: p.coords.latitude, lng: p.coords.longitude });
                     });
-
-                    document.getElementById('panic').onclick = () => {
-                        conn.send({ tipo: 'alerta' });
-                        alert("ALERTA SOS ENVIADA A CENTRAL");
-                    };
                 });
-            } catch (e) {
-                alert("ERROR: Debes aceptar permisos de Cámara y GPS.");
-            }
+
+                document.getElementById('panic').onclick = () => { conn.send({ tipo: 'alerta' }); };
+            });
+        } catch (e) {
+            alert("Error: Asegúrate de dar permisos de cámara.");
         }
-    </script>
-</body>
-</html>
+    }
+</script>
