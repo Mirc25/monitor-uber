@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>PABLO SECURITY - CENTRAL INTERACTIVA NEÓN</title>
+    <title>PABLO SECURITY - CENTRAL BLINDADA 2026</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -12,31 +12,27 @@
         .top-bar { background: #0a0a0a; border-bottom: 2px solid #0f0; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; height: 60px; flex-shrink: 0; z-index: 1000; }
         
         .main-layout { display: flex; flex: 1; overflow: hidden; }
-
-        /* GRILLA DE VIDEOS IZQUIERDA */
         .grid-fleet { flex: 1; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px; padding: 15px; overflow-y: auto; background: #000; align-content: start; scroll-behavior: smooth; }
-
-        /* RADAR DERECHO */
         .right-panel { width: 440px; background: #050505; border-left: 2px solid #0f0; padding: 15px; display: flex; flex-direction: column; align-items: center; flex-shrink: 0; }
         #mainMap { width: 400px; height: 400px; border: 2px solid #0f0; border-radius: 10px; background: #111; }
 
         /* TARJETA INDIVIDUAL */
-        .unit-card { background: #050505; border: 1px solid #333; border-radius: 8px; width: 300px; height: 430px; display: flex; flex-direction: column; position: relative; overflow: hidden; transition: all 0.3s ease; margin: 0 auto; z-index: 10; }
+        .unit-card { background: #050505; border: 1px solid #333; border-radius: 8px; width: 300px; height: 430px; display: flex; flex-direction: column; position: relative; overflow: hidden; transition: all 0.3s ease; margin: 0 auto; }
         .unit-header { background: #111; padding: 6px; font-size: 11px; text-align: center; border-bottom: 1px solid #222; font-weight: bold; color: #0f0; }
-        
-        .video-box { width: 300px; height: 180px; background: #000; cursor: pointer; overflow: hidden; }
-        video { width: 100%; height: 100%; object-fit: contain; background: #000; } 
+        .video-box { width: 300px; height: 180px; background: #000; cursor: pointer; }
+        video { width: 100%; height: 100%; object-fit: contain; } 
         .map-box { width: 300px; height: 170px; border-top: 1px solid #222; cursor: pointer; }
 
-        /* FILTRO DE MAPA: MODO NOCHE CLARO */
         .leaflet-container { filter: invert(90%) hue-rotate(180deg) brightness(100%) contrast(100%); }
 
-        /* MODO MAXIMIZADO (50% DE PANTALLA) */
+        /* MAXIMIZADO 50% */
         .maximized { position: fixed !important; top: 10%; left: 25%; width: 50% !important; height: 80% !important; z-index: 9999 !important; background: #000 !important; border: 4px solid #0f0 !important; box-shadow: 0 0 50px #0f0; }
         .maximized .video-box { width: 100% !important; height: 60% !important; }
-        .maximized .map-box { width: 100% !important; height: 40% !important; border-top: 2px solid #0f0; }
+        .maximized .map-box { width: 100% !important; height: 40% !important; }
 
-        /* ALERTA ZONA ROJA */
+        /* ESTILO NEÓN FUCSIA PARA AUTOS */
+        .fuchsia-car-marker { filter: invert(19%) sepia(87%) saturate(6011%) hue-rotate(296deg) brightness(101%) contrast(110%); drop-shadow(0 0 8px rgba(255, 0, 255, 0.9)); }
+
         .zona-roja-alert { border: 5px solid red !important; animation: blinker 0.6s linear infinite; box-shadow: 0 0 25px red; }
         @keyframes blinker { 50% { border-color: transparent; } }
 
@@ -48,84 +44,68 @@
 <body>
 
 <div class="top-bar">
-    <div class="fw-bold">PABLO SECURITY - CENTRAL INTERACTIVA</div>
-    <div id="tokenDisplay" class="badge bg-dark border border-success fs-5">----</div>
-    <div><button class="btn btn-success btn-sm" onclick="generarToken()">GENERAR CÓDIGO CENTRAL</button></div>
+    <div class="fw-bold">PABLO SECURITY - MONITOR DE FLOTA</div>
+    <div class="d-flex align-items-center">
+        <span class="me-2 text-white">CÓDIGO FIJO:</span>
+        <div id="tokenDisplay" class="badge bg-dark border border-success fs-5">PABLO-SECURITY-2026</div>
+    </div>
+    <div id="statusDot" class="badge bg-success">CENTRAL ACTIVA</div>
 </div>
 
 <div class="main-layout">
     <div class="grid-fleet" id="monitorGrid"></div>
     <div class="right-panel">
-        <h6 class="text-center text-success mb-2">RADAR DE FLOTA (ZONAS ROJAS)</h6>
+        <h6 class="text-center text-success mb-2">RADAR GENERAL (ZONAS ROJAS)</h6>
         <div id="mainMap"></div>
-        <p class="text-muted mt-3" style="font-size: 10px; text-align: center;">Toca un auto para maximizar su cámara.</p>
+        <p class="text-muted mt-3" style="font-size: 10px; text-align: center;">Autos Fucsia: Clic para maximizar al 50%.</p>
     </div>
 </div>
 
 <script>
-    let currentToken, peer, mainMap;
+    let peer, mainMap;
     const units = {};
-    const zonasPeligrosasMarker = []; // Para verificar colisiones
+    const zonasPeligrosasMarker = [];
     const mapStyle = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+    const FIXED_TOKEN = 'PABLO-SECURITY-2026'; // ID PERMANENTE
 
-    // === CONFIGURACIÓN DE ICONO TÁCTICO: AUTO NEÓN FUCSIA ===
     const carIconNeón = L.icon({
-        // Usamos una imagen de auto de color fucsia neón saturado
-        iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', // Icono original
-        iconSize: [36, 36], // Aumentamos el tamaño para que sea más visible
-        iconAnchor: [18, 18], // Punto de anclaje centrado
-        className: 'fuchsia-car-marker' // Clase para aplicar estilos CSS personalizados (neón)
+        iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png',
+        iconSize: [36, 36],
+        iconAnchor: [18, 18],
+        className: 'fuchsia-car-marker'
     });
 
-    // Definición de Zonas Peligrosas Pre-cargadas (Punto 2)
     const dbZonas = [
-        // Chimbas (Norte)
         { n: "B° Cipolletti", lat: -31.503, lng: -68.535, r: 450 },
         { n: "B° San Francisco", lat: -31.509, lng: -68.529, r: 400 },
-        { n: "B° CGT I y II", lat: -31.506, lng: -68.519, r: 380 },
-        
-        // Rawson (Sur)
+        { n: "B° CGT", lat: -31.506, lng: -68.519, r: 380 },
         { n: "B° Valle Grande", lat: -31.579, lng: -68.541, r: 600 },
         { n: "B° Teresa de Calcuta", lat: -31.583, lng: -68.514, r: 450 },
         { n: "B° La Estación", lat: -31.564, lng: -68.517, r: 400 },
-        
-        // Pocito (Sur)
         { n: "B° Huarpe", lat: -31.604, lng: -68.521, r: 500 },
-        { n: "Calle 5 / David Chávez", lat: -31.597, lng: -68.539, r: 420 },
-        { n: "B° Las Pampas", lat: -31.589, lng: -68.529, r: 400 },
-        
-        // Rivadavia / Santa Lucía
-        { n: "Marquesado Asentamientos", lat: -31.536, lng: -68.618, r: 450 },
-        { n: "Richet Zapata Este", lat: -31.524, lng: -68.472, r: 500 }
+        { n: "Pocito Norte/Calle 5", lat: -31.597, lng: -68.539, r: 420 },
+        { n: "Marquesado", lat: -31.536, lng: -68.618, r: 450 }
     ];
 
     function initMaps() {
         mainMap = L.map('mainMap').setView([-31.5375, -68.5364], 13);
         L.tileLayer(mapStyle).addTo(mainMap);
-
-        // Cargar Zonas Rojas como "Nubes"
         dbZonas.forEach(z => {
-            const circulo = L.circle([z.lat, z.lng], { color: 'red', fillColor: '#f03', fillOpacity: 0.3, radius: z.r, weight: 1 }).addTo(mainMap).bindPopup(`<b>ZONA PELIGROSA: ${z.n}</b>`);
+            const circulo = L.circle([z.lat, z.lng], { color: 'red', fillColor: '#f03', fillOpacity: 0.3, radius: z.r, weight: 1 }).addTo(mainMap);
             zonasPeligrosasMarker.push(circulo);
         });
-
-        // == ESTILO NEÓN FUCSIA PARA LOS AUTOS ==
-        const style = document.createElement('style');
-        style.innerHTML = `
-            .fuchsia-car-marker {
-                filter: invert(19%) sepia(87%) saturate(6011%) hue-rotate(296deg) brightness(101%) contrast(110%);
-                drop-shadow(0 0 8px rgba(255, 0, 255, 0.9)); /* Efecto neón */
-            }
-        `;
-        document.head.appendChild(style);
     }
 
-    function generarToken() {
-        currentToken = Math.floor(1000 + Math.random() * 9000).toString();
-        document.getElementById('tokenDisplay').innerText = currentToken;
-        if(peer) peer.destroy();
-        peer = new Peer('PABLO-CENTRAL-' + currentToken);
+    function iniciarCentral() {
+        // Inicializamos PeerJS con el ID fijo
+        peer = new Peer(FIXED_TOKEN);
         
+        peer.on('open', (id) => {
+            console.log('Central conectada con ID:', id);
+            document.getElementById('statusDot').innerText = "CENTRAL ACTIVA";
+            document.getElementById('statusDot').className = "badge bg-success";
+        });
+
         peer.on('call', (call) => {
             call.answer();
             call.on('stream', (s) => {
@@ -140,6 +120,13 @@
                 if(data.tipo === 'gps') actualizarGPS(conn.peer, data.lat, data.lng);
                 if(data.tipo === 'sos') toggleSOS(conn.peer, true);
             });
+        });
+
+        peer.on('error', (err) => {
+            if(err.type === 'id-taken') {
+                console.log('ID ya en uso, reintentando...');
+                setTimeout(iniciarCentral, 2000);
+            }
         });
     }
 
@@ -163,26 +150,23 @@
         const mInd = L.map('map-ind-' + id, { zoomControl: false, attributionControl: false }).setView([0,0], 17);
         L.tileLayer(mapStyle).addTo(mInd);
         
-        // MARCADOR DE AUTO EN EL RADAR GENERAL (CON ICONO FUCSIA)
-        const markerGen = L.marker([0,0], {icon: carIconNeón}).addTo(mainMap).bindPopup(nombre.toUpperCase());
-        
-        // ACCIÓN AL HACER CLIC EN EL AUTITO FUCSIA
+        const markerGen = L.marker([0,0], {icon: carIconNeón}).addTo(mainMap);
         markerGen.on('click', () => {
-            const el = document.getElementById('card-' + id);
-            // Scroll suave hacia la tarjeta
-            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            // Maximizar automáticamente si no lo está
-            if(!el.classList.contains('maximized')) toggleMax(id);
+            document.getElementById('card-' + id).scrollIntoView({ behavior: 'smooth', block: 'center' });
+            toggleMax(id);
         });
 
-        units[id] = { mInd, markerInd: L.marker([0,0]).addTo(mInd), markerGen, card, ptt: null };
+        units[id] = { mInd, markerInd: L.marker([0,0]).addTo(mInd), markerGen, card };
     }
 
     function toggleMax(id) {
         const card = document.getElementById('card-' + id);
-        // Si hay otro maximizado, lo cerramos primero
-        document.querySelectorAll('.maximized').forEach(c => { if(c.id !== 'card-'+id) c.classList.remove('maximized'); });
-        card.classList.toggle('maximized');
+        if(!card.classList.contains('maximized')) {
+            document.querySelectorAll('.maximized').forEach(c => c.classList.remove('maximized'));
+            card.classList.add('maximized');
+        } else {
+            card.classList.remove('maximized');
+        }
         setTimeout(() => { units[id].mInd.invalidateSize(); }, 300);
     }
 
@@ -193,7 +177,6 @@
         units[id].markerInd.setLatLng(pos);
         units[id].markerGen.setLatLng(pos);
 
-        // DETECCIÓN AUTOMÁTICA DE PELIGRO
         let peligro = false;
         zonasPeligrosasMarker.forEach(z => {
             if(mainMap.distance(pos, z.getLatLng()) < z.getRadius()) peligro = true;
@@ -217,7 +200,7 @@
     function toggleSOS(id, on) { document.getElementById('sos-'+id).style.display = on ? 'flex' : 'none'; }
 
     initMaps();
-    generarToken();
+    iniciarCentral();
 </script>
 </body>
 </html>
