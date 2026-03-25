@@ -2,79 +2,57 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>PABLO SECURITY - MONITORING CENTER</title>
+    <title>PABLO SECURITY - CENTRAL PRO v5</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        body { background: #000; color: #0f0; font-family: 'Segoe UI', sans-serif; margin: 0; overflow: hidden; }
+        body { background: #000; color: #0f0; font-family: sans-serif; margin: 0; overflow: hidden; }
         .top-bar { background: #050505; border-bottom: 2px solid #0f0; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; height: 60px; }
+        .grid-fleet { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 15px; padding: 15px; height: calc(100vh - 60px); overflow-y: auto; }
         
-        .grid-fleet { 
-            display: grid; 
-            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); 
-            gap: 15px; padding: 15px; 
-            height: calc(100vh - 60px); 
-            overflow-y: auto; 
-        }
-
-        .unit-card { 
-            background: #0a0a0a; border: 1px solid #222; border-radius: 8px; 
-            display: flex; flex-direction: column; height: 420px; position: relative; 
-        }
-
-        /* Video completo sin cortes */
-        .video-box { width: 100%; height: 200px; background: #000; border-bottom: 1px solid #1a1a1a; }
-        video { width: 100%; height: 100%; object-fit: cover; }
+        .unit-card { background: #0a0a0a; border: 1px solid #222; border-radius: 10px; display: flex; flex-direction: column; height: 480px; position: relative; overflow: hidden; }
         
-        .map-box { width: 100%; height: 150px; background: #111; }
+        /* Video sin zoom, plano abierto */
+        .video-box { width: 100%; height: 220px; background: #000; }
+        video { width: 100%; height: 100%; object-fit: contain; } /* 'contain' evita el zoom */
+        
+        .map-box { width: 100%; height: 140px; background: #111; border-top: 1px solid #1a1a1a; }
         .leaflet-container { filter: invert(100%) hue-rotate(180deg) brightness(95%); }
 
-        .controls { padding: 10px; display: flex; gap: 5px; background: #050505; }
-        .btn-pablo { flex: 1; font-size: 10px; font-weight: bold; padding: 8px; border: 1px solid #0f0; background: transparent; color: #0f0; text-transform: uppercase; }
+        .controls { padding: 10px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; background: #050505; }
+        .btn-pablo { font-size: 10px; font-weight: bold; padding: 10px 2px; border: 1px solid #0f0; background: transparent; color: #0f0; text-transform: uppercase; border-radius: 5px; }
         .btn-pablo:active { background: #0f0; color: #000; }
-        .active-btn { background: #0f0 !important; color: #000 !important; }
+        .btn-hablar { background: #003300; }
+        .btn-hablar:active { background: #0f0; color: #000; }
+        .btn-sos-off { background: #440000; color: #ff0000; border-color: #ff0000; }
 
-        .sos-overlay { 
-            position: absolute; top:0; left:0; width:100%; height:100%; 
-            background: rgba(255,0,0,0.8); display: none; z-index: 100;
-            flex-direction: column; align-items: center; justify-content: center;
-        }
-
-        /* Maximizado */
-        .maximized { position: fixed !important; top:0; left:0; width:100vw !important; height:100vh !important; z-index: 500; }
-        .maximized .map-box { height: 300px; }
-        .maximized .video-box { height: calc(100% - 400px); }
+        .sos-overlay { position: absolute; top:0; left:0; width:100%; height:100%; background: rgba(255,0,0,0.85); display: none; z-index: 100; flex-direction: column; align-items: center; justify-content: center; }
     </style>
 </head>
 <body>
 
 <div class="top-bar">
-    <div><strong>PABLO SECURITY</strong> | <span id="count">0</span> UNIDADES</div>
-    <div class="d-flex align-items-center">
-        <span class="me-2 text-secondary">ID CENTRAL:</span>
-        <div class="badge bg-dark border border-success p-2 fs-5">PABLO-CENTRAL-2026</div>
-    </div>
+    <div><strong>PABLO SECURITY</strong> | CENTRAL ACTIVA</div>
+    <div class="badge bg-dark border border-success p-2 fs-5">ID: PABLO-CENTRAL-2026</div>
 </div>
 
 <div class="grid-fleet" id="monitorGrid"></div>
 
 <script>
-    // ID FIJO PARA QUE NO SE CAIGA LA CONEXIÓN
     const peer = new Peer('PABLO-CENTRAL-2026');
     const units = {};
+    let myStream;
 
-    peer.on('open', (id) => console.log('Central lista con ID:', id));
+    // Obtener micro para hablar
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(s => myStream = s);
 
     peer.on('call', (call) => {
         call.answer();
         call.on('stream', (stream) => {
             const video = document.getElementById('v-' + call.peer);
-            if (video) {
-                video.srcObject = stream;
-                video.play().catch(e => console.log("Error play video"));
-            }
+            if (video) { video.srcObject = stream; video.play(); }
         });
     });
 
@@ -88,61 +66,65 @@
 
     function crearTarjeta(id, nombre) {
         if (document.getElementById('card-' + id)) return;
-        
         const grid = document.getElementById('monitorGrid');
         const card = document.createElement('div');
-        card.className = 'unit-card';
-        card.id = 'card-' + id;
+        card.className = 'unit-card'; card.id = 'card-' + id;
         card.innerHTML = `
             <div class="sos-overlay" id="sos-${id}">
-                <h2 class="text-white">ALERTA SOS</h2>
-                <button class="btn btn-light fw-bold" onclick="alerta('${id}', false)">CORTAR</button>
+                <h2 class="text-white">🚨 SOS 🚨</h2>
+                <button class="btn btn-light fw-bold" onclick="alerta('${id}', false)">CORTAR ALERTA</button>
             </div>
             <div class="video-box"><video id="v-${id}" autoplay playsinline muted></video></div>
             <div id="map-${id}" class="map-box"></div>
+            <div class="p-2 text-center small text-success border-bottom border-secondary"><strong>${nombre.toUpperCase()}</strong></div>
             <div class="controls">
-                <button class="btn-pablo" id="aud-${id}" onclick="toggleAudio('${id}')">Escuchar</button>
-                <button class="btn-pablo" onclick="maximizar('${id}')">Maximizar</button>
+                <button class="btn-pablo" id="aud-${id}" onclick="toggleAudio('${id}')">ESCUCHAR</button>
+                <button class="btn-pablo btn-hablar" onmousedown="hablar('${id}', true)" onmouseup="hablar('${id}', false)" ontouchstart="hablar('${id}', true)" ontouchend="hablar('${id}', false)">HABLAR</button>
+                <button class="btn-pablo" onclick="maximizar('${id}')">MAX</button>
             </div>
-            <div class="p-2 text-center small text-white">${nombre.toUpperCase()}</div>
+            <button class="btn-pablo btn-sos-off m-2" onclick="alerta('${id}', false)">CORTAR SOS</button>
         `;
         grid.appendChild(card);
-        
-        units[id] = {
-            map: L.map('map-' + id, { zoomControl: false }).setView([0,0], 16),
-            marker: null
-        };
+        units[id] = { map: L.map('map-' + id, { zoomControl: false }).setView([0,0], 16), marker: null, conn: peer.connect(id) };
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(units[id].map);
-        actualizarContador();
     }
 
-    function moverGPS(id, lat, lng) {
-        if (!units[id]) return;
-        const pos = [lat, lng];
-        units[id].map.setView(pos);
-        if (units[id].marker) units[id].marker.setLatLng(pos);
-        else units[id].marker = L.marker(pos).addTo(units[id].map);
+    function hablar(id, activo) {
+        if(activo && myStream) {
+            peer.call(id, myStream);
+        } else {
+            // Se corta la llamada de voz al soltar el botón
+        }
+    }
+
+    function alerta(id, activo) {
+        const overlay = document.getElementById('sos-' + id);
+        overlay.style.display = activo ? 'flex' : 'none';
+        if(activo) {
+            const beep = new Audio('https://www.soundjay.com/buttons/beep-01a.mp3');
+            beep.loop = true; beep.id = "audio-"+id; beep.play();
+        } else {
+            const a = document.getElementById("audio-"+id); if(a) { a.pause(); a.remove(); }
+        }
     }
 
     function toggleAudio(id) {
         const v = document.getElementById('v-' + id);
-        const b = document.getElementById('aud-' + id);
         v.muted = !v.muted;
-        b.classList.toggle('active-btn');
-        b.innerText = v.muted ? "Escuchar" : "EN VIVO";
+        document.getElementById('aud-'+id).style.background = v.muted ? 'transparent' : '#0f0';
+        document.getElementById('aud-'+id).style.color = v.muted ? '#0f0' : '#000';
+    }
+
+    function moverGPS(id, lat, lng) {
+        if (!units[id]) return;
+        units[id].map.setView([lat, lng]);
+        if (units[id].marker) units[id].marker.setLatLng([lat, lng]);
+        else units[id].marker = L.marker([lat, lng]).addTo(units[id].map);
     }
 
     function maximizar(id) {
         document.getElementById('card-' + id).classList.toggle('maximized');
         setTimeout(() => units[id].map.invalidateSize(), 300);
-    }
-
-    function alerta(id, activo) {
-        document.getElementById('sos-' + id).style.display = activo ? 'flex' : 'none';
-    }
-
-    function actualizarContador() {
-        document.getElementById('count').innerText = document.getElementsByClassName('unit-card').length;
     }
 </script>
 </body>
