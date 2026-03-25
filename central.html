@@ -2,67 +2,51 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>PABLO SECURITY - MONITORING CENTER PRO v6.0</title>
+    <title>PABLO SECURITY - CENTRAL PRO v7</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        :root { --neon-green: #0f0; --dark-bg: #000; --panel-bg: #0a0a0a; }
-        body { background: var(--dark-bg); color: var(--neon-green); font-family: 'Segoe UI', Tahoma, sans-serif; margin: 0; overflow: hidden; }
+        body { background: #000; color: #0f0; font-family: 'Courier New', monospace; margin: 0; overflow: hidden; }
+        .top-bar { background: #0a0a0a; border-bottom: 2px solid #0f0; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; height: 60px; }
+        .grid-fleet { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 15px; padding: 15px; height: calc(100vh - 60px); overflow-y: auto; }
         
-        /* Barra Superior */
-        .top-bar { background: #050505; border-bottom: 2px solid var(--neon-green); padding: 10px 25px; display: flex; justify-content: space-between; align-items: center; height: 65px; box-shadow: 0 0 15px rgba(0, 255, 0, 0.1); }
-        .id-badge { background: #111; border: 1px solid var(--neon-green); padding: 8px 15px; border-radius: 5px; font-weight: bold; letter-spacing: 2px; }
+        .unit-card { background: #0a0a0a; border: 1px solid #333; border-radius: 12px; display: flex; flex-direction: column; height: 520px; position: relative; overflow: hidden; transition: 0.3s; }
+        .unit-card.offline { opacity: 0.5; filter: grayscale(1); }
 
-        /* Grilla de Unidades */
-        .grid-fleet { display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 20px; padding: 20px; height: calc(100vh - 65px); overflow-y: auto; }
+        /* Video Panorámico */
+        .video-box { width: 100%; height: 260px; background: #000; cursor: pointer; }
+        video { width: 100%; height: 100%; object-fit: cover; }
         
-        /* Tarjeta de Unidad */
-        .unit-card { background: var(--panel-bg); border: 1px solid #222; border-radius: 12px; display: flex; flex-direction: column; height: 520px; position: relative; overflow: hidden; transition: 0.3s; }
-        .unit-card:hover { border-color: var(--neon-green); }
-
-        .unit-header { background: #000; padding: 8px; text-align: center; font-size: 13px; font-weight: 900; border-bottom: 1px solid #1a1a1a; letter-spacing: 1px; }
-
-        /* Video Ultra Ancho (Sin Zoom) */
-        .video-box { width: 100%; height: 260px; background: #000; cursor: pointer; position: relative; overflow: hidden; }
-        video { width: 100%; height: 100%; object-fit: cover; background: #000; }
-        
-        /* GPS */
-        .map-box { width: 100%; height: 160px; background: #111; cursor: pointer; border-top: 1px solid #1a1a1a; }
+        /* Mapa */
+        .map-box { width: 100%; height: 160px; background: #111; cursor: pointer; border-top: 1px solid #222; }
         .leaflet-container { filter: invert(100%) hue-rotate(180deg) brightness(95%); }
 
-        /* Controles Inferiores */
-        .controls { padding: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: #050505; }
-        .btn-pablo { font-size: 11px; font-weight: 900; padding: 12px; border: 1px solid var(--neon-green); background: transparent; color: var(--neon-green); text-transform: uppercase; border-radius: 6px; transition: 0.2s; }
-        .btn-pablo:hover { background: rgba(0,255,0,0.1); }
-        .btn-active { background: var(--neon-green) !important; color: #000 !important; box-shadow: 0 0 10px var(--neon-green); }
-        .btn-hablar { background: #002200; border-color: #004400; }
-        .btn-hablar:active { background: var(--neon-green); color: #000; }
+        .controls { padding: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; background: #050505; }
+        .btn-pablo { font-size: 11px; font-weight: bold; padding: 12px; border: 1px solid #0f0; background: transparent; color: #0f0; border-radius: 6px; text-transform: uppercase; }
+        .btn-pablo:active { background: #0f0; color: #000; }
+        .btn-hablar { background: #002200; }
+        .btn-hablar:active { background: #0f0; color: #000; }
 
-        /* Sistema de Maximizado Táctil */
-        .max-video { position: fixed !important; top: 0; left: 0; width: 100vw !important; height: 100vh !important; z-index: 2000; }
-        .max-video .video-box { height: 100% !important; }
-        .max-video .map-box, .max-video .controls, .max-video .unit-header { display: none; }
+        /* Maximizado Táctil */
+        .max-v { position: fixed !important; top: 0; left: 0; width: 100vw !important; height: 100vh !important; z-index: 3000; }
+        .max-v .video-box { height: 100% !important; }
+        .max-v .map-box, .max-v .controls, .max-v .unit-name { display: none; }
 
-        .max-map { position: fixed !important; top: 0; left: 0; width: 100vw !important; height: 100vh !important; z-index: 2000; }
-        .max-map .map-box { height: 100% !important; }
-        .max-map .video-box, .max-map .controls, .max-map .unit-header { display: none; }
+        .max-m { position: fixed !important; top: 0; left: 0; width: 100vw !important; height: 100vh !important; z-index: 3000; }
+        .max-m .map-box { height: 100% !important; }
+        .max-m .video-box, .max-m .controls, .max-m .unit-name { display: none; }
 
-        /* Alerta SOS */
-        .sos-overlay { position: absolute; top:0; left:0; width:100%; height:100%; background: rgba(255,0,0,0.9); display: none; z-index: 2500; flex-direction: column; align-items: center; justify-content: center; animation: pulse-sos 1s infinite; }
-        @keyframes pulse-sos { 0% { background: rgba(255,0,0,0.9); } 50% { background: rgba(150,0,0,0.9); } 100% { background: rgba(255,0,0,0.9); } }
-        .sos-title { font-size: 40px; font-weight: 900; color: #fff; margin-bottom: 20px; text-shadow: 2px 2px #000; }
+        .sos-alert { position: absolute; top:0; left:0; width:100%; height:100%; background: rgba(255,0,0,0.9); display: none; z-index: 4000; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+        .unit-name { background: #000; padding: 5px; font-size: 12px; border-bottom: 1px solid #222; display: flex; justify-content: space-between; padding: 5px 15px; }
     </style>
 </head>
 <body>
 
 <div class="top-bar">
-    <div><strong style="font-size: 22px;">PABLO SECURITY</strong> <span class="ms-3 text-secondary small">CENTRAL DE OPERACIONES</span></div>
-    <div class="d-flex align-items-center">
-        <span class="me-3 text-secondary fw-bold">ID DE ENLACE:</span>
-        <div class="id-badge" id="displayID">PABLO-CENTRAL-2026</div>
-    </div>
+    <div><strong style="font-size: 20px;">PABLO SECURITY</strong> | CENTRAL DE CONTROL</div>
+    <div class="badge bg-dark border border-success p-2 fs-5">ID: PABLO-CENTRAL-2026</div>
 </div>
 
 <div class="grid-fleet" id="monitorGrid"></div>
@@ -70,122 +54,104 @@
 <script>
     const peer = new Peer('PABLO-CENTRAL-2026');
     const units = {};
-    let myStream;
+    let myMicStream;
 
-    // Pedir micro de la central para poder HABLAR
-    navigator.mediaDevices.getUserMedia({ audio: true }).then(s => { myStream = s; });
+    // Pedir permiso de micro para la función HABLAR
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(s => myMicStream = s);
 
-    peer.on('open', (id) => console.log('Central Operativa:', id));
-
-    // RECEPCIÓN DE LLAMADAS (VIDEO Y AUDIO)
     peer.on('call', (call) => {
         call.answer();
         call.on('stream', (stream) => {
-            const checkVideo = setInterval(() => {
-                const video = document.getElementById('v-' + call.peer);
-                if (video) {
-                    video.srcObject = stream;
-                    video.onloadedmetadata = () => video.play();
-                    clearInterval(checkVideo);
-                }
+            const check = setInterval(() => {
+                const v = document.getElementById('v-' + call.peer);
+                if(v) { v.srcObject = stream; v.play(); clearInterval(check); }
             }, 500);
         });
     });
 
-    // RECEPCIÓN DE DATOS (LOGIN, GPS, SOS)
     peer.on('connection', (conn) => {
         conn.on('data', (data) => {
-            if (data.tipo === 'login') crearTarjeta(conn.peer, data.nombre);
-            if (data.tipo === 'gps') actualizarGPS(conn.peer, data.lat, data.lng);
-            if (data.tipo === 'sos') sonarAlerta(conn.peer, true, data.nombre);
+            if(data.tipo === 'login') crearUnidad(conn.peer, data.nombre);
+            if(data.tipo === 'gps') actualizarGPS(conn.peer, data.lat, data.lng);
+            if(data.tipo === 'sos') alerta(conn.peer, true);
+            if(data.tipo === 'ping') marcarOnline(conn.peer);
         });
+        conn.on('close', () => marcarOffline(conn.peer));
     });
 
-    function crearTarjeta(id, nombre) {
-        if (document.getElementById('card-' + id)) return;
+    function crearUnidad(id, nombre) {
+        if(document.getElementById('card-'+id)) return;
         const grid = document.getElementById('monitorGrid');
         const card = document.createElement('div');
-        card.className = 'unit-card';
-        card.id = 'card-' + id;
+        card.className = 'unit-card'; card.id = 'card-' + id;
         card.innerHTML = `
-            <div class="sos-overlay" id="sos-${id}">
-                <div class="sos-title">ALERTA SOS</div>
-                <h3 class="text-white mb-4">${nombre.toUpperCase()} EN PELIGRO</h3>
-                <button class="btn btn-light btn-lg fw-bold px-5" onclick="sonarAlerta('${id}', false)">CORTAR ALERTA</button>
+            <div class="sos-alert" id="sos-${id}">
+                <h1 class="text-white fw-bold">🚨 EMERGENCIA 🚨</h1>
+                <h3 class="text-white">${nombre.toUpperCase()}</h3>
+                <button class="btn btn-light fw-bold mt-4" onclick="alerta('${id}', false)">DETENER ALERTA</button>
             </div>
-            <div class="unit-header text-success"><strong>UNIDAD: ${nombre.toUpperCase()}</strong></div>
-            <div class="video-box" onclick="toggleZoom('${id}', 'video')">
-                <video id="v-${id}" autoplay playsinline muted></video>
+            <div class="unit-name">
+                <span class="text-success fw-bold">${nombre.toUpperCase()}</span>
+                <span id="st-${id}" class="text-success">● ONLINE</span>
             </div>
-            <div id="map-${id}" class="map-box" onclick="toggleZoom('${id}', 'map')"></div>
+            <div class="video-box" onclick="zoom('${id}', 'v')"><video id="v-${id}" autoplay playsinline muted></video></div>
+            <div id="map-${id}" class="map-box" onclick="zoom('${id}', 'm')"></div>
             <div class="controls">
-                <button class="btn-pablo" id="aud-${id}" onclick="toggleAudio('${id}')">🔊 Escuchar</button>
-                <button class="btn-pablo btn-hablar" 
-                    onmousedown="transmitir('${id}', true)" 
-                    onmouseup="transmitir('${id}', false)" 
-                    ontouchstart="transmitir('${id}', true)" 
-                    ontouchend="transmitir('${id}', false)">🎤 Hablar</button>
+                <button class="btn-pablo" id="aud-${id}" onclick="toggleAudio('${id}')">🔊 ESCUCHAR</button>
+                <button class="btn-pablo btn-hablar" onmousedown="hablar('${id}', true)" onmouseup="hablar('${id}', false)" ontouchstart="hablar('${id}', true)" ontouchend="hablar('${id}', false)">🎤 HABLAR</button>
             </div>
         `;
         grid.appendChild(card);
-        
-        // Inicializar Mapa Dark Profesional
-        units[id] = {
-            map: L.map('map-' + id, { zoomControl: false, attributionControl: false }).setView([0,0], 17),
-            marker: null
-        };
+        units[id] = { map: L.map('map-' + id, { zoomControl: false, attributionControl: false }).setView([0,0], 17), marker: null, timer: null };
         L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(units[id].map);
     }
 
-    // FUNCIÓN HABLAR (PUSH TO TALK)
-    function transmitir(id, activo) {
-        if(activo && myStream) {
-            peer.call(id, myStream);
+    function zoom(id, tipo) {
+        const c = document.getElementById('card-'+id);
+        if(tipo === 'v') c.classList.toggle('max-v');
+        else { c.classList.toggle('max-m'); setTimeout(() => units[id].map.invalidateSize(), 400); }
+    }
+
+    function hablar(id, on) {
+        if(on && myMicStream) peer.call(id, myMicStream);
+    }
+
+    function alerta(id, on) {
+        document.getElementById('sos-'+id).style.display = on ? 'flex' : 'none';
+        if(on) {
+            const a = new Audio('https://www.soundjay.com/buttons/beep-01a.mp3');
+            a.loop = true; a.id = "snd-"+id; a.play();
+        } else {
+            const a = document.getElementById("snd-"+id); if(a) { a.pause(); a.remove(); }
         }
     }
 
-    // FUNCIÓN MAXIMIZAR TÁCTIL (VIDEO O MAPA)
-    function toggleZoom(id, tipo) {
-        const card = document.getElementById('card-' + id);
-        if (tipo === 'video') {
-            card.classList.toggle('max-video');
-        } else {
-            card.classList.toggle('max-map');
-            setTimeout(() => { if(units[id]) units[id].map.invalidateSize(); }, 400);
-        }
+    function marcarOnline(id) {
+        const el = document.getElementById('st-'+id);
+        const card = document.getElementById('card-'+id);
+        if(el) { el.innerText = "● ONLINE"; el.className = "text-success"; card.classList.remove('offline'); }
+        clearTimeout(units[id].timer);
+        units[id].timer = setTimeout(() => marcarOffline(id), 6000);
+    }
+
+    function marcarOffline(id) {
+        const el = document.getElementById('st-'+id);
+        const card = document.getElementById('card-'+id);
+        if(el) { el.innerText = "● DESCONECTADO"; el.className = "text-danger"; card.classList.add('offline'); }
     }
 
     function actualizarGPS(id, lat, lng) {
-        if (!units[id]) return;
-        const pos = [lat, lng];
-        units[id].map.setView(pos);
-        if (units[id].marker) {
-            units[id].marker.setLatLng(pos);
-        } else {
-            units[id].marker = L.marker(pos).addTo(units[id].map);
-        }
+        if(!units[id]) return;
+        units[id].map.setView([lat, lng]);
+        if(units[id].marker) units[id].marker.setLatLng([lat, lng]);
+        else units[id].marker = L.marker([lat, lng]).addTo(units[id].map);
     }
 
     function toggleAudio(id) {
-        const video = document.getElementById('v-' + id);
-        const btn = document.getElementById('aud-' + id);
-        video.muted = !video.muted;
-        btn.classList.toggle('btn-active');
-        btn.innerText = video.muted ? "🔊 Escuchar" : "🔇 Silenciar";
-    }
-
-    function sonarAlerta(id, activo, nombre = "") {
-        const overlay = document.getElementById('sos-' + id);
-        overlay.style.display = activo ? 'flex' : 'none';
-        
-        if(activo) {
-            const sirena = new Audio('https://www.soundjay.com/buttons/beep-01a.mp3');
-            sirena.loop = true; sirena.id = "alarm-" + id;
-            sirena.play().catch(e => console.log("Permiso de audio requerido"));
-        } else {
-            const audio = document.getElementById("alarm-" + id);
-            if(audio) { audio.pause(); audio.remove(); }
-        }
+        const v = document.getElementById('v-'+id);
+        v.muted = !v.muted;
+        document.getElementById('aud-'+id).style.background = v.muted ? 'transparent' : '#0f0';
+        document.getElementById('aud-'+id).style.color = v.muted ? '#0f0' : '#000';
     }
 </script>
 </body>
