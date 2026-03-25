@@ -2,63 +2,63 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>PABLO SECURITY - PANEL DE CONTROL</title>
+    <title>PABLO SECURITY - CONTROL TOTAL GPS</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         body { background: #000; color: #0f0; font-family: 'Courier New', monospace; margin: 0; overflow: hidden; }
         .top-bar { background: #0a0a0a; border-bottom: 2px solid #0f0; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; height: 60px; }
-        .grid-fleet { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); grid-auto-rows: 250px; gap: 10px; padding: 15px; height: calc(100vh - 60px); overflow-y: auto; }
+        .grid-fleet { display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 15px; padding: 15px; height: calc(100vh - 60px); overflow-y: auto; }
         
-        .unit-card { background: #111; border: 1px solid #333; border-radius: 8px; position: relative; display: flex; flex-direction: column; }
-        .video-container { flex: 1; background: #000; position: relative; overflow: hidden; }
+        .unit-card { background: #111; border: 1px solid #333; border-radius: 10px; display: flex; flex-direction: column; overflow: hidden; position: relative; height: 400px; }
+        .video-box { height: 200px; background: #000; position: relative; }
         video { width: 100%; height: 100%; object-fit: cover; }
         
-        .unit-controls { padding: 10px; background: #0a0a0a; }
-        .btn-panel { font-size: 10px; padding: 5px; background: #222; color: #0f0; border: 1px solid #444; border-radius: 4px; margin-right: 2px; }
-        .btn-panel:hover { background: #333; }
+        .map-box { height: 120px; background: #222; border-top: 1px solid #333; }
+        .leaflet-container { filter: invert(100%) hue-rotate(180deg) brightness(95%); }
+
+        .unit-controls { padding: 8px; background: #0a0a0a; display: flex; flex-wrap: wrap; gap: 4px; }
+        .btn-panel { flex: 1; font-size: 9px; padding: 5px; background: #222; color: #0f0; border: 1px solid #444; font-weight: bold; }
         .btn-active { background: #0f0 !important; color: #000 !important; }
         
-        .sos-overlay { position: absolute; top:0; left:0; width:100%; height:100%; background: rgba(255,0,0,0.8); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 50; }
-        .btn-stop-alert { background: #fff; color: #000; font-weight: bold; border: none; padding: 10px; border-radius: 5px; }
-
-        /* Maximizar */
-        .maximized { position: fixed !important; top: 60px; left: 0; width: 100% !important; height: calc(100vh - 60px) !important; z-index: 1000; grid-column: span 1 / -1; }
+        .sos-overlay { position: absolute; top:0; left:0; width:100%; height:100%; background: rgba(255,0,0,0.8); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 100; }
+        .maximized { position: fixed !important; top: 60px; left: 0; width: 100% !important; height: calc(100vh - 60px) !important; z-index: 1000; }
     </style>
 </head>
 <body>
 
 <div class="top-bar">
-    <div><strong>PABLO SECURITY</strong> | CENTRAL DE MONITOREO</div>
-    <div class="d-flex align-items-center">
-        <span class="me-2 small">CÓDIGO:</span>
-        <div id="displayCod" class="badge bg-dark border border-success p-2 fs-5">------</div>
-    </div>
+    <div><strong>PABLO SECURITY</strong> | PANEL GPS 50 UNIDADES</div>
+    <div id="mainCode" class="badge bg-dark border border-success p-2 fs-5">------</div>
 </div>
 
 <div class="grid-fleet" id="monitorGrid"></div>
 
 <script>
     const code = Math.floor(100000 + Math.random() * 900000).toString();
-    document.getElementById('displayCod').innerText = code;
+    document.getElementById('mainCode').innerText = code;
     const peer = new Peer('pablo-' + code);
+    const units = {};
 
     peer.on('call', (call) => {
         call.answer();
         call.on('stream', (stream) => {
-            const v = document.getElementById('video-' + call.peer);
+            const v = document.getElementById('v-' + call.peer);
             if(v) { v.srcObject = stream; v.play(); }
         });
     });
 
     peer.on('connection', (conn) => {
         conn.on('data', (data) => {
-            if(data.tipo === 'nombre') crearTarjeta(conn.peer, data.valor);
+            if(data.tipo === 'nombre') crearUnidad(conn.peer, data.valor);
+            if(data.tipo === 'gps' && units[conn.peer]) actualizarGPS(conn.peer, data.lat, data.lng);
             if(data.tipo === 'alerta') sonarAlerta(conn.peer);
         });
     });
 
-    function crearTarjeta(id, nombre) {
+    function crearUnidad(id, nombre) {
         if(document.getElementById('card-'+id)) return;
         const grid = document.getElementById('monitorGrid');
         const card = document.createElement('div');
@@ -66,20 +66,33 @@
         card.id = 'card-' + id;
         card.innerHTML = `
             <div class="sos-overlay" id="sos-${id}">
-                <h3 class="text-white">🚨 SOS 🚨</h3>
-                <button class="btn-stop-alert" onclick="pararAlerta('${id}')">PARAR ALERTA</button>
+                <h2 class="text-white">🚨 SOS 🚨</h2>
+                <button class="btn btn-light btn-sm fw-bold" onclick="pararAlerta('${id}')">PARAR ALERTA</button>
             </div>
-            <div class="video-container">
-                <video id="video-${id}" autoplay playsinline muted></video>
-            </div>
+            <div class="video-box"><video id="v-${id}" autoplay playsinline muted></video></div>
+            <div id="map-${id}" class="map-box"></div>
             <div class="unit-controls">
-                <div class="text-white small mb-2"><strong>${nombre.toUpperCase()}</strong></div>
-                <button class="btn-panel" id="listen-${id}" onclick="toggleEscuchar('${id}')">ESCUCHAR</button>
+                <span class="text-white small w-100 mb-1"><strong>${nombre.toUpperCase()}</strong></span>
+                <button class="btn-panel" id="aud-${id}" onclick="toggleAudio('${id}')">ESCUCHAR</button>
                 <button class="btn-panel" onclick="alert('Hablando...')">HABLAR</button>
                 <button class="btn-panel" onclick="maximizar('${id}')">MAXIMIZAR</button>
             </div>
         `;
         grid.appendChild(card);
+
+        // Inicializar Mapa Leaflet
+        units[id] = {
+            map: L.map('map-' + id, { zoomControl: false }).setView([0,0], 15),
+            marker: null
+        };
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(units[id].map);
+    }
+
+    function actualizarGPS(id, lat, lng) {
+        const pos = [lat, lng];
+        units[id].map.setView(pos);
+        if(units[id].marker) units[id].marker.setLatLng(pos);
+        else units[id].marker = L.marker(pos).addTo(units[id].map);
     }
 
     function sonarAlerta(id) {
@@ -94,16 +107,15 @@
         if(a) { a.pause(); a.remove(); }
     }
 
-    function toggleEscuchar(id) {
-        const v = document.getElementById('video-'+id);
-        const btn = document.getElementById('listen-'+id);
+    function toggleAudio(id) {
+        const v = document.getElementById('v-'+id);
         v.muted = !v.muted;
-        btn.classList.toggle('btn-active');
-        btn.innerText = v.muted ? "ESCUCHAR" : "ESC_ON";
+        document.getElementById('aud-'+id).classList.toggle('btn-active');
     }
 
     function maximizar(id) {
         document.getElementById('card-'+id).classList.toggle('maximized');
+        setTimeout(() => units[id].map.invalidateSize(), 400);
     }
 </script>
 </body>
