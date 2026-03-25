@@ -3,92 +3,83 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>VISOR - PABLO SECURITY</title>
+    <title>TRANSMISOR PABLO SECURITY</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        body { background: #111; color: white; height: 100vh; display: flex; align-items: center; justify-content: center; margin: 0; overflow: hidden; }
-        #setup, #transmision { width: 90%; max-width: 400px; text-align: center; }
-        #localVideo { width: 100%; border-radius: 15px; background: #000; margin-top: 15px; height: 60vh; object-fit: cover; }
-        .btn-panic { 
-            position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); 
-            width: 100px; height: 100px; border-radius: 50%; 
-            background: red; color: white; font-weight: bold; font-size: 20px;
-            border: 6px solid white; box-shadow: 0 0 25px rgba(255,0,0,0.7); z-index: 2000;
-        }
+        body { background: #000; color: white; height: 100vh; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+        .btn-panic { width: 150px; height: 150px; border-radius: 50%; background: red; border: 8px solid white; color: white; font-size: 30px; font-weight: bold; animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
     </style>
 </head>
 <body>
 
-    <div id="setup">
-        <h2 class="mb-4">SISTEMA VIGILANCIA</h2>
-        <input type="text" id="inputNombre" class="form-control form-control-lg mb-3" placeholder="Nombre del Chofer / Móvil">
-        <button id="btnConectar" class="btn btn-success btn-lg w-100">INICIAR TRANSMISIÓN</button>
+    <div id="setup" class="text-center p-4">
+        <h3>PABLO SECURITY</h3>
+        <input type="text" id="nombreInput" class="form-control mb-3 text-center" placeholder="EJ: MOVIL 10">
+        <button id="btnStart" class="btn btn-success btn-lg w-100">CONECTAR A CENTRAL</button>
     </div>
 
-    <div id="transmision" style="display:none;">
-        <h4 id="txtNombreDisplay"></h4>
-        <video id="localVideo" autoplay playsinline muted></video>
-        <button class="btn-panic" id="panicBtn">ALERTA SOS</button>
+    <div id="transmision" style="display:none;" class="text-center">
+        <h2 id="dispNombre"></h2>
+        <p class="text-success">🔴 TRANSMITIENDO VIVO</p>
+        <video id="vLocal" autoplay playsinline muted style="width: 100px; height: 100px; border-radius: 50%; border: 2px solid #00ff00;"></video>
+        <br><br>
+        <button class="btn-panic" id="panicBtn">S.O.S</button>
+        <audio id="audioCentral" autoplay></audio>
     </div>
 
     <script>
-        const video = document.getElementById('localVideo');
         const urlParams = new URLSearchParams(window.location.search);
-        // Obtener el ID del link, si no existe genera uno
-        const idDelLink = urlParams.get('id') || 'M' + Math.floor(Math.random() * 999);
+        const myId = urlParams.get('id') || 'C' + Math.floor(Math.random()*1000);
+        let peer, conn;
 
-        document.getElementById('btnConectar').onclick = () => {
-            const nombreChofer = document.getElementById('inputNombre').value.trim();
-            if (!nombreChofer) return alert("Por favor ingresa tu nombre");
+        document.getElementById('btnStart').onclick = () => {
+            const nombre = document.getElementById('nombreInput').value.trim();
+            if(!nombre) return alert("Ingresa un nombre");
             
             document.getElementById('setup').style.display = 'none';
             document.getElementById('transmision').style.display = 'block';
-            document.getElementById('txtNombreDisplay').innerText = "MÓVIL: " + nombreChofer;
-            
-            iniciarTransmision(nombreId, nombreChofer);
-        };
+            document.getElementById('dispNombre').innerText = nombre;
 
-        // El ID real de conexión es el del Link para que no choquen
-        const nombreId = idDelLink;
+            peer = new Peer(myId);
 
-        function iniciarTransmision(idParaConectar, nombreReal) {
-            const peer = new Peer(idParaConectar);
-
-            navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: true })
-            .then(stream => {
-                video.srcObject = stream;
-                const call = peer.call('pablo-master-control-vip', stream);
-                const conn = peer.connect('pablo-master-control-vip');
-
-                conn.on('open', () => {
-                    // Enviamos el nombre real a la central para que lo muestre
-                    conn.send({ nombreChofer: nombreReal });
-                });
-
-                // Enviar GPS cada 5 seg
-                setInterval(() => {
-                    navigator.geolocation.getCurrentPosition(pos => {
-                        if(conn && conn.open) conn.send({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+            peer.on('open', () => {
+                navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: true })
+                .then(stream => {
+                    document.getElementById('vLocal').srcObject = stream;
+                    
+                    // Llamar a Central
+                    peer.call('pablo-master-control-vip', stream);
+                    
+                    // Conexión de datos
+                    conn = peer.connect('pablo-master-control-vip');
+                    conn.on('open', () => {
+                        conn.send({ tipo: 'nombre', valor: nombre });
                     });
-                }, 5000);
 
-                // Botón Pánico
-                document.getElementById('panicBtn').onclick = () => {
-                    if(conn && conn.open) {
-                        conn.send({ alerta: true });
-                        alert("¡ALERTA SOS ENVIADA!");
-                    }
-                };
+                    // GPS
+                    setInterval(() => {
+                        navigator.geolocation.getCurrentPosition(p => {
+                            if(conn.open) conn.send({ tipo: 'gps', lat: p.coords.latitude, lng: p.coords.longitude });
+                        });
+                    }, 5000);
+
+                    // Pánico
+                    document.getElementById('panicBtn').onclick = () => {
+                        if(conn.open) conn.send({ tipo: 'alerta' });
+                    };
+                });
             });
-        }
 
-        // Evitar pausa al minimizar
-        document.addEventListener("visibilitychange", () => {
-            if (document.hidden && video.srcObject) {
-                video.requestPictureInPicture().catch(() => {});
-            }
-        });
+            // Escuchar cuando PABLO le habla (desde la central)
+            peer.on('call', incomingCall => {
+                incomingCall.answer();
+                incomingCall.on('stream', centralStream => {
+                    document.getElementById('audioCentral').srcObject = centralStream;
+                });
+            });
+        };
     </script>
 </body>
 </html>
