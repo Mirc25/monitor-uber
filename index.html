@@ -7,86 +7,63 @@
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         body { background: #000; color: #0f0; font-family: sans-serif; text-align: center; margin: 0; padding: 20px; }
-        .box { background: #111; border: 1px solid #0f0; padding: 20px; border-radius: 15px; }
-        input { width: 90%; padding: 15px; margin: 10px 0; background: #000; border: 1px solid #444; color: #0f0; border-radius: 10px; font-size: 18px; }
-        .btn-pablo { width: 100%; padding: 20px; background: #0f0; color: #000; border: none; font-weight: bold; border-radius: 10px; font-size: 18px; cursor: pointer; }
-        #videoChofer { width: 100%; height: 250px; background: #000; border-radius: 10px; margin-top: 15px; object-fit: cover; display: none; }
-        .sos-btn { background: red; color: white; width: 150px; height: 150px; border-radius: 50%; border: 5px solid white; font-size: 25px; font-weight: bold; margin: 20px auto; display: none; }
+        input { width: 90%; padding: 15px; margin: 15px 0; background: #111; border: 1px solid #0f0; color: #fff; border-radius: 10px; font-size: 18px; }
+        .btn-p { width: 100%; padding: 20px; background: #0f0; color: #000; border: none; font-weight: bold; border-radius: 10px; font-size: 18px; margin-top: 10px; }
+        #videoBox { width: 100%; height: 280px; background: #111; border-radius: 15px; object-fit: cover; margin-top: 15px; border: 1px solid #333; display: none; }
+        .sos { background: red; color: white; width: 160px; height: 160px; border-radius: 50%; font-size: 30px; border: 5px solid white; margin: 30px auto; display: none; }
     </style>
 </head>
 <body>
-
-    <div id="setup" class="box">
+    <div id="login">
         <h1>PABLO SECURITY</h1>
-        <p>1. Escribí tu nombre o móvil</p>
-        <input type="text" id="nombreChofer" placeholder="Ej: Movil 04">
-        <button class="btn-pablo" onclick="prepararCamara()">SIGUIENTE</button>
+        <input type="text" id="nom" placeholder="NOMBRE / MÓVIL">
+        <button class="btn-p" onclick="activar()">ACTIVAR UNIDAD</button>
     </div>
 
-    <div id="transmision" style="display:none;">
-        <h2 id="displayNombre"></h2>
-        <video id="videoChofer" autoplay playsinline muted></video>
-        <button id="btnConectar" class="btn-pablo" style="margin-top:10px;">CONECTAR A CENTRAL</button>
-        <button id="sosBtn" class="sos-btn">S.O.S</button>
-        <audio id="audioCentral" autoplay></audio>
+    <div id="panel" style="display:none;">
+        <h2 id="uNom"></h2>
+        <video id="videoBox" autoplay playsinline muted></video>
+        <button id="sosBtn" class="sos">S.O.S</button>
+        <audio id="vozCentral" autoplay></audio>
+        <p style="color: #444; margin-top: 20px;">ENLACE ACTIVO CON CENTRAL</p>
     </div>
 
     <script>
         let localStream;
-        let peer;
-
-        async function prepararCamara() {
-            const nom = document.getElementById('nombreChofer').value;
-            if(!nom) return alert("Ingresá tu nombre");
+        async function activar() {
+            const n = document.getElementById('nom').value;
+            if(!n) return alert("Ingresa nombre");
             
-            try {
-                localStream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } }, 
-                    audio: true 
-                });
-                document.getElementById('videoChofer').srcObject = localStream;
-                document.getElementById('videoChofer').style.display = "block";
-                document.getElementById('setup').style.display = "none";
-                document.getElementById('transmision').style.display = "block";
-                document.getElementById('displayNombre').innerText = nom.toUpperCase();
-            } catch (e) {
-                alert("Error: Debes permitir cámara y micrófono.");
-            }
-        }
+            localStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: true });
+            document.getElementById('videoBox').srcObject = localStream;
+            document.getElementById('videoBox').style.display = "block";
+            document.getElementById('login').style.display = "none";
+            document.getElementById('panel').style.display = "block";
+            document.getElementById('uNom').innerText = n.toUpperCase();
 
-        document.getElementById('btnConectar').onclick = function() {
-            const nom = document.getElementById('nombreChofer').value;
-            this.innerText = "CONECTANDO...";
-            this.style.background = "#555";
-
-            peer = new Peer(); // ID aleatorio para el chofer
-
+            const peer = new Peer();
             peer.on('open', (id) => {
                 const conn = peer.connect('PABLO-CENTRAL-2026');
-                
                 conn.on('open', () => {
-                    conn.send({ tipo: 'login', nombre: nom });
+                    document.getElementById('sosBtn').style.display = "block";
+                    conn.send({ tipo: 'login', nombre: n });
                     peer.call('PABLO-CENTRAL-2026', localStream);
                     
-                    document.getElementById('btnConectar').style.display = "none";
-                    document.getElementById('sosBtn').style.display = "block";
-
+                    // Enviar ubicación y señal de vida
                     navigator.geolocation.watchPosition(p => {
                         conn.send({ tipo: 'gps', lat: p.coords.latitude, lng: p.coords.longitude });
                     }, null, { enableHighAccuracy: true });
-                });
 
-                document.getElementById('sosBtn').onclick = () => conn.send({ tipo: 'sos' });
+                    setInterval(() => conn.send({ tipo: 'ping' }), 3000);
+                    document.getElementById('sosBtn').onclick = () => conn.send({ tipo: 'sos' });
+                });
             });
 
-            // Escuchar voz de la central
-            peer.on('call', (call) => {
+            peer.on('call', call => {
                 call.answer();
-                call.on('stream', (remoteStream) => {
-                    document.getElementById('audioCentral').srcObject = remoteStream;
-                });
+                call.on('stream', s => document.getElementById('vozCentral').srcObject = s);
             });
-        };
+        }
     </script>
 </body>
 </html>
