@@ -2,108 +2,97 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>PABLO SECURITY - CENTRAL BLINDADA 2026</title>
+    <title>PABLO SECURITY - CENTRAL PROFESIONAL (SESSIONS)</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         body { background: #000; color: #0f0; font-family: sans-serif; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
-        .top-bar { background: #0a0a0a; border-bottom: 2px solid #0f0; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; height: 60px; flex-shrink: 0; z-index: 1000; }
-        
+        .top-bar { background: #0a0a0a; border-bottom: 2px solid #0f0; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; height: 65px; flex-shrink: 0; z-index: 1000; }
         .main-layout { display: flex; flex: 1; overflow: hidden; }
         .grid-fleet { flex: 1; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px; padding: 15px; overflow-y: auto; background: #000; align-content: start; scroll-behavior: smooth; }
         .right-panel { width: 440px; background: #050505; border-left: 2px solid #0f0; padding: 15px; display: flex; flex-direction: column; align-items: center; flex-shrink: 0; }
         #mainMap { width: 400px; height: 400px; border: 2px solid #0f0; border-radius: 10px; background: #111; }
-
+        
         /* TARJETA INDIVIDUAL */
-        .unit-card { background: #050505; border: 1px solid #333; border-radius: 8px; width: 300px; height: 430px; display: flex; flex-direction: column; position: relative; overflow: hidden; transition: all 0.3s ease; margin: 0 auto; }
-        .unit-header { background: #111; padding: 6px; font-size: 11px; text-align: center; border-bottom: 1px solid #222; font-weight: bold; color: #0f0; }
+        .unit-card { background: #050505; border: 1px solid #333; border-radius: 8px; width: 300px; height: 430px; display: flex; flex-direction: column; position: relative; overflow: hidden; margin: 0 auto; }
+        .unit-header { background: #111; padding: 6px; font-size: 11px; text-align: center; border-bottom: 1px solid #222; color: #0f0; font-weight: bold; }
         .video-box { width: 300px; height: 180px; background: #000; cursor: pointer; }
-        video { width: 100%; height: 100%; object-fit: contain; } 
-        .map-box { width: 300px; height: 170px; border-top: 1px solid #222; cursor: pointer; }
+        video { width: 100%; height: 100%; object-fit: contain; }
+        .map-box { width: 300px; height: 170px; border-top: 1px solid #222; }
 
-        .leaflet-container { filter: invert(90%) hue-rotate(180deg) brightness(100%) contrast(100%); }
-
-        /* MAXIMIZADO 50% */
+        /* ESTILOS TÁCTICOS */
         .maximized { position: fixed !important; top: 10%; left: 25%; width: 50% !important; height: 80% !important; z-index: 9999 !important; background: #000 !important; border: 4px solid #0f0 !important; box-shadow: 0 0 50px #0f0; }
-        .maximized .video-box { width: 100% !important; height: 60% !important; }
-        .maximized .map-box { width: 100% !important; height: 40% !important; }
-
-        /* ESTILO NEÓN FUCSIA PARA AUTOS */
-        .fuchsia-car-marker { filter: invert(19%) sepia(87%) saturate(6011%) hue-rotate(296deg) brightness(101%) contrast(110%); drop-shadow(0 0 8px rgba(255, 0, 255, 0.9)); }
-
-        .zona-roja-alert { border: 5px solid red !important; animation: blinker 0.6s linear infinite; box-shadow: 0 0 25px red; }
+        .fuchsia-car-marker { filter: invert(19%) sepia(87%) saturate(6011%) hue-rotate(296deg) brightness(101%) contrast(110%); }
+        .zona-roja-alert { border: 5px solid red !important; animation: blinker 0.6s linear infinite; }
         @keyframes blinker { 50% { border-color: transparent; } }
 
-        .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 6px; background: #0a0a0a; border-top: 1px solid #222; }
-        .btn-pablo { font-size: 10px; font-weight: bold; padding: 8px 0; border: 1px solid #0f0; background: transparent; color: #0f0; border-radius: 4px; text-transform: uppercase; cursor: pointer; }
-        .sos-overlay { position: absolute; top:0; left:0; width:100%; height:100%; background: rgba(255,0,0,0.8); display: none; z-index: 100; flex-direction: column; align-items: center; justify-content: center; color: #fff; }
+        /* PANEL DE GENERACIÓN */
+        .token-gen-box { background: #111; border: 1px solid #0f0; padding: 10px; border-radius: 5px; display: flex; gap: 10px; align-items: center; }
+        .leaflet-container { filter: invert(90%) hue-rotate(180deg) brightness(100%) contrast(100%); }
     </style>
 </head>
 <body>
 
 <div class="top-bar">
-    <div class="fw-bold">PABLO SECURITY - MONITOR DE FLOTA</div>
-    <div class="d-flex align-items-center">
-        <span class="me-2 text-white">CÓDIGO FIJO:</span>
-        <div id="tokenDisplay" class="badge bg-dark border border-success fs-5">PABLO-SECURITY-2026</div>
+    <div class="fw-bold">PABLO SECURITY - CENTRAL SESSIONS</div>
+    <div class="token-gen-box">
+        <select id="timeSelect" class="btn btn-dark btn-sm border-success text-success">
+            <option value="12">12 HORAS</option>
+            <option value="24">24 HORAS</option>
+            <option value="720">30 DÍAS</option>
+        </select>
+        <button class="btn btn-success btn-sm fw-bold" onclick="generarTokenNuevo()">GENERAR TOKEN</button>
+        <span id="tokenDisplay" class="badge bg-dark border border-warning fs-5">----</span>
     </div>
-    <div id="statusDot" class="badge bg-success">CENTRAL ACTIVA</div>
+    <div id="status" class="text-success small">SISTEMA LISTO</div>
 </div>
 
 <div class="main-layout">
     <div class="grid-fleet" id="monitorGrid"></div>
     <div class="right-panel">
-        <h6 class="text-center text-success mb-2">RADAR GENERAL (ZONAS ROJAS)</h6>
+        <h6 class="text-center text-success mb-2">RADAR TÁCTICO</h6>
         <div id="mainMap"></div>
-        <p class="text-muted mt-3" style="font-size: 10px; text-align: center;">Autos Fucsia: Clic para maximizar al 50%.</p>
+        <div id="activeList" class="mt-3 w-100 text-white small"></div>
     </div>
 </div>
 
 <script>
     let peer, mainMap;
     const units = {};
-    const zonasPeligrosasMarker = [];
-    const mapStyle = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
-    const FIXED_TOKEN = 'PABLO-SECURITY-2026'; // ID PERMANENTE
+    const CENTRAL_ID = 'PABLO-CENTRAL-MASTER-2026'; // ID fijo para que los choferes siempre encuentren la central
+    const carIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', iconSize: [36, 36], iconAnchor: [18, 18], className: 'fuchsia-car-marker' });
 
-    const carIconNeón = L.icon({
-        iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png',
-        iconSize: [36, 36],
-        iconAnchor: [18, 18],
-        className: 'fuchsia-car-marker'
-    });
-
-    const dbZonas = [
-        { n: "B° Cipolletti", lat: -31.503, lng: -68.535, r: 450 },
-        { n: "B° San Francisco", lat: -31.509, lng: -68.529, r: 400 },
-        { n: "B° CGT", lat: -31.506, lng: -68.519, r: 380 },
-        { n: "B° Valle Grande", lat: -31.579, lng: -68.541, r: 600 },
-        { n: "B° Teresa de Calcuta", lat: -31.583, lng: -68.514, r: 450 },
-        { n: "B° La Estación", lat: -31.564, lng: -68.517, r: 400 },
-        { n: "B° Huarpe", lat: -31.604, lng: -68.521, r: 500 },
-        { n: "Pocito Norte/Calle 5", lat: -31.597, lng: -68.539, r: 420 },
-        { n: "Marquesado", lat: -31.536, lng: -68.618, r: 450 }
-    ];
-
-    function initMaps() {
+    // 1. INICIALIZAR MAPA Y PERSISTENCIA
+    function init() {
         mainMap = L.map('mainMap').setView([-31.5375, -68.5364], 13);
-        L.tileLayer(mapStyle).addTo(mainMap);
-        dbZonas.forEach(z => {
-            const circulo = L.circle([z.lat, z.lng], { color: 'red', fillColor: '#f03', fillOpacity: 0.3, radius: z.r, weight: 1 }).addTo(mainMap);
-            zonasPeligrosasMarker.push(circulo);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mainMap);
+        
+        // Cargar choferes que ya estaban conectados antes del F5
+        const savedUnits = JSON.parse(localStorage.getItem('pablo_units') || '{}');
+        Object.keys(savedUnits).forEach(id => {
+            if (Date.now() < savedUnits[id].expires) {
+                crearUnidad(id, savedUnits[id].nombre);
+            }
         });
+
+        conectarCentral();
     }
 
-    function iniciarCentral() {
-        // Inicializamos PeerJS con el ID fijo
-        peer = new Peer(FIXED_TOKEN);
+    function conectarCentral() {
+        peer = new Peer(CENTRAL_ID);
+        peer.on('open', () => document.getElementById('status').innerText = "CENTRAL ONLINE");
         
-        peer.on('open', (id) => {
-            console.log('Central conectada con ID:', id);
-            document.getElementById('statusDot').innerText = "CENTRAL ACTIVA";
-            document.getElementById('statusDot').className = "badge bg-success";
+        peer.on('connection', (conn) => {
+            conn.on('data', (data) => {
+                if(data.tipo === 'login') {
+                    // Validar si el token del chofer es válido (lógica simulada)
+                    crearUnidad(conn.peer, data.nombre);
+                    guardarEnMemoria(conn.peer, data.nombre);
+                }
+                if(data.tipo === 'gps') actualizarGPS(conn.peer, data.lat, data.lng);
+            });
         });
 
         peer.on('call', (call) => {
@@ -113,21 +102,24 @@
                 if(v) { v.srcObject = s; v.play(); }
             });
         });
+    }
 
-        peer.on('connection', (conn) => {
-            conn.on('data', (data) => {
-                if(data.tipo === 'login') crearUnidad(conn.peer, data.nombre);
-                if(data.tipo === 'gps') actualizarGPS(conn.peer, data.lat, data.lng);
-                if(data.tipo === 'sos') toggleSOS(conn.peer, true);
-            });
-        });
+    // 2. GENERACIÓN DE TOKENS POR TIEMPO
+    function generarTokenNuevo() {
+        const horas = document.getElementById('timeSelect').value;
+        const randomCode = Math.floor(1000 + Math.random() * 9000);
+        const expires = Date.now() + (horas * 60 * 60 * 1000);
+        
+        const tokenData = { code: randomCode, expires: expires };
+        document.getElementById('tokenDisplay').innerText = randomCode;
+        
+        alert(`Token ${randomCode} generado por ${horas}hs.\nEntréguelo al chofer.`);
+    }
 
-        peer.on('error', (err) => {
-            if(err.type === 'id-taken') {
-                console.log('ID ya en uso, reintentando...');
-                setTimeout(iniciarCentral, 2000);
-            }
-        });
+    function guardarEnMemoria(id, nombre) {
+        const savedUnits = JSON.parse(localStorage.getItem('pablo_units') || '{}');
+        savedUnits[id] = { nombre: nombre, expires: Date.now() + (24 * 60 * 60 * 1000) }; // Default 24h al conectar
+        localStorage.setItem('pablo_units', JSON.stringify(savedUnits));
     }
 
     function crearUnidad(id, nombre) {
@@ -136,38 +128,22 @@
         const card = document.createElement('div');
         card.className = 'unit-card'; card.id = 'card-' + id;
         card.innerHTML = `
-            <div class="sos-overlay" id="sos-${id}"><h3 class="fw-bold">🚨 SOS 🚨</h3></div>
             <div class="unit-header">${nombre.toUpperCase()}</div>
             <div class="video-box" onclick="toggleMax('${id}')"><video id="v-${id}" autoplay playsinline muted></video></div>
             <div id="map-ind-${id}" class="map-box" onclick="toggleMax('${id}')"></div>
-            <div class="controls">
-                <button class="btn-pablo" onclick="toggleAudio('${id}')">🔊 AUDIO</button>
-                <button class="btn-pablo" onmousedown="hablar('${id}',true)" onmouseup="hablar('${id}',false)">🎤 HABLAR</button>
-            </div>
         `;
         grid.appendChild(card);
 
         const mInd = L.map('map-ind-' + id, { zoomControl: false, attributionControl: false }).setView([0,0], 17);
-        L.tileLayer(mapStyle).addTo(mInd);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mInd);
         
-        const markerGen = L.marker([0,0], {icon: carIconNeón}).addTo(mainMap);
+        const markerGen = L.marker([0,0], {icon: carIcon}).addTo(mainMap);
         markerGen.on('click', () => {
             document.getElementById('card-' + id).scrollIntoView({ behavior: 'smooth', block: 'center' });
             toggleMax(id);
         });
 
-        units[id] = { mInd, markerInd: L.marker([0,0]).addTo(mInd), markerGen, card };
-    }
-
-    function toggleMax(id) {
-        const card = document.getElementById('card-' + id);
-        if(!card.classList.contains('maximized')) {
-            document.querySelectorAll('.maximized').forEach(c => c.classList.remove('maximized'));
-            card.classList.add('maximized');
-        } else {
-            card.classList.remove('maximized');
-        }
-        setTimeout(() => { units[id].mInd.invalidateSize(); }, 300);
+        units[id] = { mInd, markerInd: L.marker([0,0]).addTo(mInd), markerGen };
     }
 
     function actualizarGPS(id, lat, lng) {
@@ -176,31 +152,15 @@
         units[id].mInd.setView(pos);
         units[id].markerInd.setLatLng(pos);
         units[id].markerGen.setLatLng(pos);
-
-        let peligro = false;
-        zonasPeligrosasMarker.forEach(z => {
-            if(mainMap.distance(pos, z.getLatLng()) < z.getRadius()) peligro = true;
-        });
-        
-        if(peligro) units[id].card.classList.add('zona-roja-alert');
-        else units[id].card.classList.remove('zona-roja-alert');
     }
 
-    function toggleAudio(id) { const v = document.getElementById('v-'+id); if(v) v.muted = !v.muted; }
-
-    async function hablar(id, on) {
-        if(on) {
-            try {
-                const s = await navigator.mediaDevices.getUserMedia({ audio: true });
-                units[id].ptt = peer.call(id, s);
-            } catch(e) {}
-        } else if(units[id].ptt) { units[id].ptt.close(); }
+    function toggleMax(id) {
+        const card = document.getElementById('card-' + id);
+        card.classList.toggle('maximized');
+        setTimeout(() => { units[id].mInd.invalidateSize(); }, 300);
     }
 
-    function toggleSOS(id, on) { document.getElementById('sos-'+id).style.display = on ? 'flex' : 'none'; }
-
-    initMaps();
-    iniciarCentral();
+    window.onload = init;
 </script>
 </body>
 </html>
