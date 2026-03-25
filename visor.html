@@ -14,7 +14,7 @@
             position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); 
             width: 100px; height: 100px; border-radius: 50%; 
             background: red; color: white; font-weight: bold; font-size: 20px;
-            border: 6px solid white; box-shadow: 0 0 25px rgba(255,0,0,0.7); z-index: 1000;
+            border: 6px solid white; box-shadow: 0 0 25px rgba(255,0,0,0.7); z-index: 2000;
         }
     </style>
 </head>
@@ -27,47 +27,57 @@
     </div>
 
     <div id="transmision" style="display:none;">
-        <h4 id="txtNombre"></h4>
+        <h4 id="txtNombreDisplay"></h4>
         <video id="localVideo" autoplay playsinline muted></video>
         <button class="btn-panic" id="panicBtn">ALERTA SOS</button>
     </div>
 
     <script>
         const video = document.getElementById('localVideo');
-        let peer, conn;
+        const urlParams = new URLSearchParams(window.location.search);
+        // Obtener el ID del link, si no existe genera uno
+        const idDelLink = urlParams.get('id') || 'M' + Math.floor(Math.random() * 999);
 
         document.getElementById('btnConectar').onclick = () => {
-            const nombre = document.getElementById('inputNombre').value.trim().replace(/\s+/g, '-');
-            if (!nombre) return alert("Ingresa un nombre");
+            const nombreChofer = document.getElementById('inputNombre').value.trim();
+            if (!nombreChofer) return alert("Por favor ingresa tu nombre");
             
             document.getElementById('setup').style.display = 'none';
             document.getElementById('transmision').style.display = 'block';
-            document.getElementById('txtNombre').innerText = "CONECTADO COMO: " + nombre;
+            document.getElementById('txtNombreDisplay').innerText = "MÓVIL: " + nombreChofer;
             
-            iniciarTransmision(nombre);
+            iniciarTransmision(nombreId, nombreChofer);
         };
 
-        function iniciarTransmision(nombreId) {
-            peer = new Peer(nombreId);
+        // El ID real de conexión es el del Link para que no choquen
+        const nombreId = idDelLink;
+
+        function iniciarTransmision(idParaConectar, nombreReal) {
+            const peer = new Peer(idParaConectar);
 
             navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: true })
             .then(stream => {
                 video.srcObject = stream;
                 const call = peer.call('pablo-master-control-vip', stream);
-                conn = peer.connect('pablo-master-control-vip');
+                const conn = peer.connect('pablo-master-control-vip');
+
+                conn.on('open', () => {
+                    // Enviamos el nombre real a la central para que lo muestre
+                    conn.send({ nombreChofer: nombreReal });
+                });
 
                 // Enviar GPS cada 5 seg
                 setInterval(() => {
                     navigator.geolocation.getCurrentPosition(pos => {
                         if(conn && conn.open) conn.send({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-                    }, null, {enableHighAccuracy: true});
+                    });
                 }, 5000);
 
                 // Botón Pánico
                 document.getElementById('panicBtn').onclick = () => {
                     if(conn && conn.open) {
                         conn.send({ alerta: true });
-                        alert("¡ALERTA ENVIADA!");
+                        alert("¡ALERTA SOS ENVIADA!");
                     }
                 };
             });
