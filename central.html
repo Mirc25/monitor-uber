@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>PABLO SECURITY - CENTRAL COMPACTA</title>
+    <title>PABLO SECURITY - CENTRAL COMPACTA v10</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -11,23 +11,21 @@
         body { background: #000; color: #0f0; font-family: sans-serif; margin: 0; overflow: hidden; }
         .top-bar { background: #0a0a0a; border-bottom: 2px solid #0f0; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; height: 60px; }
         
-        /* Grilla ultra eficiente */
         .grid-fleet { 
             display: grid; 
-            grid-template-columns: repeat(auto-fill, 300px); /* Un poco más angostas para que entren más */
+            grid-template-columns: repeat(auto-fill, 300px); 
             gap: 15px; 
             padding: 15px; 
             height: calc(100vh - 60px); 
             overflow-y: auto;
         }
 
-        /* Tarjeta con ALTO AJUSTADO: Se termina en los botones */
         .unit-card { 
             background: #050505; 
             border: 1px solid #333; 
             border-radius: 8px; 
             width: 300px; 
-            height: fit-content; /* CLAVE: La tarjeta solo mide lo que miden sus elementos */
+            height: fit-content; /* El bloque termina justo en los botones */
             display: flex; 
             flex-direction: column; 
             position: relative; 
@@ -36,15 +34,13 @@
         
         .unit-header { background: #111; padding: 4px; font-size: 11px; text-align: center; border-bottom: 1px solid #222; color: #0f0; font-weight: bold; }
 
-        /* Video: Proporción ajustada */
+        /* VIDEO SIN ZOOM (CONTAIN) */
         .video-box { width: 300px; height: 220px; background: #000; cursor: pointer; }
-        video { width: 100%; height: 100%; object-fit: cover; } 
+        video { width: 100%; height: 100%; object-fit: contain; background: #000; } 
         
-        /* Mapa: Más compacto para ahorrar verticalidad */
         .map-box { width: 300px; height: 140px; border-top: 1px solid #222; }
         .leaflet-container { filter: invert(100%) hue-rotate(180deg) brightness(95%); }
 
-        /* Controles: Sin márgenes extra */
         .controls { 
             display: grid; 
             grid-template-columns: 1fr 1fr; 
@@ -117,13 +113,13 @@
                 <button class="btn btn-light btn-sm fw-bold" onclick="toggleSOS('${id}', false)">CERRAR</button>
             </div>
             <div class="unit-header">${nombre.toUpperCase()}</div>
-            <div class="video-box" onclick="this.parentElement.style.position='fixed';this.parentElement.style.inset='0';this.parentElement.style.width='100vw';this.parentElement.style.height='100vh';this.parentElement.style.zIndex='200';">
+            <div class="video-box" onclick="expandir('${id}')">
                 <video id="v-${id}" autoplay playsinline muted></video>
             </div>
             <div id="map-${id}" class="map-box"></div>
             <div class="controls">
                 <button class="btn-pablo" onclick="toggleAudio('${id}')">🔊 AUDIO</button>
-                <button class="btn-pablo btn-hablar" onmousedown="hablar('${id}',true)" onmouseup="hablar('${id}',false)">🎤 HABLAR</button>
+                <button class="btn-pablo btn-hablar" onmousedown="hablar('${id}',true)" onmouseup="hablar('${id}',false)" ontouchstart="hablar('${id}',true)" ontouchend="hablar('${id}',false)">🎤 HABLAR</button>
             </div>
         `;
         grid.appendChild(card);
@@ -131,10 +127,22 @@
         L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(units[id].map);
     }
 
+    function expandir(id) {
+        const card = document.getElementById('card-'+id);
+        if(card.style.position === 'fixed') {
+            card.style.position = 'relative'; card.style.inset = 'auto'; card.style.width = '300px'; card.style.height = 'fit-content'; card.style.zIndex = '1';
+        } else {
+            card.style.position = 'fixed'; card.style.inset = '0'; card.style.width = '100vw'; card.style.height = '100vh'; card.style.zIndex = '200';
+        }
+        setTimeout(() => units[id].map.invalidateSize(), 300);
+    }
+
     async function hablar(id, on) {
         if(on) {
-            const s = await navigator.mediaDevices.getUserMedia({ audio: true });
-            units[id].ptt = peer.call(id, s);
+            try {
+                const s = await navigator.mediaDevices.getUserMedia({ audio: true });
+                units[id].ptt = peer.call(id, s);
+            } catch(e) { console.error("Error micro"); }
         } else if(units[id].ptt) {
             units[id].ptt.close();
         }
