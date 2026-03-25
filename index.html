@@ -31,20 +31,13 @@
 
     <script>
         const peer = new Peer('pablo-master-control-vip');
-        let streamsChoferes = {}; // Almacena los streams de salida hacia cada chofer
+        let streamsChoferes = {};
 
-        peer.on('open', (id) => console.log('Central abierta con ID:', id));
-
-        // 1. Manejar llamadas de video/audio (Entrantes)
         peer.on('call', call => {
-            // No contestamos con audio global, sino que manejaremos el audio individualmente después
             call.answer(); 
-            call.on('stream', remoteStream => {
-                crearCuadro(remoteStream, call.peer);
-            });
+            call.on('stream', remoteStream => { crearCuadro(remoteStream, call.peer); });
         });
 
-        // 2. Manejar conexión de datos (Nombre, GPS, Alertas)
         peer.on('connection', conn => {
             conn.on('data', data => {
                 const id = conn.peer;
@@ -65,7 +58,6 @@
 
         function crearCuadro(stream, id) {
             if (document.getElementById('div-' + id)) return;
-
             const div = document.createElement('div');
             div.id = 'div-' + id;
             div.className = 'cam-container';
@@ -73,16 +65,12 @@
                 <div class="nombre-chofer" id="tit-${id}">CONECTANDO...</div>
                 <video id="vid-${id}" class="video-box" autoplay playsinline></video>
                 <div class="controls">
-                    <button class="btn btn-primary btn-sm" onclick="toggleMute('${id}')" id="btn-mute-${id}">🔇 ESCUCHAR MÓVIL: ON</button>
-                    
-                    <button class="btn-talk" 
-                        onmousedown="hablarA('${id}', true)" 
-                        onmouseup="hablarA('${id}', false)"
-                        onmouseleave="hablarA('${id}', false)">
-                        🎤 MANTENER PARA HABLAR
-                    </button>
-
-                    <div id="info-${id}" style="font-size:12px; color:#00ff00;">Buscando satélites...</div>
+                    <div class="d-flex gap-1">
+                        <button class="btn btn-primary btn-sm w-50" onclick="toggleMute('${id}')" id="btn-mute-${id}">🔇 ESCUCHAR: ON</button>
+                        <button class="btn btn-success btn-sm w-50" onclick="detenerAlerta('${id}')">Desactivar Alerta</button>
+                    </div>
+                    <button class="btn-talk" onmousedown="hablarA('${id}', true)" onmouseup="hablarA('${id}', false)" onmouseleave="hablarA('${id}', false)">🎤 MANTENER PARA HABLAR</button>
+                    <div id="info-${id}" style="font-size:12px; color:#00ff00;">Buscando GPS...</div>
                     <button class="btn btn-dark btn-sm mt-1" onclick="document.getElementById('div-${id}').remove()">DESCONECTAR</button>
                 </div>
                 <iframe id="map-${id}" class="map-mini"></iframe>
@@ -91,34 +79,34 @@
             document.getElementById('vid-' + id).srcObject = stream;
         }
 
+        function detenerAlerta(id) {
+            const cuadro = document.getElementById('div-' + id);
+            if(cuadro) cuadro.classList.remove('alerta-activa');
+        }
+
         async function hablarA(idChofer, activo) {
             if (activo) {
                 try {
                     const streamVoz = await navigator.mediaDevices.getUserMedia({ audio: true });
                     streamsChoferes[idChofer] = peer.call(idChofer, streamVoz);
-                    console.log("Hablando a: " + idChofer);
-                } catch (e) { console.error("Error micro:", e); }
-            } else {
-                if (streamsChoferes[idChofer]) {
-                    streamsChoferes[idChofer].close();
-                    delete streamsChoferes[idChofer];
-                    console.log("Corte de voz a: " + idChofer);
-                }
+                } catch (e) { console.error(e); }
+            } else if (streamsChoferes[idChofer]) {
+                streamsChoferes[idChofer].close();
+                delete streamsChoferes[idChofer];
             }
         }
 
         function toggleMute(id) {
             const v = document.getElementById('vid-' + id);
             v.muted = !v.muted;
-            document.getElementById('btn-mute-' + id).innerText = v.muted ? "🔇 ESCUCHAR MÓVIL: OFF" : "🔊 ESCUCHAR MÓVIL: ON";
-            document.getElementById('btn-mute-' + id).className = v.muted ? "btn btn-secondary btn-sm" : "btn btn-primary btn-sm";
+            document.getElementById('btn-mute-' + id).innerText = v.muted ? "🔇 ESCUCHAR: OFF" : "🔊 ESCUCHAR: ON";
         }
 
         function generarLinkUnico() {
             const token = 'M' + Math.floor(Math.random() * 9999);
             const link = `${window.location.origin}${window.location.pathname.replace('index.html','')}visor.html?id=${token}`;
             navigator.clipboard.writeText(link);
-            alert("LINK PARA CHOFER COPIADO:\n" + link);
+            alert("LINK COPIADO:\n" + link);
         }
     </script>
 </body>
