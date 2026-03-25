@@ -2,29 +2,32 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>PABLO SECURITY - GESTIÓN DE ABONADOS</title>
+    <title>PABLO SECURITY - CENTRAL DE GESTIÓN TOTAL</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        body { background: #000; color: #0f0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
-        .top-bar { background: #0a0a0a; border-bottom: 2px solid #0f0; padding: 10px; display: flex; justify-content: space-between; align-items: center; height: 70px; }
+        body { background: #000; color: #0f0; font-family: 'Segoe UI', sans-serif; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        .top-bar { background: #0a0a0a; border-bottom: 2px solid #0f0; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; height: 75px; flex-shrink: 0; }
         
-        /* PANEL DE REGISTRO */
-        .admin-controls { display: flex; gap: 10px; align-items: center; background: #111; padding: 5px 15px; border-radius: 10px; border: 1px solid #333; }
-        input, select { background: #000 !important; color: #0f0 !important; border: 1px solid #0f0 !important; font-size: 13px; }
+        /* BARRA DE ALTA */
+        .alta-panel { display: flex; gap: 10px; background: #111; padding: 8px; border-radius: 8px; border: 1px solid #333; }
+        input, select { background: #000 !important; color: #0f0 !important; border: 1px solid #0f0 !important; font-weight: bold; }
 
         .main-layout { display: flex; flex: 1; overflow: hidden; }
         .grid-fleet { flex: 1; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px; padding: 15px; overflow-y: auto; }
-        .right-panel { width: 400px; background: #050505; border-left: 2px solid #0f0; padding: 15px; display: flex; flex-direction: column; }
-        
-        #mainMap { width: 100%; height: 350px; border: 2px solid #0f0; border-radius: 8px; margin-bottom: 15px; }
 
-        /* LISTA DE USUARIOS (EL BOTÓN QUE PEDISTE) */
-        .user-list-container { flex: 1; background: #111; border: 1px solid #222; border-radius: 5px; padding: 10px; overflow-y: auto; }
-        .user-item { border-bottom: 1px solid #222; padding: 5px 0; font-size: 12px; display: flex; justify-content: space-between; }
-        .user-item b { color: #ff0; }
+        /* PANEL DERECHO: BASE DE DATOS Y RADAR */
+        .right-panel { width: 420px; background: #050505; border-left: 2px solid #0f0; padding: 15px; display: flex; flex-direction: column; flex-shrink: 0; }
+        #mainMap { width: 100%; height: 300px; border: 2px solid #0f0; border-radius: 8px; margin-bottom: 15px; }
+
+        /* TABLA DE USUARIOS PARA RECOBRAR TOKENS */
+        .db-container { flex: 1; background: #0a0a0a; border: 1px solid #222; border-radius: 5px; overflow: hidden; display: flex; flex-direction: column; }
+        .db-header { background: #1a1a1a; padding: 5px 10px; font-size: 12px; font-weight: bold; color: #0f0; border-bottom: 1px solid #0f0; }
+        .db-body { flex: 1; overflow-y: auto; padding: 5px; font-size: 11px; }
+        .user-row { display: grid; grid-template-columns: 2fr 1fr 1fr; border-bottom: 1px solid #222; padding: 5px 0; align-items: center; }
+        .user-row b { color: #ff0; } /* El Token resalta en Amarillo */
 
         .unit-card { background: #050505; border: 1px solid #333; height: 430px; position: relative; border-radius: 8px; }
         .fuchsia-car-marker { filter: invert(19%) sepia(87%) saturate(6011%) hue-rotate(296deg) brightness(101%) contrast(110%); }
@@ -33,36 +36,34 @@
 <body>
 
 <div class="top-bar">
-    <div class="fw-bold text-success">PABLO SECURITY <br><small>CONTROL DE ACCESOS</small></div>
+    <div class="fw-bold">PABLO SECURITY <br><small class="text-secondary">SISTEMA PROFESIONAL</small></div>
     
-    <div class="admin-controls">
-        <input type="text" id="inputNombre" placeholder="NOMBRE DEL CHOFER" class="form-control form-control-sm" style="width: 180px;">
-        <select id="inputTiempo" class="form-select form-select-sm" style="width: 110px;">
+    <div class="alta-panel">
+        <input type="text" id="regNombre" placeholder="NOMBRE CHOFER (Ej: MOVIL 01)" class="form-control form-control-sm" style="width: 200px;">
+        <select id="regTiempo" class="form-select form-select-sm" style="width: 120px;">
             <option value="12">12 HORAS</option>
             <option value="24">24 HORAS</option>
             <option value="720">30 DÍAS</option>
         </select>
-        <button class="btn btn-success btn-sm fw-bold" onclick="registrarUsuario()">DAR DE ALTA</button>
+        <button class="btn btn-success btn-sm fw-bold" onclick="registrarNuevo()">DAR DE ALTA</button>
     </div>
 
-    <div>
-        <button class="btn btn-outline-warning btn-sm" onclick="mostrarOcultarUsuarios()">📋 USUARIOS ACTIVOS</button>
+    <div class="text-end">
+        <button class="btn btn-dark btn-sm text-danger border-danger" onclick="resetTotal()">RESET SISTEMA</button>
     </div>
 </div>
 
 <div class="main-layout">
     <div class="grid-fleet" id="monitorGrid"></div>
     
-    <div class="right-panel" id="sidePanel">
-        <h6 class="text-center text-success small">RADAR FUCSIA</h6>
+    <div class="right-panel">
+        <h6 class="text-center text-success small mb-2">RADAR TÁCTICO FUCSIA</h6>
         <div id="mainMap"></div>
         
-        <div class="user-list-container">
-            <div class="d-flex justify-content-between border-bottom border-success mb-2">
-                <span class="text-success fw-bold small">LOG DE ABONADOS</span>
-                <button class="btn btn-dark btn-sm text-danger" style="font-size: 9px;" onclick="limpiarTodo()">BORRAR TODO</button>
-            </div>
-            <div id="listaContenido"></div>
+        <div class="db-container">
+            <div class="db-header">📋 REGISTRO DE ABONADOS ACTIVOS</div>
+            <div class="db-body" id="tablaUsuarios">
+                </div>
         </div>
     </div>
 </div>
@@ -78,53 +79,49 @@
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mainMap);
         
         conectarCentral();
-        actualizarListaUI();
-        cargarSesionesActivas();
+        actualizarTabla();
+        reconectarUnidades();
     }
 
-    // === GESTIÓN DE USUARIOS (TU PEDIDO) ===
-    function registrarUsuario() {
-        const nombre = document.getElementById('inputNombre').value.trim().toUpperCase();
-        const horas = parseInt(document.getElementById('inputTiempo').value);
+    // === GESTIÓN DESDE LA PLATAFORMA (TU PEDIDO) ===
+    function registrarNuevo() {
+        const nombre = document.getElementById('regNombre').value.trim().toUpperCase();
+        const horas = parseInt(document.getElementById('regTiempo').value);
         
-        if(!nombre) return alert("Escribí un nombre para el chofer");
+        if(!nombre) return alert("Por favor, ingresá un nombre.");
 
-        let db = JSON.parse(localStorage.getItem('pablo_db') || '{}');
+        let db = JSON.parse(localStorage.getItem('pablo_master_db') || '{}');
 
-        // Validar si el nombre existe
-        for(let k in db) {
-            if(db[k].nombre === nombre && Date.now() < db[k].expires) {
-                return alert("ERROR: Este chofer ya tiene una sesión activa.");
-            }
-        }
-
+        // Generamos el código (Token)
         const token = Math.floor(1000 + Math.random() * 8999).toString();
-        const vence = Date.now() + (horas * 60 * 60 * 1000);
+        const expira = Date.now() + (horas * 60 * 60 * 1000);
 
-        db[token] = { nombre: nombre, expires: vence, conectado: false };
-        localStorage.setItem('pablo_db', JSON.stringify(db));
+        // Guardamos: el ID es el nombre para evitar duplicados
+        db[nombre] = { token: token, expires: expira, conectado: false, peerID: '' };
+        localStorage.setItem('pablo_master_db', JSON.stringify(db));
 
-        document.getElementById('inputNombre').value = "";
-        actualizarListaUI();
-        alert(`ALTA EXITOSA\nChofer: ${nombre}\nToken: ${token}\nDuración: ${horas}hs`);
+        document.getElementById('regNombre').value = "";
+        actualizarTabla();
+        alert(`USUARIO CREADO\nChofer: ${nombre}\nToken: ${token}\nYa puede ingresar desde el celular.`);
     }
 
-    function actualizarListaUI() {
-        const contenedor = document.getElementById('listaContenido');
-        let db = JSON.parse(localStorage.getItem('pablo_db') || '{}');
-        contenedor.innerHTML = "";
+    function actualizarTabla() {
+        const cuerpo = document.getElementById('tablaUsuarios');
+        let db = JSON.parse(localStorage.getItem('pablo_master_db') || '{}');
+        cuerpo.innerHTML = `<div class="user-row text-secondary" style="border-bottom: 1px solid #444;"><span>NOMBRE</span><span>TOKEN</span><span>ESTADO</span></div>`;
 
-        for(let t in db) {
-            const item = document.createElement('div');
-            item.className = "user-item";
-            const tiempoRestante = Math.round((db[t].expires - Date.now()) / (1000 * 60 * 60));
-            
-            item.innerHTML = `
-                <span>${db[t].nombre}</span>
-                <span>T: <b>${t}</b> (${tiempoRestante}h)</span>
-            `;
-            if(Date.now() < db[t].expires) contenedor.appendChild(item);
+        for(let n in db) {
+            if(Date.now() > db[n].expires) {
+                delete db[n];
+                continue;
+            }
+            const fila = document.createElement('div');
+            fila.className = "user-row";
+            const estado = db[n].conectado ? '<span class="text-success">● ON</span>' : '<span class="text-muted">OFF</span>';
+            fila.innerHTML = `<span>${n}</span><b>${db[n].token}</b><span>${estado}</span>`;
+            cuerpo.appendChild(fila);
         }
+        localStorage.setItem('pablo_master_db', JSON.stringify(db));
     }
 
     function conectarCentral() {
@@ -132,15 +129,18 @@
         peer.on('connection', (conn) => {
             conn.on('data', (data) => {
                 if(data.tipo === 'login') {
-                    let db = JSON.parse(localStorage.getItem('pablo_db') || '{}');
-                    // Buscamos si el Token coincide con el nombre
-                    if(db[data.token] && db[data.token].nombre === data.nombre.toUpperCase() && Date.now() < db[data.token].expires) {
-                        db[data.token].conectado = true;
-                        db[data.token].peerID = conn.peer;
-                        localStorage.setItem('pablo_db', JSON.stringify(db));
-                        crearUnidad(conn.peer, data.nombre);
+                    let db = JSON.parse(localStorage.getItem('pablo_master_db') || '{}');
+                    const nombre = data.nombre.toUpperCase();
+                    
+                    // VALIDACIÓN: ¿Coincide nombre y token en MI base de datos?
+                    if(db[nombre] && db[nombre].token === data.token) {
+                        db[nombre].conectado = true;
+                        db[nombre].peerID = conn.peer;
+                        localStorage.setItem('pablo_master_db', JSON.stringify(db));
+                        crearUnidad(conn.peer, nombre);
+                        actualizarTabla();
                     } else {
-                        conn.send({ tipo: 'error', msg: 'ACCESO DENEGADO: REVISAR TOKEN O NOMBRE' });
+                        conn.send({ tipo: 'error', msg: 'DATOS INCORRECTOS O VENCIDOS' });
                     }
                 }
                 if(data.tipo === 'gps') actualizarGPS(conn.peer, data.lat, data.lng);
@@ -156,11 +156,11 @@
         });
     }
 
-    function cargarSesionesActivas() {
-        let db = JSON.parse(localStorage.getItem('pablo_db') || '{}');
-        for(let t in db) {
-            if(db[t].conectado && Date.now() < db[t].expires) {
-                crearUnidad(db[t].peerID, db[t].nombre);
+    function reconectarUnidades() {
+        let db = JSON.parse(localStorage.getItem('pablo_master_db') || '{}');
+        for(let n in db) {
+            if(db[n].conectado && Date.now() < db[n].expires) {
+                crearUnidad(db[n].peerID, n);
             }
         }
     }
@@ -189,7 +189,7 @@
         units[id].markerGen.setLatLng([lat, lng]);
     }
 
-    function limpiarTodo() { if(confirm("¿Borrar todos los tokens?")) { localStorage.clear(); location.reload(); } }
+    function resetTotal() { if(confirm("¿Limpiar todos los registros?")) { localStorage.clear(); location.reload(); } }
 
     window.onload = init;
 </script>
