@@ -3,66 +3,61 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PABLO SECURITY APP</title>
+    <title>PABLO SECURITY - TRANSMISOR</title>
     <link rel="manifest" href="manifest.json">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        body { background: #000; color: white; height: 100vh; overflow: hidden; display: flex; align-items: center; justify-content: center; font-family: sans-serif; }
-        #setup { width: 90%; max-width: 400px; background: #1a1a1a; padding: 25px; border-radius: 15px; border: 1px solid #333; }
+        body { background: #000; color: white; height: 100vh; overflow: hidden; display: flex; align-items: center; justify-content: center; font-family: 'Courier New', monospace; }
+        #setup { width: 90%; max-width: 400px; background: #111; padding: 30px; border-radius: 20px; border: 2px solid #00ff00; box-shadow: 0 0 20px rgba(0,255,0,0.3); }
         
-        /* VIDEO ULTRA PEQUEÑO PARA QUE NO MOLESTE */
+        /* VIDEO OCULTO: Pero técnicamente "visible" para el sistema */
         #vLocal { 
-            width: 80px; 
-            height: 60px; 
-            background: #000; 
-            border-radius: 5px; 
-            object-fit: cover; 
-            border: 1px solid #444;
-            margin: 10px auto;
-            display: block;
+            position: absolute;
+            top: 0; left: 0;
+            width: 1px; height: 1px; 
+            opacity: 0.01; 
+            pointer-events: none;
         }
 
         .btn-panic { 
-            width: 140px; height: 140px; 
-            border-radius: 50%; background: #ff0000; 
-            border: 6px solid #fff; color: white; 
-            font-size: 24px; font-weight: bold; 
-            box-shadow: 0 0 20px rgba(255,0,0,0.5); 
-            margin: 15px 0; 
+            width: 180px; height: 180px; 
+            border-radius: 50%; background: radial-gradient(#ff0000, #990000); 
+            border: 8px solid #fff; color: white; 
+            font-size: 32px; font-weight: bold; 
+            box-shadow: 0 0 40px rgba(255,0,0,0.6); 
+            margin: 20px 0;
+            transition: 0.2s;
         }
+        .btn-panic:active { transform: scale(0.95); box-shadow: 0 0 10px rgba(255,0,0,0.8); }
 
-        .btn-pip-mini { 
-            background: transparent; 
-            color: #00ff00; 
-            border: 1px solid #00ff00; 
-            padding: 5px; 
-            width: 100%; 
-            border-radius: 5px; 
-            font-size: 10px; 
-            text-transform: uppercase;
-        }
+        .led-status { width: 12px; height: 12px; background: #00ff00; border-radius: 50%; display: inline-block; margin-right: 8px; animation: blink 1s infinite; }
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
     </style>
 </head>
 <body>
 
     <div id="setup" class="text-center">
-        <h3 style="color: #00ff00;">PABLO SECURITY</h3>
-        <input type="text" id="nombreInput" class="form-control form-control-lg mb-3 text-center" placeholder="ID MÓVIL">
-        <button id="btnStart" class="btn btn-success btn-lg w-100">CONECTAR UNIDAD</button>
+        <h2 style="color: #00ff00; letter-spacing: 2px;">SECURITY PRO</h2>
+        <p class="small text-muted mb-4">SISTEMA DE TRANSMISIÓN CRIPTOGRÁFICA</p>
+        <input type="text" id="nombreInput" class="form-control form-control-lg mb-4 text-center bg-dark text-success border-success" placeholder="ID UNIDAD">
+        <button id="btnStart" class="btn btn-outline-success btn-lg w-100">ENLAZAR CON CENTRAL</button>
     </div>
 
     <div id="transmision" style="display:none;" class="text-center w-100 p-3">
-        <h4 id="dispNombre" class="mb-1" style="color: #00ff00;"></h4>
+        <div class="mb-4">
+            <span class="led-status"></span>
+            <span id="dispNombre" style="color: #00ff00; font-weight: bold; font-size: 1.2rem;"></span>
+        </div>
         
         <video id="vLocal" autoplay playsinline muted></video>
         
-        <button class="btn-pip-mini" onclick="activarFlotante()">🔳 MODO VENTANA MINI</button>
-        
-        <br>
         <button class="btn-panic" id="panicBtn">S.O.S</button>
         
-        <div id="statusMsg" style="color:#00ff00; font-size:10px; margin-top:5px;">CONEXIÓN SEGURA ACTIVA</div>
+        <div class="mt-4 p-2" style="background: #111; border-radius: 10px; border: 1px solid #333;">
+            <p id="statusMsg" style="color:#00ff00; font-size:12px; margin:0;">ESTADO: TRANSMITIENDO DATOS Y VIDEO</p>
+            <p style="color:#666; font-size:10px; margin:0;">BLOQUEO DE SUSPENSIÓN ACTIVO</p>
+        </div>
         <audio id="audioCentral" autoplay></audio>
     </div>
 
@@ -73,64 +68,60 @@
         let miStream = null;
         let wakeLock = null;
 
-        async function activarFlotante() {
-            try {
-                if (document.pictureInPictureElement) {
-                    await document.exitPictureInPicture();
-                } else {
-                    await video.requestPictureInPicture();
-                }
-            } catch (e) { console.log("PiP Error"); }
-        }
-
         document.getElementById('btnStart').onclick = async () => {
             const nombre = document.getElementById('nombreInput').value.trim();
-            if(!nombre) return alert("Ingresa ID");
+            if(!nombre) return alert("Ingrese ID de Unidad");
 
             try {
+                // Captura de medios con alta prioridad
                 miStream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: "environment", width: 320 }, // Resolución baja para ahorrar datos
+                    video: { facingMode: "environment", width: 640 }, 
                     audio: true 
                 });
 
-                if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen');
+                // Activar WakeLock (mantiene la CPU despierta aunque se minimice)
+                if ('wakeLock' in navigator) {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                }
 
                 document.getElementById('setup').style.display = 'none';
                 document.getElementById('transmision').style.display = 'block';
-                document.getElementById('dispNombre').innerText = "MÓVIL: " + nombre;
+                document.getElementById('dispNombre').innerText = nombre.toUpperCase();
                 video.srcObject = miStream;
 
                 iniciarConexion(nombre);
 
-                // Forzar la ventana mini automáticamente al salir de la app
-                document.addEventListener("visibilitychange", () => {
-                    if (document.hidden) {
-                        video.requestPictureInPicture().catch(() => {});
-                    }
-                });
-
-            } catch (err) { alert("Acceso denegado."); }
+            } catch (err) {
+                alert("ERROR CRÍTICO: El sistema requiere permisos de Cámara y GPS para operar.");
+            }
         };
 
         function iniciarConexion(nombreReal) {
             const peer = new Peer(myId);
+
             peer.on('open', () => {
                 peer.call('pablo-master-control-vip', miStream);
                 const conn = peer.connect('pablo-master-control-vip');
+                
                 conn.on('open', () => {
                     conn.send({ tipo: 'nombre', valor: nombreReal });
                     
+                    // Rastreo de GPS persistente
                     navigator.geolocation.watchPosition(p => {
-                        if(conn && conn.open) {
-                            conn.send({ tipo: 'gps', lat: p.coords.latitude, lng: p.coords.longitude });
-                        }
+                        if(conn.open) conn.send({ tipo: 'gps', lat: p.coords.latitude, lng: p.coords.longitude });
                     }, null, { enableHighAccuracy: true });
                 });
-                document.getElementById('panicBtn').onclick = () => { if(conn.open) conn.send({ tipo: 'alerta' }); };
+
+                document.getElementById('panicBtn').onclick = () => { 
+                    if(conn.open) {
+                        conn.send({ tipo: 'alerta' });
+                        alert("¡ALERTA SOS ENVIADA!");
+                    }
+                };
             });
-            
+
             peer.on('call', call => {
-                call.answer();
+                call.answer(); // Escuchar audio de la central
                 call.on('stream', s => { document.getElementById('audioCentral').srcObject = s; });
             });
         }
