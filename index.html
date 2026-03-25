@@ -2,102 +2,76 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PABLO SECURITY APP</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title>MÓVIL - PABLO SECURITY</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        body { background: #000; color: white; height: 100vh; font-family: sans-serif; display: flex; align-items: center; justify-content: center; margin: 0; }
-        .container-app { width: 90%; max-width: 400px; padding: 30px; background: #111; border-radius: 25px; border: 1px solid #00ff00; box-shadow: 0 0 30px rgba(0,255,0,0.2); }
-        #vLocal { position: absolute; top: -5000px; width: 1px; height: 1px; }
-        input.form-control { background: #222; border: 1px solid #444; color: #00ff00; font-size: 24px; text-align: center; }
-        .btn-panic { width: 180px; height: 180px; border-radius: 50%; background: radial-gradient(#ff0000, #800000); border: 8px solid #fff; color: white; font-size: 32px; font-weight: bold; margin: 20px 0; box-shadow: 0 0 40px rgba(255,0,0,0.5); }
-        .status-led { width: 12px; height: 12px; background: #00ff00; border-radius: 50%; display: inline-block; animation: blink 1s infinite; }
-        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+        body { background: #000; color: #0f0; font-family: monospace; text-align: center; padding: 20px; }
+        .status { border: 1px solid #0f0; padding: 10px; margin: 20px 0; font-size: 0.8em; }
+        #vLocal { width: 100%; max-width: 300px; border-radius: 10px; filter: grayscale(1); opacity: 0.3; }
+        .btn-sos { width: 150px; height: 150px; border-radius: 50%; background: red; color: white; border: 5px solid white; font-weight: bold; font-size: 24px; }
     </style>
 </head>
 <body>
+    <h2>UNIDAD DE VIGILANCIA</h2>
     <video id="vLocal" autoplay playsinline muted></video>
 
-    <div id="login-screen" class="container-app text-center">
-        <h2 style="color: #00ff00; font-weight: 900;">PABLO SECURITY</h2>
-        <div class="mb-4">
-            <label class="small text-secondary">CÓDIGO DE ENLACE</label>
-            <input type="text" id="codigoInput" class="form-control" maxlength="10" placeholder="Ej: 123">
-        </div>
-        <div class="mb-4">
-            <label class="small text-secondary">ID DEL MÓVIL</label>
-            <input type="text" id="nombreInput" class="form-control" style="font-size: 16px;" placeholder="MÓVIL 01">
-        </div>
-        <button id="btnConectar" class="btn btn-success btn-lg w-100 py-3">ACTIVAR SERVICIO</button>
+    <div id="setup">
+        <input type="text" id="idPropio" class="form-control bg-dark text-success border-success text-center mb-2" placeholder="CÓDIGO (Ej: 123)">
+        <button id="btnActivar" class="btn btn-success w-100">ACTIVAR TRANSMISIÓN</button>
     </div>
 
-    <div id="op-screen" class="container-app text-center" style="display: none;">
-        <div class="mb-3">
-            <span class="status-led"></span>
-            <span id="txtUnidad" style="color: #00ff00; font-weight: bold;"></span>
-        </div>
-        <button class="btn-panic" id="panicBtn">S.O.S</button>
-        <div class="p-3 bg-dark rounded border border-secondary">
-            <p id="debug-status" style="color: #00ff00; font-size: 12px; margin: 0;">ESPERANDO CONEXIÓN CENTRAL...</p>
-        </div>
-        <audio id="audioCentral" autoplay></audio>
+    <div id="activo" style="display:none;">
+        <div class="status" id="estado">ESTADO: LISTO PARA ENLAZAR</div>
+        <button class="btn-sos" id="sos">S.O.S</button>
+        <p class="mt-3">GPS ACTIVO</p>
     </div>
 
     <script>
-        const video = document.getElementById('vLocal');
-        let miStream = null;
+        let stream;
+        const btn = document.getElementById('btnActivar');
 
-        document.getElementById('btnConectar').onclick = async () => {
-            const codigo = document.getElementById('codigoInput').value.trim().toLowerCase();
-            const nombre = document.getElementById('nombreInput').value.trim();
-            if(!codigo || !nombre) return alert("Completa todos los datos");
+        btn.onclick = async () => {
+            const miId = document.getElementById('idPropio').value.trim().toLowerCase();
+            if(!miId) return alert("Poné un código");
 
             try {
-                miStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: true });
-                if ('wakeLock' in navigator) await navigator.wakeLock.request('screen').catch(()=>{});
-                
-                document.getElementById('login-screen').style.display = 'none';
-                document.getElementById('op-screen').style.display = 'block';
-                document.getElementById('txtUnidad').innerText = nombre.toUpperCase();
-                video.srcObject = miStream;
+                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: true });
+                document.getElementById('vLocal').srcObject = stream;
+                document.getElementById('setup').style.display = 'none';
+                document.getElementById('activo').style.display = 'block';
 
-                iniciarServidorChofer(codigo, nombre);
-            } catch (e) {
-                alert("Error de permisos.");
-            }
-        };
+                const peer = new Peer(miId);
 
-        function iniciarServidorChofer(idUnico, nombreReal) {
-            // El celular se registra con el CÓDIGO que tú elegiste
-            const peer = new Peer(idUnico);
+                peer.on('open', () => {
+                    document.getElementById('estado').innerText = "EN LÍNEA: ESPERANDO CENTRAL...";
+                });
 
-            peer.on('open', () => {
-                document.getElementById('debug-status').innerText = "LISTO: ESPERANDO A PABLO...";
-            });
+                // Cuando la central me llama para ver video
+                peer.on('call', call => {
+                    call.answer(stream);
+                    document.getElementById('estado').innerText = "TRANSMITIENDO EN VIVO 🔴";
+                });
 
-            // Cuando la Central llame al celular:
-            peer.on('call', call => {
-                call.answer(miStream); // El celular responde con su video
-                document.getElementById('debug-status').innerText = "TRANSMITIENDO EN VIVO";
-                call.on('stream', s => { document.getElementById('audioCentral').srcObject = s; });
-            });
-
-            // Cuando la Central se conecte para datos:
-            peer.on('connection', conn => {
-                document.getElementById('debug-status').innerText = "CONECTADO A CENTRAL";
-                
-                // Enviar nombre y GPS automáticamente
-                conn.on('open', () => {
-                    conn.send({ tipo: 'nombre', valor: nombreReal });
+                // Cuando la central se conecta para recibir datos (GPS/SOS)
+                peer.on('connection', conn => {
+                    document.getElementById('estado').innerText = "CONECTADO CON CENTRAL ✅";
+                    
+                    // Enviar GPS
                     navigator.geolocation.watchPosition(p => {
                         conn.send({ tipo: 'gps', lat: p.coords.latitude, lng: p.coords.longitude });
                     });
-                });
 
-                document.getElementById('panicBtn').onclick = () => { conn.send({ tipo: 'alerta' }); };
-            });
-        }
+                    document.getElementById('sos').onclick = () => {
+                        conn.send({ tipo: 'alerta' });
+                        alert("¡ALERTA ENVIADA!");
+                    };
+                });
+            } catch (e) {
+                alert("Error de permisos: " + e);
+            }
+        };
     </script>
 </body>
 </html>
