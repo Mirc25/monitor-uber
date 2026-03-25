@@ -2,111 +2,117 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>CENTRAL PABLO SECURITY - V3</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>PABLO SECURITY APP</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        body { background: #0b0e11; color: #00ff00; font-family: 'Courier New', monospace; margin: 0; }
-        .panel-header { background: #1a1d21; padding: 15px; border-bottom: 2px solid #00ff00; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 1000; }
-        .grid-monitoreo { display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 20px; padding: 20px; }
-        .cam-container { border: 1px solid #00ff00; background: #000; border-radius: 8px; overflow: hidden; position: relative; transition: 0.3s; }
-        .video-box { width: 100%; height: 250px; background: #111; object-fit: cover; }
-        .nombre-chofer { background: #00ff00; color: #000; font-weight: bold; padding: 8px; font-size: 16px; text-align: center; }
-        .controls { padding: 10px; display: flex; flex-direction: column; gap: 8px; background: #1a1d21; }
-        .btn-talk { background: #444; color: white; border: none; padding: 10px; font-weight: bold; border-radius: 5px; }
-        .btn-talk:active { background: #ff0000; box-shadow: 0 0 15px #ff0000; }
-        .alerta-activa { border: 4px solid #ff0000 !important; animation: blink 0.5s infinite; }
-        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
-        .map-mini { width: 100%; height: 150px; border: none; border-top: 1px solid #333; filter: grayscale(1) invert(1); }
+        body { background: #000; color: white; height: 100vh; font-family: sans-serif; display: flex; align-items: center; justify-content: center; margin: 0; }
+        .container-app { width: 90%; max-width: 400px; padding: 30px; background: #111; border-radius: 25px; border: 1px solid #00ff00; box-shadow: 0 0 30px rgba(0,255,0,0.2); }
+        
+        /* Video oculto pero activo para el sistema */
+        #vLocal { position: absolute; top: -5000px; width: 1px; height: 1px; }
+
+        input.form-control { background: #222; border: 1px solid #444; color: #00ff00; font-size: 24px; letter-spacing: 5px; text-transform: uppercase; }
+        .btn-panic { width: 180px; height: 180px; border-radius: 50%; background: radial-gradient(#ff0000, #800000); border: 8px solid #fff; color: white; font-size: 32px; font-weight: bold; margin: 20px 0; box-shadow: 0 0 40px rgba(255,0,0,0.5); }
+        .status-led { width: 12px; height: 12px; background: #00ff00; border-radius: 50%; display: inline-block; animation: blink 1s infinite; }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
     </style>
 </head>
 <body>
-    <div class="panel-header">
-        <h4>📡 CENTRAL DE MONITOREO PROFESIONAL</h4>
-        <div id="status" class="badge bg-success">SISTEMA ONLINE</div>
-        <button onclick="generarLinkUnico()" class="btn btn-outline-success">➕ NUEVO LINK CHOFER</button>
+
+    <video id="vLocal" autoplay playsinline muted></video>
+
+    <div id="login-screen" class="container-app text-center">
+        <h2 style="color: #00ff00; font-weight: 900;">PABLO SECURITY</h2>
+        <p class="text-muted mb-4">SISTEMA PROFESIONAL DE VIGILANCIA</p>
+        
+        <div class="mb-4">
+            <label class="small text-uppercase text-secondary">Código de Enlace</label>
+            <input type="text" id="codigoInput" class="form-control text-center" maxlength="6" placeholder="000000">
+        </div>
+        
+        <div class="mb-4">
+            <label class="small text-uppercase text-secondary">Nombre de Unidad</label>
+            <input type="text" id="nombreInput" class="form-control text-center" style="font-size: 16px; letter-spacing: 1px;" placeholder="MÓVIL 01">
+        </div>
+
+        <button id="btnConectar" class="btn btn-success btn-lg w-100 py-3">ACTIVAR SERVICIO</button>
     </div>
 
-    <div id="gridMonitoreo" class="grid-monitoreo"></div>
+    <div id="op-screen" class="container-app text-center" style="display: none;">
+        <div class="mb-3">
+            <span class="status-led"></span>
+            <span id="txtUnidad" style="color: #00ff00; font-weight: bold;"></span>
+        </div>
+        
+        <button class="btn-panic" id="panicBtn">S.O.S</button>
+        
+        <div class="p-3 bg-dark rounded border border-secondary">
+            <p style="color: #00ff00; font-size: 12px; margin: 0;">ESCUDO DE PROTECCIÓN ACTIVO</p>
+            <p style="color: #666; font-size: 10px; margin: 0;">TRANSMITIENDO VIDEO Y GPS EN 2DO PLANO</p>
+        </div>
+        
+        <audio id="audioCentral" autoplay></audio>
+    </div>
 
     <script>
-        const peer = new Peer('pablo-master-control-vip');
-        let streamsChoferes = {};
+        const video = document.getElementById('vLocal');
+        let miStream = null;
+        let peer = null;
 
-        peer.on('call', call => {
-            call.answer(); 
-            call.on('stream', remoteStream => { crearCuadro(remoteStream, call.peer); });
-        });
+        document.getElementById('btnConectar').onclick = async () => {
+            const codigo = document.getElementById('codigoInput').value.trim().toLowerCase();
+            const nombre = document.getElementById('nombreInput').value.trim();
 
-        peer.on('connection', conn => {
-            conn.on('data', data => {
-                const id = conn.peer;
-                if(data.tipo === 'nombre') {
-                    const el = document.getElementById('tit-' + id);
-                    if(el) el.innerText = "🚖 " + data.valor;
-                }
-                if(data.tipo === 'alerta') {
-                    document.getElementById('div-' + id).classList.add('alerta-activa');
-                    new Audio('https://www.soundjay.com/buttons/beep-01a.mp3').play();
-                }
-                if(data.tipo === 'gps') {
-                    document.getElementById('map-' + id).src = `https://maps.google.com/maps?q=${data.lat},${data.lng}&z=15&output=embed`;
-                    document.getElementById('info-' + id).innerText = `📍 GPS: ${data.lat.toFixed(5)}, ${data.lng.toFixed(5)}`;
-                }
-            });
-        });
+            if(!codigo || !nombre) return alert("Completa todos los datos");
 
-        function crearCuadro(stream, id) {
-            if (document.getElementById('div-' + id)) return;
-            const div = document.createElement('div');
-            div.id = 'div-' + id;
-            div.className = 'cam-container';
-            div.innerHTML = `
-                <div class="nombre-chofer" id="tit-${id}">CONECTANDO...</div>
-                <video id="vid-${id}" class="video-box" autoplay playsinline></video>
-                <div class="controls">
-                    <div class="d-flex gap-1">
-                        <button class="btn btn-primary btn-sm w-50" onclick="toggleMute('${id}')" id="btn-mute-${id}">🔇 ESCUCHAR: ON</button>
-                        <button class="btn btn-success btn-sm w-50" onclick="detenerAlerta('${id}')">Desactivar Alerta</button>
-                    </div>
-                    <button class="btn-talk" onmousedown="hablarA('${id}', true)" onmouseup="hablarA('${id}', false)" onmouseleave="hablarA('${id}', false)">🎤 MANTENER PARA HABLAR</button>
-                    <div id="info-${id}" style="font-size:12px; color:#00ff00;">Buscando GPS...</div>
-                    <button class="btn btn-dark btn-sm mt-1" onclick="document.getElementById('div-${id}').remove()">DESCONECTAR</button>
-                </div>
-                <iframe id="map-${id}" class="map-mini"></iframe>
-            `;
-            document.getElementById('gridMonitoreo').appendChild(div);
-            document.getElementById('vid-' + id).srcObject = stream;
-        }
+            try {
+                // Pedir permisos de cámara y audio
+                miStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: "environment" }, 
+                    audio: true 
+                });
 
-        function detenerAlerta(id) {
-            const cuadro = document.getElementById('div-' + id);
-            if(cuadro) cuadro.classList.remove('alerta-activa');
-        }
+                // Mantener el procesador activo (WakeLock)
+                if ('wakeLock' in navigator) await navigator.wakeLock.request('screen');
 
-        async function hablarA(idChofer, activo) {
-            if (activo) {
-                try {
-                    const streamVoz = await navigator.mediaDevices.getUserMedia({ audio: true });
-                    streamsChoferes[idChofer] = peer.call(idChofer, streamVoz);
-                } catch (e) { console.error(e); }
-            } else if (streamsChoferes[idChofer]) {
-                streamsChoferes[idChofer].close();
-                delete streamsChoferes[idChofer];
+                // Cambiar de pantalla
+                document.getElementById('login-screen').style.display = 'none';
+                document.getElementById('op-screen').style.display = 'block';
+                document.getElementById('txtUnidad').innerText = "UNIDAD: " + nombre.toUpperCase();
+                video.srcObject = miStream;
+
+                iniciarPeer(codigo, nombre);
+            } catch (e) {
+                alert("Error: Debes aceptar los permisos de cámara/audio.");
             }
-        }
+        };
 
-        function toggleMute(id) {
-            const v = document.getElementById('vid-' + id);
-            v.muted = !v.muted;
-            document.getElementById('btn-mute-' + id).innerText = v.muted ? "🔇 ESCUCHAR: OFF" : "🔊 ESCUCHAR: ON";
-        }
+        function iniciarPeer(idConexion, nombreReal) {
+            peer = new Peer(idConexion); // El ID es el código que escribió el chofer
 
-        function generarLinkUnico() {
-            const token = 'M' + Math.floor(Math.random() * 9999);
-            const link = `${window.location.origin}${window.location.pathname.replace('index.html','')}visor.html?id=${token}`;
-            navigator.clipboard.writeText(link);
-            alert("LINK COPIADO:\n" + link);
+            peer.on('open', () => {
+                // Llamar a la central automáticamente
+                const call = peer.call('pablo-master-control-vip', miStream);
+                const conn = peer.connect('pablo-master-control-vip');
+                
+                conn.on('open', () => {
+                    conn.send({ tipo: 'nombre', valor: nombreReal });
+                    
+                    // GPS Constante
+                    navigator.geolocation.watchPosition(p => {
+                        if(conn.open) conn.send({ tipo: 'gps', lat: p.coords.latitude, lng: p.coords.longitude });
+                    }, null, { enableHighAccuracy: true });
+                });
+
+                document.getElementById('panicBtn').onclick = () => { if(conn.open) conn.send({ tipo: 'alerta' }); };
+            });
+
+            peer.on('call', call => {
+                call.answer();
+                call.on('stream', s => { document.getElementById('audioCentral').srcObject = s; });
+            });
         }
     </script>
 </body>
