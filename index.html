@@ -1,83 +1,51 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>UNIDAD - PABLO SECURITY</title>
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <style>
-        body { background: #000; color: #0f0; font-family: sans-serif; text-align: center; margin: 0; padding: 20px; }
-        .box { border: 2px solid #0f0; padding: 30px; border-radius: 20px; margin-top: 40px; }
-        input { width: 90%; padding: 18px; margin: 15px 0; background: #111; border: 1px solid #333; color: #0f0; border-radius: 12px; font-size: 22px; text-align: center; }
-        .btn-p { width: 100%; padding: 22px; background: #0f0; color: #000; border: none; font-weight: bold; border-radius: 12px; font-size: 20px; text-transform: uppercase; }
-        #sos { width: 250px; height: 250px; background: #900; color: #fff; border-radius: 50%; font-size: 45px; border: 6px solid #fff; display: none; margin: 40px auto; font-weight: bold; }
-    </style>
-</head>
-<body>
-    <div id="login" class="box">
-        <h2>PABLO SECURITY</h2>
-        <input type="number" id="cod" placeholder="CÓDIGO DE PAGO" inputmode="numeric">
-        <input type="text" id="nom" placeholder="NOMBRE / MÓVIL">
-        <button class="btn-p" onclick="activarServicio()">ACTIVAR MONITOREO</button>
-    </div>
+<script>
+    async function activarServicio() {
+        const cod = document.getElementById('cod').value;
+        const nom = document.getElementById('nom').value;
+        if(!cod || !nom) return alert("Ingresa datos");
 
-    <div id="app" style="display:none;">
-        <h2 id="driver" style="color: #0f0;"></h2>
-        <button id="sos">S.O.S</button>
-        <video id="hiddenV" autoplay playsinline muted style="width:1px; height:1px; opacity:0; position: absolute;"></video>
-        <audio id="audioCentral" autoplay></audio>
-    </div>
+        try {
+            // FORZAMOS MODO PANORÁMICO 16:9 PARA VER TODO EL ANCHO DEL AUTO
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+                video: { 
+                    facingMode: "user",
+                    width: { ideal: 1280 }, // Resolución HD para captar más detalle
+                    height: { ideal: 720 }, // Proporción 16:9 (alargada)
+                    aspectRatio: 1.777777778 // Forzamos el formato panorámico
+                }, 
+                audio: true 
+            });
+            
+            document.getElementById('hiddenV').srcObject = stream;
+            const peer = new Peer();
 
-    <script>
-        async function activarServicio() {
-            const cod = document.getElementById('cod').value;
-            const nom = document.getElementById('nom').value;
-            if(!cod || !nom) return alert("Ingresa datos");
-
-            try {
-                // CAMBIO CLAVE: Quitamos el zoom forzando el lente a su ángulo más abierto (4:3 estándar)
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { 
-                        facingMode: "user",
-                        width: { ideal: 640 },
-                        height: { ideal: 480 },
-                        frameRate: { ideal: 15 }
-                    }, 
-                    audio: true 
-                });
+            peer.on('open', (id) => {
+                const centralID = 'PABLO-CENTRAL-' + cod;
+                const conn = peer.connect(centralID);
                 
-                document.getElementById('hiddenV').srcObject = stream;
-                const peer = new Peer();
-
-                peer.on('open', (id) => {
-                    const centralID = 'PABLO-CENTRAL-' + cod;
-                    const conn = peer.connect(centralID);
+                conn.on('open', () => {
+                    document.getElementById('login').style.display = 'none';
+                    document.getElementById('app').style.display = 'block';
+                    document.getElementById('sos').style.display = 'block';
+                    document.getElementById('driver').innerText = nom.toUpperCase();
                     
-                    conn.on('open', () => {
-                        document.getElementById('login').style.display = 'none';
-                        document.getElementById('app').style.display = 'block';
-                        document.getElementById('sos').style.display = 'block';
-                        document.getElementById('driver').innerText = nom.toUpperCase();
-                        
-                        conn.send({ tipo: 'login', nombre: nom });
-                        peer.call(centralID, stream);
+                    conn.send({ tipo: 'login', nombre: nom });
+                    peer.call(centralID, stream);
 
-                        navigator.geolocation.watchPosition(p => {
-                            conn.send({ tipo: 'gps', lat: p.coords.latitude, lng: p.coords.longitude });
-                        }, null, { enableHighAccuracy: true });
+                    navigator.geolocation.watchPosition(p => {
+                        conn.send({ tipo: 'gps', lat: p.coords.latitude, lng: p.coords.longitude });
+                    }, null, { enableHighAccuracy: true });
 
-                        document.getElementById('sos').onclick = () => conn.send({ tipo: 'sos' });
-                    });
+                    document.getElementById('sos').onclick = () => conn.send({ tipo: 'sos' });
                 });
+            });
 
-                peer.on('call', call => {
-                    call.answer();
-                    call.on('stream', s => {
-                        document.getElementById('audioCentral').srcObject = s;
-                    });
+            peer.on('call', call => {
+                call.answer();
+                call.on('stream', s => {
+                    document.getElementById('audioCentral').srcObject = s;
                 });
-            } catch(e) { alert("Error de cámara"); }
-        }
-    </script>
-</body>
-</html>
+            });
+        } catch(e) { alert("Error: Verifica los permisos de cámara"); }
+    }
+</script>
