@@ -2,40 +2,49 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>PABLO SECURITY - CENTRAL PRO v5</title>
+    <title>PABLO SECURITY - MONITOR INTERACTIVO</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        body { background: #000; color: #0f0; font-family: sans-serif; margin: 0; overflow: hidden; }
+        body { background: #000; color: #0f0; font-family: 'Segoe UI', sans-serif; margin: 0; overflow: hidden; }
         .top-bar { background: #050505; border-bottom: 2px solid #0f0; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; height: 60px; }
-        .grid-fleet { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 15px; padding: 15px; height: calc(100vh - 60px); overflow-y: auto; }
+        .grid-fleet { display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 15px; padding: 15px; height: calc(100vh - 60px); overflow-y: auto; }
         
-        .unit-card { background: #0a0a0a; border: 1px solid #222; border-radius: 10px; display: flex; flex-direction: column; height: 480px; position: relative; overflow: hidden; }
+        .unit-card { background: #0a0a0a; border: 1px solid #222; border-radius: 12px; display: flex; flex-direction: column; height: 500px; position: relative; overflow: hidden; transition: all 0.3s ease; }
         
-        /* Video sin zoom, plano abierto */
-        .video-box { width: 100%; height: 220px; background: #000; }
-        video { width: 100%; height: 100%; object-fit: contain; } /* 'contain' evita el zoom */
+        /* Video Ultra Ancho */
+        .video-box { width: 100%; height: 250px; background: #000; cursor: pointer; border-bottom: 1px solid #1a1a1a; position: relative; }
+        video { width: 100%; height: 100%; object-fit: cover; } /* Cover asegura que llene todo el ancho */
         
-        .map-box { width: 100%; height: 140px; background: #111; border-top: 1px solid #1a1a1a; }
-        .leaflet-container { filter: invert(100%) hue-rotate(180deg) brightness(95%); }
+        /* GPS Interactivo */
+        .map-box { width: 100%; height: 160px; background: #111; cursor: pointer; }
+        .leaflet-container { filter: invert(100%) hue-rotate(180deg) brightness(95%); cursor: pointer; }
 
-        .controls { padding: 10px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; background: #050505; }
-        .btn-pablo { font-size: 10px; font-weight: bold; padding: 10px 2px; border: 1px solid #0f0; background: transparent; color: #0f0; text-transform: uppercase; border-radius: 5px; }
-        .btn-pablo:active { background: #0f0; color: #000; }
-        .btn-hablar { background: #003300; }
+        .controls { padding: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: #050505; }
+        .btn-pablo { font-size: 11px; font-weight: bold; padding: 12px; border: 1px solid #0f0; background: transparent; color: #0f0; text-transform: uppercase; border-radius: 8px; }
+        .btn-hablar { background: #002200; }
         .btn-hablar:active { background: #0f0; color: #000; }
-        .btn-sos-off { background: #440000; color: #ff0000; border-color: #ff0000; }
 
-        .sos-overlay { position: absolute; top:0; left:0; width:100%; height:100%; background: rgba(255,0,0,0.85); display: none; z-index: 100; flex-direction: column; align-items: center; justify-content: center; }
+        /* Efecto Maximizar al tocar */
+        .max-view { position: fixed !important; top: 0; left: 0; width: 100vw !important; height: 100vh !important; z-index: 2000; }
+        .max-view .video-box { height: 100% !important; }
+        .max-view .map-box, .max-view .controls, .max-view .unit-header { display: none; }
+
+        .max-map { position: fixed !important; top: 0; left: 0; width: 100vw !important; height: 100vh !important; z-index: 2000; }
+        .max-map .map-box { height: 100% !important; }
+        .max-map .video-box, .max-map .controls, .max-map .unit-header { display: none; }
+
+        .sos-overlay { position: absolute; top:0; left:0; width:100%; height:100%; background: rgba(255,0,0,0.9); display: none; z-index: 2500; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+        .unit-header { background: #000; padding: 5px; font-size: 12px; text-align: center; border-bottom: 1px solid #222; }
     </style>
 </head>
 <body>
 
 <div class="top-bar">
-    <div><strong>PABLO SECURITY</strong> | CENTRAL ACTIVA</div>
-    <div class="badge bg-dark border border-success p-2 fs-5">ID: PABLO-CENTRAL-2026</div>
+    <div><strong>PABLO SECURITY</strong> | PANEL TÁCTIL</div>
+    <div class="badge bg-dark border border-success p-2 fs-5">ID CENTRAL: PABLO-CENTRAL-2026</div>
 </div>
 
 <div class="grid-fleet" id="monitorGrid"></div>
@@ -45,7 +54,6 @@
     const units = {};
     let myStream;
 
-    // Obtener micro para hablar
     navigator.mediaDevices.getUserMedia({ audio: true }).then(s => myStream = s);
 
     peer.on('call', (call) => {
@@ -71,61 +79,46 @@
         card.className = 'unit-card'; card.id = 'card-' + id;
         card.innerHTML = `
             <div class="sos-overlay" id="sos-${id}">
-                <h2 class="text-white">🚨 SOS 🚨</h2>
-                <button class="btn btn-light fw-bold" onclick="alerta('${id}', false)">CORTAR ALERTA</button>
+                <h1 class="text-white fw-bold">🚨 ALERTA SOS 🚨</h1>
+                <p class="text-white">${nombre.toUpperCase()}</p>
+                <button class="btn btn-light btn-lg fw-bold mt-3" onclick="alerta('${id}', false)">DETENER ALARMA</button>
             </div>
-            <div class="video-box"><video id="v-${id}" autoplay playsinline muted></video></div>
-            <div id="map-${id}" class="map-box"></div>
-            <div class="p-2 text-center small text-success border-bottom border-secondary"><strong>${nombre.toUpperCase()}</strong></div>
+            <div class="unit-header text-success"><strong>${nombre.toUpperCase()}</strong></div>
+            <div class="video-box" onclick="toggleMax('${id}', 'video')">
+                <video id="v-${id}" autoplay playsinline muted></video>
+            </div>
+            <div id="map-${id}" class="map-box" onclick="toggleMax('${id}', 'map')"></div>
             <div class="controls">
                 <button class="btn-pablo" id="aud-${id}" onclick="toggleAudio('${id}')">ESCUCHAR</button>
                 <button class="btn-pablo btn-hablar" onmousedown="hablar('${id}', true)" onmouseup="hablar('${id}', false)" ontouchstart="hablar('${id}', true)" ontouchend="hablar('${id}', false)">HABLAR</button>
-                <button class="btn-pablo" onclick="maximizar('${id}')">MAX</button>
             </div>
-            <button class="btn-pablo btn-sos-off m-2" onclick="alerta('${id}', false)">CORTAR SOS</button>
         `;
         grid.appendChild(card);
-        units[id] = { map: L.map('map-' + id, { zoomControl: false }).setView([0,0], 16), marker: null, conn: peer.connect(id) };
+        
+        units[id] = { map: L.map('map-' + id, { zoomControl: false, attributionControl: false }).setView([0,0], 17), marker: null };
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(units[id].map);
+    }
+
+    function toggleMax(id, tipo) {
+        const card = document.getElementById('card-' + id);
+        if (tipo === 'video') {
+            card.classList.toggle('max-view');
+        } else {
+            card.classList.toggle('max-map');
+            setTimeout(() => units[id].map.invalidateSize(), 400);
+        }
     }
 
     function hablar(id, activo) {
         if(activo && myStream) {
             peer.call(id, myStream);
-        } else {
-            // Se corta la llamada de voz al soltar el botón
-        }
-    }
-
-    function alerta(id, activo) {
-        const overlay = document.getElementById('sos-' + id);
-        overlay.style.display = activo ? 'flex' : 'none';
-        if(activo) {
-            const beep = new Audio('https://www.soundjay.com/buttons/beep-01a.mp3');
-            beep.loop = true; beep.id = "audio-"+id; beep.play();
-        } else {
-            const a = document.getElementById("audio-"+id); if(a) { a.pause(); a.remove(); }
         }
     }
 
     function toggleAudio(id) {
         const v = document.getElementById('v-' + id);
         v.muted = !v.muted;
-        document.getElementById('aud-'+id).style.background = v.muted ? 'transparent' : '#0f0';
-        document.getElementById('aud-'+id).style.color = v.muted ? '#0f0' : '#000';
+        const btn = document.getElementById('aud-' + id);
+        btn.style.background = v.muted ? 'transparent' : '#0f0';
+        btn.style.color = v.muted ? '#0f0' : '#000';
     }
-
-    function moverGPS(id, lat, lng) {
-        if (!units[id]) return;
-        units[id].map.setView([lat, lng]);
-        if (units[id].marker) units[id].marker.setLatLng([lat, lng]);
-        else units[id].marker = L.marker([lat, lng]).addTo(units[id].map);
-    }
-
-    function maximizar(id) {
-        document.getElementById('card-' + id).classList.toggle('maximized');
-        setTimeout(() => units[id].map.invalidateSize(), 300);
-    }
-</script>
-</body>
-</html>
