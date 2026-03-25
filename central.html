@@ -2,205 +2,99 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>PABLO SECURITY - CONTROL DE SUSCRIPCIONES</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PABLO SECURITY - ACCESO CHOFER</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        body { background: #000; color: #0f0; font-family: sans-serif; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
-        .top-bar { background: #0a0a0a; border-bottom: 2px solid #0f0; padding: 10px; display: flex; justify-content: space-between; align-items: center; height: 70px; z-index: 1000; }
-        
-        /* PANEL DE COBRO */
-        .admin-panel { background: #111; border: 1px solid #0f0; padding: 5px 15px; border-radius: 8px; display: flex; align-items: center; gap: 15px; }
-        .token-val { font-size: 20px; color: #ff0; font-weight: bold; border: 1px dashed #ff0; padding: 2px 10px; }
-
-        .main-layout { display: flex; flex: 1; overflow: hidden; }
-        .grid-fleet { flex: 1; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px; padding: 15px; overflow-y: auto; scroll-behavior: smooth; }
-        .right-panel { width: 440px; background: #050505; border-left: 2px solid #0f0; padding: 15px; display: flex; flex-direction: column; }
-        #mainMap { width: 400px; height: 400px; border: 2px solid #0f0; border-radius: 10px; }
-
-        /* TARJETAS Y EFECTOS */
-        .unit-card { background: #050505; border: 1px solid #333; border-radius: 8px; width: 300px; height: 430px; position: relative; overflow: hidden; transition: 0.3s; }
-        .unit-header { background: #111; padding: 5px; text-align: center; color: #0f0; font-size: 11px; font-weight: bold; border-bottom: 1px solid #222; }
-        .video-box { height: 180px; background: #000; cursor: pointer; }
-        video { width: 100%; height: 100%; object-fit: contain; }
-        .map-box { height: 170px; border-top: 1px solid #222; }
-
-        /* NEÓN Y ALERTAS */
-        .fuchsia-car-marker { filter: invert(19%) sepia(87%) saturate(6011%) hue-rotate(296deg) brightness(101%) contrast(110%); drop-shadow(0 0 8px #f0f); }
-        .zona-roja-alert { border: 5px solid red !important; animation: blinker 0.6s linear infinite; }
-        @keyframes blinker { 50% { border-color: transparent; } }
-        
-        .maximized { position: fixed !important; top: 10%; left: 25%; width: 50% !important; height: 80% !important; z-index: 9999 !important; border: 4px solid #0f0 !important; background: #000 !important; }
-        .maximized .video-box { height: 60% !important; }
-        .maximized .map-box { height: 40% !important; }
-
-        .leaflet-container { filter: invert(90%) hue-rotate(180deg) brightness(100%) contrast(100%); }
+        body { background: #000; color: #0f0; font-family: sans-serif; text-align: center; padding: 20px; }
+        .status { font-size: 12px; margin-top: 10px; color: #555; }
+        .btn-pablo { background: #0f0; color: #000; font-weight: bold; width: 100%; padding: 15px; border: none; border-radius: 8px; }
+        input { background: #111 !important; border: 1px solid #0f0 !important; color: #0f0 !important; text-align: center; margin-bottom: 10px; }
     </style>
 </head>
 <body>
 
-<div class="top-bar">
-    <div class="fw-bold text-success">PABLO SECURITY <br><small style="font-size: 10px; color:#666;">CENTRAL DE ABONADOS</small></div>
+    <h3 class="mb-4">ACCESO DE SEGURIDAD</h3>
     
-    <div class="admin-panel">
-        <span class="small text-white">GENERAR SUSCRIPCIÓN:</span>
-        <select id="duracion" class="form-select form-select-sm bg-dark text-success border-success" style="width: 120px;">
-            <option value="12">12 HORAS</option>
-            <option value="24">24 HORAS</option>
-            <option value="720">30 DÍAS</option>
-        </select>
-        <button class="btn btn-success btn-sm fw-bold" onclick="crearSuscripcion()">ACTIVAR CÓDIGO</button>
-        <div id="nuevoToken" class="token-val">----</div>
+    <div id="loginForm">
+        <input type="text" id="nombreChofer" class="form-control" placeholder="TU NOMBRE (EJ: MOVIL 04)">
+        <input type="number" id="tokenAcceso" class="form-control" placeholder="CÓDIGO DE 4 DÍGITOS">
+        <button class="btn-pablo" onclick="conectar()">ACTIVAR SESIÓN</button>
     </div>
-</div>
 
-<div class="main-layout">
-    <div class="grid-fleet" id="monitorGrid"></div>
-    <div class="right-panel">
-        <h6 class="text-center text-success mb-2">RADAR GENERAL</h6>
-        <div id="mainMap"></div>
-        <div id="listaAbonados" class="mt-3 p-2 border border-secondary rounded" style="font-size: 11px; color: #aaa; overflow-y: auto; max-height: 200px;">
-            <b class="text-white">CHOFERES ACTIVOS:</b><br>
-            <div id="nombresActivos"></div>
-        </div>
+    <div id="interfazChofer" style="display:none;">
+        <div class="alert alert-success">SESIÓN ACTIVA</div>
+        <p>Transmitiendo Video y GPS...</p>
+        <button class="btn btn-danger w-100 p-4 fw-bold" id="sosBtn">🚨 BOTÓN DE PÁNICO 🚨</button>
     </div>
-</div>
 
-<script>
-    let peer, mainMap;
-    const units = {};
-    const CENTRAL_ID = 'PABLO-CENTRAL-MASTER-2026';
-    const carIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', iconSize: [36, 36], iconAnchor: [18, 18], className: 'fuchsia-car-marker' });
+    <div class="status" id="statusTxt">Esperando conexión...</div>
 
-    function init() {
-        mainMap = L.map('mainMap').setView([-31.5375, -68.5364], 13);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mainMap);
-        
-        conectarCentral();
-        verificarSesionesPersistentes();
-        setInterval(limpiarTokensVencidos, 60000); // Revisa cada minuto si alguien venció
-    }
+    <script>
+        let peer, localStream, conn;
+        const CENTRAL_ID = 'PABLO-CENTRAL-MASTER-2026';
 
-    // 1. LÓGICA DE SUSCRIPCIÓN
-    function crearSuscripcion() {
-        const horas = parseInt(document.getElementById('duracion').value);
-        const token = Math.floor(1000 + Math.random() * 9000).toString();
-        const vencimiento = Date.now() + (horas * 60 * 60 * 1000);
+        async function conectar() {
+            const nombre = document.getElementById('nombreChofer').value.trim();
+            const token = document.getElementById('tokenAcceso').value.trim();
 
-        // Guardamos el token legal en la "Base de Datos" del navegador
-        let db = JSON.parse(localStorage.getItem('tokens_pablo') || '{}');
-        db[token] = { expires: vencimiento, activa: false, chofer: '' };
-        localStorage.setItem('tokens_pablo', JSON.stringify(db));
+            if(!nombre || !token) return alert("Completar Nombre y Token");
 
-        document.getElementById('nuevoToken').innerText = token;
-        alert(`Token ${token} ACTIVADO por ${horas} horas.`);
-    }
+            // SOLUCIÓN AL ERROR: Creamos un ID ÚNICO usando el Token y el Nombre
+            // Esto evita el error de "Nombre en uso"
+            const idUnico = "CHOFER-" + token + "-" + nombre.replace(/\s+/g, '_');
 
-    function conectarCentral() {
-        peer = new Peer(CENTRAL_ID);
-        
-        peer.on('connection', (conn) => {
-            conn.on('data', (data) => {
-                if(data.tipo === 'login') {
-                    let db = JSON.parse(localStorage.getItem('tokens_pablo') || '{}');
-                    // VALIDACIÓN REAL: ¿Existe el token y no venció?
-                    if(db[data.token] && Date.now() < db[data.token].expires) {
-                        db[data.token].activa = true;
-                        db[data.token].chofer = data.nombre;
-                        db[data.token].peerID = conn.peer;
-                        localStorage.setItem('tokens_pablo', JSON.stringify(db));
-                        
-                        crearUnidad(conn.peer, data.nombre);
-                    } else {
-                        conn.send({ tipo: 'error', msg: 'TOKEN VENCIDO O INVÁLIDO' });
+            peer = new Peer(idUnico);
+
+            peer.on('open', (id) => {
+                document.getElementById('statusTxt').innerText = "Conectando a Central...";
+                
+                // Conectar datos a la central
+                conn = peer.connect(CENTRAL_ID);
+                
+                conn.on('open', () => {
+                    conn.send({ tipo: 'login', nombre: nombre, token: token });
+                    document.getElementById('loginForm').style.display = 'none';
+                    document.getElementById('interfazChofer').style.display = 'block';
+                    iniciarTransmision();
+                });
+
+                conn.on('data', (data) => {
+                    if(data.tipo === 'error') {
+                        alert(data.msg);
+                        location.reload();
                     }
+                });
+            });
+
+            peer.on('error', (err) => {
+                if(err.type === 'id-taken') {
+                    document.getElementById('statusTxt').innerText = "Reintentando conexión...";
+                    // Si el nombre está en uso, forzamos un pequeño cambio para que entre sí o sí
+                    setTimeout(conectar, 1000);
+                } else {
+                    console.error(err);
                 }
-                if(data.tipo === 'gps') actualizarGPS(conn.peer, data.lat, data.lng);
             });
-        });
-
-        peer.on('call', (call) => {
-            call.answer();
-            call.on('stream', (s) => {
-                const v = document.getElementById('v-' + call.peer);
-                if(v) { v.srcObject = s; v.play(); }
-            });
-        });
-    }
-
-    // 2. LÓGICA ANTI-F5 (Reconectar automáticamente)
-    function verificarSesionesPersistentes() {
-        let db = JSON.parse(localStorage.getItem('tokens_pablo') || '{}');
-        for (let t in db) {
-            if (db[t].activa && Date.now() < db[t].expires) {
-                // Si la sesión sigue vigente, creamos el espacio para cuando el celu se reconecte
-                crearUnidad(db[t].peerID, db[t].chofer);
-            }
         }
-    }
 
-    function limpiarTokensVencidos() {
-        let db = JSON.parse(localStorage.getItem('tokens_pablo') || '{}');
-        let cambio = false;
-        for (let t in db) {
-            if (Date.now() > db[t].expires) {
-                const id = db[t].peerID;
-                if(units[id]) eliminarUnidad(id);
-                delete db[t];
-                cambio = true;
-            }
+        async function iniciarTransmision() {
+            // Activar Cámara
+            localStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: true });
+            peer.call(CENTRAL_ID, localStream);
+
+            // Activar GPS constante
+            navigator.geolocation.watchPosition((pos) => {
+                if(conn && conn.open) {
+                    conn.send({ tipo: 'gps', lat: pos.coords.latitude, lng: pos.coords.longitude });
+                }
+            }, null, { enableHighAccuracy: true });
         }
-        if(cambio) localStorage.setItem('tokens_pablo', JSON.stringify(db));
-    }
 
-    function crearUnidad(id, nombre) {
-        if(document.getElementById('card-'+id)) return;
-        const grid = document.getElementById('monitorGrid');
-        const card = document.createElement('div');
-        card.className = 'unit-card'; card.id = 'card-' + id;
-        card.innerHTML = `
-            <div class="unit-header">${nombre.toUpperCase()}</div>
-            <div class="video-box" onclick="toggleMax('${id}')"><video id="v-${id}" autoplay playsinline muted></video></div>
-            <div id="map-ind-${id}" class="map-box" onclick="toggleMax('${id}')"></div>
-        `;
-        grid.appendChild(card);
-
-        const mInd = L.map('map-ind-' + id, { zoomControl: false, attributionControl: false }).setView([0,0], 17);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mInd);
-        
-        const markerGen = L.marker([0,0], {icon: carIcon}).addTo(mainMap);
-        markerGen.on('click', () => {
-            document.getElementById('card-' + id).scrollIntoView({ behavior: 'smooth', block: 'center' });
-            toggleMax(id);
-        });
-
-        units[id] = { mInd, markerInd: L.marker([0,0]).addTo(mInd), markerGen, card };
-        actualizarListaTexto();
-    }
-
-    function actualizarGPS(id, lat, lng) {
-        if(!units[id]) return;
-        const pos = [lat, lng];
-        units[id].mInd.setView(pos);
-        units[id].markerInd.setLatLng(pos);
-        units[id].markerGen.setLatLng(pos);
-    }
-
-    function toggleMax(id) {
-        const card = document.getElementById('card-' + id);
-        card.classList.toggle('maximized');
-        setTimeout(() => { units[id].mInd.invalidateSize(); }, 300);
-    }
-
-    function actualizarListaTexto() {
-        let txt = "";
-        for(let id in units) txt += `• ${id.split('-').pop()} (Activo)<br>`;
-        document.getElementById('nombresActivos').innerHTML = txt;
-    }
-
-    window.onload = init;
-</script>
+        document.getElementById('sosBtn').onclick = () => {
+            if(conn) conn.send({ tipo: 'sos' });
+        };
+    </script>
 </body>
 </html>
