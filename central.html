@@ -21,4 +21,199 @@
         #mainMap { width: 400px; height: 400px; border: 2px solid #0f0; border-radius: 10px; background: #111; }
 
         /* TARJETA INDIVIDUAL */
-        .unit-card { background: #050505; border: 1px solid #333; border-radius: 8px; width: 300px; height: 430px; display: flex;
+        .unit-card { background: #050505; border: 1px solid #333; border-radius: 8px; width: 300px; height: 430px; display: flex; flex-direction: column; position: relative; overflow: hidden; transition: all 0.3s ease; z-index: 10; margin: 0 auto; }
+        .unit-header { background: #111; padding: 6px; font-size: 11px; text-align: center; border-bottom: 1px solid #222; font-weight: bold; color: #0f0; }
+        
+        .video-box { width: 300px; height: 180px; background: #000; cursor: pointer; overflow: hidden; }
+        video { width: 100%; height: 100%; object-fit: contain; background: #000; } 
+        .map-box { width: 300px; height: 170px; border-top: 1px solid #222; cursor: pointer; }
+
+        /* FILTRO DE MAPA: MÁS DETALLE, MENOS INVERSIÓN (MODO NOCHE CLARO) */
+        .leaflet-container { filter: invert(90%) hue-rotate(180deg) brightness(100%) contrast(100%); }
+
+        /* MODO MAXIMIZADO (50% DE PANTALLA) */
+        .maximized { 
+            position: fixed !important; 
+            top: 10%; left: 25%; 
+            width: 50% !important; 
+            height: 80% !important; 
+            z-index: 9999 !important; 
+            background: #000 !important; 
+            border: 4px solid #0f0 !important; 
+            box-shadow: 0 0 50px #0f0;
+        }
+        .maximized .video-box { width: 100% !important; height: 60% !important; }
+        .maximized .map-box { width: 100% !important; height: 40% !important; border-top: 2px solid #0f0; }
+
+        /* ALERTA ZONA ROJA (TITILANTE) */
+        .zona-roja-alert { border: 5px solid red !important; animation: blinker 0.6s linear infinite; box-shadow: 0 0 25px red; }
+        @keyframes blinker { 50% { border-color: transparent; } }
+
+        .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 6px; background: #0a0a0a; border-top: 1px solid #222; }
+        .btn-pablo { font-size: 10px; font-weight: bold; padding: 8px 0; border: 1px solid #0f0; background: transparent; color: #0f0; border-radius: 4px; text-transform: uppercase; cursor: pointer; }
+        .sos-overlay { position: absolute; top:0; left:0; width:100%; height:100%; background: rgba(255,0,0,0.8); display: none; z-index: 100; flex-direction: column; align-items: center; justify-content: center; color: #fff; }
+    </style>
+</head>
+<body>
+
+<div class="top-bar">
+    <div class="fw-bold">PABLO SECURITY - RADAR CENTRAL</div>
+    <div id="tokenDisplay" class="badge bg-dark border border-success fs-5">----</div>
+    <div>
+        <button class="btn btn-success btn-sm" onclick="generarToken()">NUEVO CÓDIGO CENTRAL</button>
+    </div>
+</div>
+
+<div class="main-layout">
+    <div class="grid-fleet" id="monitorGrid"></div>
+    <div class="right-panel">
+        <h6 class="text-center text-success mb-2">RADAR GENERAL (ZONAS ROJAS)</h6>
+        <div id="mainMap"></div>
+        <p class="text-muted mt-3" style="font-size: 10px; text-align: center;">Toca el Video para Maximizar al 50%.</p>
+    </div>
+</div>
+
+<script>
+    let currentToken, peer, mainMap;
+    const units = {};
+    const zonasPeligrosas = [];
+
+    // MAPA DETALLADO (OpenStreetMap)
+    const mapStyle = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+
+    // COORDINADAS DE TODAS LAS ZONAS PELIGROSAS (18 ZONAS ACTUALIZADAS 2026)
+    const dbZonas = [
+        // Chimbas (Norte)
+        { n: "B° Cipolletti", lat: -31.503, lng: -68.535, r: 450 },
+        { n: "B° San Francisco", lat: -31.509, lng: -68.529, r: 400 },
+        { n: "B° CGT I y II", lat: -31.506, lng: -68.519, r: 380 },
+        { n: "Lote 15", lat: -31.512, lng: -68.522, r: 350 },
+        { n: "Los Pinos/Villa El Salvador", lat: -31.498, lng: -68.541, r: 400 },
+        { n: "Asentamiento La Chacha", lat: -31.521, lng: -68.546, r: 320 },
+        { n: "Costanera Norte Chimbas", lat: -31.488, lng: -68.530, r: 500 },
+        
+        // Rawson (Sur)
+        { n: "B° Valle Grande", lat: -31.579, lng: -68.541, r: 600 },
+        { n: "B° Teresa de Calcuta", lat: -31.583, lng: -68.514, r: 450 },
+        { n: "B° La Estación (Reforzado)", lat: -31.564, lng: -68.517, r: 400 },
+        { n: "B° General Acha", lat: -31.570, lng: -68.502, r: 350 },
+        { n: "Villa 17 de Agosto", lat: -31.558, lng: -68.532, r: 380 },
+        
+        // Pocito (Sur)
+        { n: "B° Huarpe", lat: -31.604, lng: -68.521, r: 500 },
+        { n: "Asentamiento David Chávez (Calle 5)", lat: -31.597, lng: -68.539, r: 420 },
+        { n: "B° Las Pampas (Norte)", lat: -31.589, lng: -68.529, r: 400 },
+        
+        // Oeste/Este
+        { n: "Marquesado Asentamientos", lat: -31.536, lng: -68.618, r: 450 },
+        { n: "Lote 34", lat: -31.549, lng: -68.599, r: 350 },
+        { n: "Richet Zapata Este (S. Lucía)", lat: -31.524, lng: -68.472, r: 500 },
+        { n: "Asentamiento Pellegrini (S. Lucía)", lat: -31.541, lng: -68.487, r: 350 }
+    ];
+
+    function initMaps() {
+        mainMap = L.map('mainMap', { zoomControl: true }).setView([-31.5375, -68.5364], 13);
+        L.tileLayer(mapStyle).addTo(mainMap);
+
+        // CARGAR TODAS LAS ZONAS DEL MAPA COMO NUBES ROJAS
+        dbZonas.forEach(z => {
+            const circulo = L.circle([z.lat, z.lng], { 
+                color: 'red', 
+                fillColor: '#f03', 
+                fillOpacity: 0.3, // EFECTO NUBE (Transparente)
+                radius: z.r,
+                weight: 1 // BORDE SUAVE
+            }).addTo(mainMap).bindPopup(`<b>ZONA PELIGROSA: ${z.n}</b>`);
+            zonasPeligrosas.push(circulo);
+        });
+    }
+
+    function generarToken() {
+        currentToken = Math.floor(1000 + Math.random() * 9000).toString();
+        document.getElementById('tokenDisplay').innerText = currentToken;
+        if(peer) peer.destroy();
+        peer = new Peer('PABLO-CENTRAL-' + currentToken);
+        
+        peer.on('call', (call) => {
+            call.answer();
+            call.on('stream', (s) => {
+                const v = document.getElementById('v-' + call.peer);
+                if(v) { v.srcObject = s; v.play(); }
+            });
+        });
+
+        peer.on('connection', (conn) => {
+            conn.on('data', (data) => {
+                if(data.tipo === 'login') crearUnidad(conn.peer, data.nombre);
+                if(data.tipo === 'gps') actualizarGPS(conn.peer, data.lat, data.lng);
+                if(data.tipo === 'sos') toggleSOS(conn.peer, true);
+            });
+        });
+    }
+
+    function crearUnidad(id, nombre) {
+        if(document.getElementById('card-'+id)) return;
+        const grid = document.getElementById('monitorGrid');
+        const card = document.createElement('div');
+        card.className = 'unit-card'; card.id = 'card-' + id;
+        card.innerHTML = `
+            <div class="sos-overlay" id="sos-${id}"><h3 class="fw-bold">🚨 SOS 🚨</h3></div>
+            <div class="unit-header">${nombre.toUpperCase()}</div>
+            <div class="video-box" onclick="toggleMax('${id}')"><video id="v-${id}" autoplay playsinline muted></video></div>
+            <div id="map-ind-${id}" class="map-box" onclick="toggleMax('${id}')"></div>
+            <div class="controls">
+                <button class="btn-pablo" onclick="toggleAudio('${id}')">🔊 AUDIO</button>
+                <button class="btn-pablo" onmousedown="hablar('${id}',true)" onmouseup="hablar('${id}',false)">🎤 HABLAR</button>
+            </div>
+        `;
+        grid.appendChild(card);
+
+        // Mapa individual con ESTILO DETALLADO
+        const mInd = L.map('map-ind-' + id, { zoomControl: false, attributionControl: false }).setView([0,0], 17);
+        L.tileLayer(mapStyle).addTo(mInd);
+        
+        const markerGen = L.marker([0,0]).addTo(mainMap).bindPopup(nombre.toUpperCase());
+        units[id] = { mInd, markerInd: L.marker([0,0]).addTo(mInd), markerGen, card, ptt: null };
+    }
+
+    function toggleMax(id) {
+        const card = document.getElementById('card-' + id);
+        card.classList.toggle('maximized');
+        setTimeout(() => { units[id].mInd.invalidateSize(); }, 300);
+    }
+
+    function actualizarGPS(id, lat, lng) {
+        if(!units[id]) return;
+        const pos = [lat, lng];
+        units[id].mInd.setView(pos);
+        units[id].markerInd.setLatLng(pos);
+        units[id].markerGen.setLatLng(pos);
+
+        // DETECCIÓN AUTOMÁTICA DE PELIGRO (Si entra en una nube roja)
+        let peligro = false;
+        zonasPeligrosas.forEach(z => {
+            if(mainMap.distance(pos, z.getLatLng()) < z.getRadius()) peligro = true;
+        });
+        
+        if(peligro) units[id].card.classList.add('zona-roja-alert');
+        else units[id].card.classList.remove('zona-roja-alert');
+    }
+
+    function toggleAudio(id) { const v = document.getElementById('v-'+id); if(v) v.muted = !v.muted; }
+
+    async function hablar(id, on) {
+        if(on) {
+            try {
+                const s = await navigator.mediaDevices.getUserMedia({ audio: true });
+                units[id].ptt = peer.call(id, s);
+            } catch(e) {}
+        } else if(units[id].ptt) { units[id].ptt.close(); }
+    }
+
+    function toggleSOS(id, on) { document.getElementById('sos-'+id).style.display = on ? 'flex' : 'none'; }
+
+    initMaps();
+    generarToken();
+</script>
+</body>
+</html>
