@@ -2,46 +2,33 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>PABLO SECURITY - PANEL DE CONTROL</title>
+    <title>PABLO SECURITY - CENTRAL PRO</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         body { background: #000; color: #0f0; font-family: 'Courier New', monospace; margin: 0; overflow: hidden; }
-        .top-bar { background: #0a0a0a; border-bottom: 2px solid #0f0; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; height: 70px; }
-        .grid-fleet { display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 15px; padding: 15px; height: calc(100vh - 70px); overflow-y: auto; }
-        
-        .unit-card { background: #0a0a0a; border: 1px solid #333; border-radius: 10px; display: flex; flex-direction: column; height: 500px; position: relative; overflow: hidden; }
-        
-        /* Video sin ZOOM */
-        .video-box { width: 100%; height: 240px; background: #000; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-        video { width: 100%; height: 100%; object-fit: contain; background: #000; }
-        
-        .map-box { width: 100%; height: 160px; background: #111; border-top: 1px solid #222; }
-        .leaflet-container { filter: invert(100%) hue-rotate(180deg) brightness(95%); }
-
-        .controls { padding: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; background: #050505; }
-        .btn-pablo { font-size: 11px; font-weight: bold; padding: 12px; border: 1px solid #0f0; background: transparent; color: #0f0; border-radius: 6px; text-transform: uppercase; }
-        .btn-hablar { background: #002200; border-color: #0f0; }
+        .top-bar { background: #0a0a0a; border-bottom: 2px solid #0f0; padding: 10px; display: flex; justify-content: space-between; align-items: center; }
+        .grid-fleet { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 15px; padding: 15px; height: calc(100vh - 80px); overflow-y: auto; }
+        .unit-card { background: #0a0a0a; border: 1px solid #333; border-radius: 10px; height: 500px; position: relative; overflow: hidden; }
+        .video-box { width: 100%; height: 240px; background: #000; cursor: pointer; }
+        video { width: 100%; height: 100%; object-fit: contain; } /* SIN ZOOM */
+        .map-box { width: 100%; height: 160px; border-top: 1px solid #222; }
+        .sos-overlay { position: absolute; top:0; left:0; width:100%; height:100%; background: rgba(200,0,0,0.9); display: none; z-index: 50; flex-direction: column; align-items: center; justify-content: center; }
+        .btn-pablo { width: 100%; padding: 10px; background: transparent; border: 1px solid #0f0; color: #0f0; font-weight: bold; font-size: 11px; }
         .btn-hablar:active { background: #0f0; color: #000; }
-
-        /* SOS e Interfaz */
-        .sos-overlay { position: absolute; top:0; left:0; width:100%; height:100%; background: rgba(255,0,0,0.9); display: none; z-index: 5000; flex-direction: column; align-items: center; justify-content: center; }
-        .max-v { position: fixed !important; top:0; left:0; width:100vw !important; height:100vh !important; z-index: 4000; }
-        .max-v .video-box { height: 100% !important; }
-        .max-v .map-box, .max-v .controls { display: none; }
     </style>
 </head>
 <body>
 
 <div class="top-bar">
-    <div><strong>PABLO SECURITY</strong></div>
+    <strong class="fs-4">PABLO SECURITY</strong>
     <div class="text-center">
-        <small class="text-secondary d-block">CÓDIGO PARA COBRAR:</small>
-        <div id="tokenDisplay" class="badge bg-dark border border-success fs-4" style="letter-spacing: 4px;">------</div>
+        <span class="text-secondary small">CÓDIGO ACTIVO:</span>
+        <div id="tokenDisplay" class="badge bg-dark border border-success fs-3" style="letter-spacing: 5px; color: #0f0;">----</div>
     </div>
-    <button class="btn btn-outline-success btn-sm" onclick="generarToken()">NUEVO CÓDIGO</button>
+    <button class="btn btn-success fw-bold" onclick="generarToken()">CAMBIAR CÓDIGO (COBRAR)</button>
 </div>
 
 <div class="grid-fleet" id="monitorGrid"></div>
@@ -50,16 +37,17 @@
     let currentToken;
     let peer;
     const units = {};
-    let centralStream;
+    let centralMic;
 
-    // Micrófono para PTT
-    navigator.mediaDevices.getUserMedia({ audio: true }).then(s => centralStream = s);
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(s => centralMic = s);
 
     function generarToken() {
         currentToken = Math.floor(1000 + Math.random() * 9000).toString();
         document.getElementById('tokenDisplay').innerText = currentToken;
         if(peer) peer.destroy();
-        peer = new Peer('PABLO-' + currentToken);
+        
+        // El ID de la central ahora incluye el código dinámico
+        peer = new Peer('PABLO-CENTRAL-' + currentToken);
         
         peer.on('call', (call) => {
             call.answer();
@@ -85,13 +73,13 @@
         card.className = 'unit-card'; card.id = 'card-' + id;
         card.innerHTML = `
             <div class="sos-overlay" id="sos-${id}">
-                <h2 class="text-white">🚨 EMERGENCIA SOS 🚨</h2>
-                <button class="btn btn-light fw-bold" onclick="toggleSOS('${id}', false)">CERRAR SOS / SILENCIAR</button>
+                <h2 class="text-white">🚨 SOS 🚨</h2>
+                <button class="btn btn-light fw-bold" onclick="toggleSOS('${id}', false)">CERRAR SOS</button>
             </div>
-            <div class="p-2 text-center small border-bottom border-secondary">${nombre.toUpperCase()}</div>
-            <div class="video-box" onclick="this.parentElement.classList.toggle('max-v')"><video id="v-${id}" autoplay playsinline muted></video></div>
+            <div class="p-1 text-center small text-success">UNIDAD: ${nombre.toUpperCase()}</div>
+            <div class="video-box" onclick="this.parentElement.style.position='fixed';this.parentElement.style.inset='0';this.parentElement.style.zIndex='100';"><video id="v-${id}" autoplay playsinline muted></video></div>
             <div id="map-${id}" class="map-box"></div>
-            <div class="controls">
+            <div class="p-2 d-flex gap-2">
                 <button class="btn-pablo" id="aud-${id}" onclick="toggleAudio('${id}')">ESCUCHAR</button>
                 <button class="btn-pablo btn-hablar" onmousedown="hablar('${id}', true)" onmouseup="hablar('${id}', false)">HABLAR (PTT)</button>
             </div>
@@ -101,18 +89,15 @@
         L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(units[id].map);
     }
 
-    function hablar(id, on) {
-        if(on && centralStream) peer.call(id, centralStream);
-    }
+    function hablar(id, on) { if(on && centralMic) peer.call(id, centralMic); }
 
     function toggleSOS(id, on) {
-        const div = document.getElementById('sos-'+id);
-        div.style.display = on ? 'flex' : 'none';
+        document.getElementById('sos-'+id).style.display = on ? 'flex' : 'none';
         if(on) {
-            const a = new Audio('https://www.soundjay.com/buttons/beep-01a.mp3');
+            let a = new Audio('https://www.soundjay.com/buttons/beep-01a.mp3');
             a.loop = true; a.id = "s-"+id; a.play();
         } else {
-            const a = document.getElementById("s-"+id); if(a) { a.pause(); a.remove(); }
+            let a = document.getElementById("s-"+id); if(a) { a.pause(); a.remove(); }
         }
     }
 
