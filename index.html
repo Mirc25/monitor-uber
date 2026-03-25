@@ -2,74 +2,73 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>MÓVIL - PABLO SECURITY</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>PABLO SECURITY - UNIDAD</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        body { background: #000; color: #0f0; font-family: monospace; text-align: center; padding: 20px; }
-        .status { border: 1px solid #0f0; padding: 10px; margin: 20px 0; font-size: 0.8em; }
-        #vLocal { width: 100%; max-width: 300px; border-radius: 10px; filter: grayscale(1); opacity: 0.3; }
-        .btn-sos { width: 150px; height: 150px; border-radius: 50%; background: red; color: white; border: 5px solid white; font-weight: bold; font-size: 24px; }
+        body { background: #000; color: #0f0; font-family: sans-serif; height: 100vh; display: flex; align-items: center; }
+        .app-box { width: 90%; margin: auto; padding: 25px; background: #111; border: 1px solid #0f0; border-radius: 20px; text-align: center; }
+        input { background: #222 !important; border: 1px solid #444 !important; color: #0f0 !important; font-size: 20px !important; text-align: center; }
+        .btn-panic { width: 140px; height: 140px; border-radius: 50%; background: red; color: white; border: 5px solid #fff; font-size: 24px; font-weight: bold; margin-top: 20px; }
     </style>
 </head>
 <body>
-    <h2>UNIDAD DE VIGILANCIA</h2>
-    <video id="vLocal" autoplay playsinline muted></video>
 
-    <div id="setup">
-        <input type="text" id="idPropio" class="form-control bg-dark text-success border-success text-center mb-2" placeholder="CÓDIGO (Ej: 123)">
-        <button id="btnActivar" class="btn btn-success w-100">ACTIVAR TRANSMISIÓN</button>
+    <div id="login" class="app-box">
+        <h2 style="font-weight: 900;">PABLO SECURITY</h2>
+        <p class="text-muted small mb-4">INGRESÁ EL CÓDIGO DE LA CENTRAL</p>
+        <input type="text" id="codigoInput" class="form-control mb-3" placeholder="Ej: 654321">
+        <input type="text" id="nombreInput" class="form-control mb-4" placeholder="TU NOMBRE / MÓVIL">
+        <button id="btnActivar" class="btn btn-success btn-lg w-100 py-3">ACTIVAR SERVICIO</button>
     </div>
 
-    <div id="activo" style="display:none;">
-        <div class="status" id="estado">ESTADO: LISTO PARA ENLAZAR</div>
-        <button class="btn-sos" id="sos">S.O.S</button>
-        <p class="mt-3">GPS ACTIVO</p>
+    <div id="activo" class="app-box" style="display:none;">
+        <h4 id="unidadID"></h4>
+        <div id="statusTxt" class="text-warning mb-3">ENLAZANDO...</div>
+        <button id="sosBtn" class="btn-panic">S.O.S</button>
+        <p class="mt-4 small text-secondary">TRANSMITIENDO EN SEGUNDO PLANO</p>
     </div>
 
     <script>
         let stream;
-        const btn = document.getElementById('btnActivar');
-
-        btn.onclick = async () => {
-            const miId = document.getElementById('idPropio').value.trim().toLowerCase();
-            if(!miId) return alert("Poné un código");
+        document.getElementById('btnActivar').onclick = async () => {
+            const codigo = document.getElementById('codigoInput').value.trim();
+            const nombre = document.getElementById('nombreInput').value.trim();
+            if(!codigo || !nombre) return alert("Completá los campos");
 
             try {
                 stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: true });
-                document.getElementById('vLocal').srcObject = stream;
-                document.getElementById('setup').style.display = 'none';
+                document.getElementById('login').style.display = 'none';
                 document.getElementById('activo').style.display = 'block';
+                document.getElementById('unidadID').innerText = nombre;
 
-                const peer = new Peer(miId);
+                const peer = new Peer(); // ID aleatorio para el móvil
 
                 peer.on('open', () => {
-                    document.getElementById('estado').innerText = "EN LÍNEA: ESPERANDO CENTRAL...";
-                });
+                    // Llamar a la central usando el código que generó la PC
+                    const call = peer.call('pablo-' + codigo, stream);
+                    const conn = peer.connect('pablo-' + codigo);
 
-                // Cuando la central me llama para ver video
-                peer.on('call', call => {
-                    call.answer(stream);
-                    document.getElementById('estado').innerText = "TRANSMITIENDO EN VIVO 🔴";
-                });
-
-                // Cuando la central se conecta para recibir datos (GPS/SOS)
-                peer.on('connection', conn => {
-                    document.getElementById('estado').innerText = "CONECTADO CON CENTRAL ✅";
-                    
-                    // Enviar GPS
-                    navigator.geolocation.watchPosition(p => {
-                        conn.send({ tipo: 'gps', lat: p.coords.latitude, lng: p.coords.longitude });
+                    conn.on('open', () => {
+                        document.getElementById('statusTxt').innerText = "SERVICIO ACTIVO ✅";
+                        document.getElementById('statusTxt').className = "text-success";
+                        
+                        conn.send({ tipo: 'nombre', valor: nombre });
+                        
+                        navigator.geolocation.watchPosition(p => {
+                            conn.send({ tipo: 'gps', lat: p.coords.latitude, lng: p.coords.longitude });
+                        }, null, { enableHighAccuracy: true });
                     });
 
-                    document.getElementById('sos').onclick = () => {
+                    document.getElementById('sosBtn').onclick = () => {
                         conn.send({ tipo: 'alerta' });
-                        alert("¡ALERTA ENVIADA!");
+                        alert("ALERTA SOS ENVIADA");
                     };
                 });
+
             } catch (e) {
-                alert("Error de permisos: " + e);
+                alert("Error de permisos: Asegurate de usar HTTPS");
             }
         };
     </script>
