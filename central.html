@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>PABLO SECURITY - CENTRAL DE GESTIÓN TOTAL</title>
+    <title>PABLO SECURITY - CENTRAL RADAR 2026</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -10,25 +10,17 @@
     <style>
         body { background: #000; color: #0f0; font-family: 'Segoe UI', sans-serif; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
         .top-bar { background: #0a0a0a; border-bottom: 2px solid #0f0; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; height: 75px; flex-shrink: 0; }
-        
-        /* BARRA DE ALTA */
         .alta-panel { display: flex; gap: 10px; background: #111; padding: 8px; border-radius: 8px; border: 1px solid #333; }
         input, select { background: #000 !important; color: #0f0 !important; border: 1px solid #0f0 !important; font-weight: bold; }
-
         .main-layout { display: flex; flex: 1; overflow: hidden; }
         .grid-fleet { flex: 1; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px; padding: 15px; overflow-y: auto; }
-
-        /* PANEL DERECHO: BASE DE DATOS Y RADAR */
         .right-panel { width: 420px; background: #050505; border-left: 2px solid #0f0; padding: 15px; display: flex; flex-direction: column; flex-shrink: 0; }
         #mainMap { width: 100%; height: 300px; border: 2px solid #0f0; border-radius: 8px; margin-bottom: 15px; }
-
-        /* TABLA DE USUARIOS PARA RECOBRAR TOKENS */
         .db-container { flex: 1; background: #0a0a0a; border: 1px solid #222; border-radius: 5px; overflow: hidden; display: flex; flex-direction: column; }
         .db-header { background: #1a1a1a; padding: 5px 10px; font-size: 12px; font-weight: bold; color: #0f0; border-bottom: 1px solid #0f0; }
         .db-body { flex: 1; overflow-y: auto; padding: 5px; font-size: 11px; }
         .user-row { display: grid; grid-template-columns: 2fr 1fr 1fr; border-bottom: 1px solid #222; padding: 5px 0; align-items: center; }
-        .user-row b { color: #ff0; } /* El Token resalta en Amarillo */
-
+        .user-row b { color: #ff0; }
         .unit-card { background: #050505; border: 1px solid #333; height: 430px; position: relative; border-radius: 8px; }
         .fuchsia-car-marker { filter: invert(19%) sepia(87%) saturate(6011%) hue-rotate(296deg) brightness(101%) contrast(110%); }
     </style>
@@ -36,10 +28,9 @@
 <body>
 
 <div class="top-bar">
-    <div class="fw-bold">PABLO SECURITY <br><small class="text-secondary">SISTEMA PROFESIONAL</small></div>
-    
+    <div class="fw-bold">PABLO SECURITY <br><small class="text-secondary">CENTRAL RADAR</small></div>
     <div class="alta-panel">
-        <input type="text" id="regNombre" placeholder="NOMBRE CHOFER (Ej: MOVIL 01)" class="form-control form-control-sm" style="width: 200px;">
+        <input type="text" id="regNombre" placeholder="NOMBRE (Móvil 01)" class="form-control form-control-sm" style="width: 180px;">
         <select id="regTiempo" class="form-select form-select-sm" style="width: 120px;">
             <option value="12">12 HORAS</option>
             <option value="24">24 HORAS</option>
@@ -47,23 +38,17 @@
         </select>
         <button class="btn btn-success btn-sm fw-bold" onclick="registrarNuevo()">DAR DE ALTA</button>
     </div>
-
-    <div class="text-end">
-        <button class="btn btn-dark btn-sm text-danger border-danger" onclick="resetTotal()">RESET SISTEMA</button>
-    </div>
+    <div id="centralStatus" class="badge bg-danger">DESCONECTADO</div>
 </div>
 
 <div class="main-layout">
     <div class="grid-fleet" id="monitorGrid"></div>
-    
     <div class="right-panel">
-        <h6 class="text-center text-success small mb-2">RADAR TÁCTICO FUCSIA</h6>
+        <h6 class="text-center text-success small mb-2">RADAR FUCSIA</h6>
         <div id="mainMap"></div>
-        
         <div class="db-container">
-            <div class="db-header">📋 REGISTRO DE ABONADOS ACTIVOS</div>
-            <div class="db-body" id="tablaUsuarios">
-                </div>
+            <div class="db-header">📋 LISTA DE TOKENS</div>
+            <div class="db-body" id="tablaUsuarios"></div>
         </div>
     </div>
 </div>
@@ -77,70 +62,60 @@
     function init() {
         mainMap = L.map('mainMap').setView([-31.5375, -68.5364], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mainMap);
-        
         conectarCentral();
         actualizarTabla();
-        reconectarUnidades();
     }
 
-    // === GESTIÓN DESDE LA PLATAFORMA (TU PEDIDO) ===
     function registrarNuevo() {
         const nombre = document.getElementById('regNombre').value.trim().toUpperCase();
         const horas = parseInt(document.getElementById('regTiempo').value);
-        
-        if(!nombre) return alert("Por favor, ingresá un nombre.");
-
-        let db = JSON.parse(localStorage.getItem('pablo_master_db') || '{}');
-
-        // Generamos el código (Token)
+        if(!nombre) return alert("Ingresá un nombre.");
+        let db = JSON.parse(localStorage.getItem('pablo_db_v2') || '{}');
         const token = Math.floor(1000 + Math.random() * 8999).toString();
         const expira = Date.now() + (horas * 60 * 60 * 1000);
-
-        // Guardamos: el ID es el nombre para evitar duplicados
-        db[nombre] = { token: token, expires: expira, conectado: false, peerID: '' };
-        localStorage.setItem('pablo_master_db', JSON.stringify(db));
-
+        db[nombre] = { token: token, expires: expira, conectado: false };
+        localStorage.setItem('pablo_db_v2', JSON.stringify(db));
         document.getElementById('regNombre').value = "";
         actualizarTabla();
-        alert(`USUARIO CREADO\nChofer: ${nombre}\nToken: ${token}\nYa puede ingresar desde el celular.`);
+        alert(`TICKET: ${nombre} | TOKEN: ${token}`);
     }
 
     function actualizarTabla() {
         const cuerpo = document.getElementById('tablaUsuarios');
-        let db = JSON.parse(localStorage.getItem('pablo_master_db') || '{}');
-        cuerpo.innerHTML = `<div class="user-row text-secondary" style="border-bottom: 1px solid #444;"><span>NOMBRE</span><span>TOKEN</span><span>ESTADO</span></div>`;
-
+        let db = JSON.parse(localStorage.getItem('pablo_db_v2') || '{}');
+        cuerpo.innerHTML = "";
         for(let n in db) {
-            if(Date.now() > db[n].expires) {
-                delete db[n];
-                continue;
-            }
+            if(Date.now() > db[n].expires) { delete db[n]; continue; }
             const fila = document.createElement('div');
             fila.className = "user-row";
-            const estado = db[n].conectado ? '<span class="text-success">● ON</span>' : '<span class="text-muted">OFF</span>';
-            fila.innerHTML = `<span>${n}</span><b>${db[n].token}</b><span>${estado}</span>`;
+            fila.innerHTML = `<span>${n}</span><b>${db[n].token}</b><span>${db[n].conectado ? '🟢' : '⚪'}</span>`;
             cuerpo.appendChild(fila);
         }
-        localStorage.setItem('pablo_master_db', JSON.stringify(db));
+        localStorage.setItem('pablo_db_v2', JSON.stringify(db));
     }
 
     function conectarCentral() {
+        if(peer) peer.destroy();
         peer = new Peer(CENTRAL_ID);
+        
+        peer.on('open', () => {
+            document.getElementById('centralStatus').className = "badge bg-success";
+            document.getElementById('centralStatus').innerText = "CENTRAL ONLINE";
+        });
+
         peer.on('connection', (conn) => {
             conn.on('data', (data) => {
                 if(data.tipo === 'login') {
-                    let db = JSON.parse(localStorage.getItem('pablo_master_db') || '{}');
+                    let db = JSON.parse(localStorage.getItem('pablo_db_v2') || '{}');
                     const nombre = data.nombre.toUpperCase();
-                    
-                    // VALIDACIÓN: ¿Coincide nombre y token en MI base de datos?
                     if(db[nombre] && db[nombre].token === data.token) {
                         db[nombre].conectado = true;
                         db[nombre].peerID = conn.peer;
-                        localStorage.setItem('pablo_master_db', JSON.stringify(db));
+                        localStorage.setItem('pablo_db_v2', JSON.stringify(db));
                         crearUnidad(conn.peer, nombre);
                         actualizarTabla();
                     } else {
-                        conn.send({ tipo: 'error', msg: 'DATOS INCORRECTOS O VENCIDOS' });
+                        conn.send({ tipo: 'error', msg: 'TOKEN INVÁLIDO' });
                     }
                 }
                 if(data.tipo === 'gps') actualizarGPS(conn.peer, data.lat, data.lng);
@@ -154,15 +129,11 @@
                 if(v) { v.srcObject = s; v.play(); }
             });
         });
-    }
 
-    function reconectarUnidades() {
-        let db = JSON.parse(localStorage.getItem('pablo_master_db') || '{}');
-        for(let n in db) {
-            if(db[n].conectado && Date.now() < db[n].expires) {
-                crearUnidad(db[n].peerID, n);
-            }
-        }
+        peer.on('error', (err) => {
+            console.error(err);
+            if(err.type === 'unavailable-id') setTimeout(conectarCentral, 2000);
+        });
     }
 
     function crearUnidad(id, nombre) {
@@ -170,16 +141,11 @@
         const grid = document.getElementById('monitorGrid');
         const card = document.createElement('div');
         card.className = 'unit-card'; card.id = 'card-' + id;
-        card.innerHTML = `
-            <div class="unit-header">${nombre}</div>
-            <div style="height:180px;background:#000;"><video id="v-${id}" autoplay playsinline muted style="width:100%;height:100%;"></video></div>
-            <div id="map-ind-${id}" style="height:170px;border-top:1px solid #222;"></div>
-        `;
+        card.innerHTML = `<div class="unit-header">${nombre}</div><div style="height:180px;background:#000;"><video id="v-${id}" autoplay playsinline muted style="width:100%;height:100%;"></video></div><div id="map-ind-${id}" style="height:170px;border-top:1px solid #222;"></div>`;
         grid.appendChild(card);
         const mInd = L.map('map-ind-' + id, { zoomControl: false, attributionControl: false }).setView([0,0], 17);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mInd);
-        const markerGen = L.marker([0,0], {icon: carIcon}).addTo(mainMap);
-        units[id] = { mInd, markerInd: L.marker([0,0]).addTo(mInd), markerGen };
+        units[id] = { mInd, markerInd: L.marker([0,0]).addTo(mInd), markerGen: L.marker([0,0], {icon: carIcon}).addTo(mainMap) };
     }
 
     function actualizarGPS(id, lat, lng) {
@@ -188,8 +154,6 @@
         units[id].markerInd.setLatLng([lat, lng]);
         units[id].markerGen.setLatLng([lat, lng]);
     }
-
-    function resetTotal() { if(confirm("¿Limpiar todos los registros?")) { localStorage.clear(); location.reload(); } }
 
     window.onload = init;
 </script>
