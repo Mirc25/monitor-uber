@@ -2,122 +2,123 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CENTRAL PABLO SECURITY</title>
+    <title>CENTRAL PABLO SECURITY - V3</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        body { background: #000; color: #00ff00; font-family: 'Segoe UI', sans-serif; margin: 0; overflow: hidden; }
-        .panel-header { background: #111; padding: 10px 20px; border-bottom: 2px solid #00ff00; height: 70px; display: flex; justify-content: space-between; align-items: center; }
-        .grid-monitoreo { display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 20px; padding: 20px; height: calc(100vh - 70px); overflow-y: auto; }
-        .cam-container { border: 2px solid #333; background: #0a0a0a; border-radius: 12px; overflow: hidden; position: relative; }
-        .video-box { width: 100%; height: 240px; background: #000; object-fit: cover; }
-        .nombre-chofer { background: #00ff00; color: #000; font-weight: bold; padding: 5px 10px; font-size: 14px; }
-        .alerta-activa { border: 5px solid #ff0000 !important; animation: parpadeo 0.6s infinite; }
-        @keyframes parpadeo { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
-        .map-mini { width: 100%; height: 150px; border: none; border-top: 1px solid #333; }
-        #btnMiMic { transition: 0.2s; font-weight: bold; width: 250px; }
-        .mic-off { background-color: #444 !important; border-color: #666 !important; color: #ccc !important; }
-        .mic-on { background-color: #198754 !important; border-color: #198754 !important; color: #fff !important; box-shadow: 0 0 15px #198754; }
+        body { background: #0b0e11; color: #00ff00; font-family: 'Courier New', monospace; margin: 0; }
+        .panel-header { background: #1a1d21; padding: 15px; border-bottom: 2px solid #00ff00; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 1000; }
+        .grid-monitoreo { display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 20px; padding: 20px; }
+        .cam-container { border: 1px solid #00ff00; background: #000; border-radius: 8px; overflow: hidden; position: relative; transition: 0.3s; }
+        .video-box { width: 100%; height: 250px; background: #111; object-fit: cover; }
+        .nombre-chofer { background: #00ff00; color: #000; font-weight: bold; padding: 8px; font-size: 16px; text-align: center; }
+        .controls { padding: 10px; display: flex; flex-direction: column; gap: 8px; background: #1a1d21; }
+        .btn-talk { background: #444; color: white; border: none; padding: 10px; font-weight: bold; border-radius: 5px; }
+        .btn-talk:active { background: #ff0000; box-shadow: 0 0 15px #ff0000; }
+        .alerta-activa { border: 4px solid #ff0000 !important; animation: blink 0.5s infinite; }
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+        .map-mini { width: 100%; height: 150px; border: none; border-top: 1px solid #333; filter: grayscale(1) invert(1); }
     </style>
 </head>
 <body>
     <div class="panel-header">
-        <div class="d-flex align-items-center">
-            <h4 class="m-0 me-3">🛡️ PABLO SECURITY</h4>
-            <button id="btnMiMic" onmousedown="hablar(true)" onmouseup="hablar(false)" onmouseleave="hablar(false)" class="btn mic-off btn-sm">
-                🎤 MANTENER PARA HABLAR
-            </button>
-        </div>
-        <div id="status" class="badge bg-success">CENTRAL ACTIVA</div>
-        <button onclick="generarLinkUnico()" class="btn btn-outline-success btn-sm">➕ GENERAR NUEVO LINK</button>
+        <h4>📡 CENTRAL DE MONITOREO PROFESIONAL</h4>
+        <div id="status" class="badge bg-success">SISTEMA ONLINE</div>
+        <button onclick="generarLinkUnico()" class="btn btn-outline-success">➕ NUEVO LINK CHOFER</button>
     </div>
 
     <div id="gridMonitoreo" class="grid-monitoreo"></div>
 
     <script>
-        // ID fijo para la central
         const peer = new Peer('pablo-master-control-vip');
-        let miStreamVoz;
+        let streamsChoferes = {}; // Almacena los streams de salida hacia cada chofer
 
-        navigator.mediaDevices.getUserMedia({ audio: true }).then(s => { 
-            miStreamVoz = s; 
-            miStreamVoz.getAudioTracks()[0].enabled = false; 
-        });
+        peer.on('open', (id) => console.log('Central abierta con ID:', id));
 
-        function hablar(estado) {
-            if (miStreamVoz) {
-                miStreamVoz.getAudioTracks()[0].enabled = estado;
-                const btn = document.getElementById('btnMiMic');
-                if(estado) {
-                    btn.innerText = "HABLANDO AL CHOFER...";
-                    btn.classList.replace('mic-off', 'mic-on');
-                } else {
-                    btn.innerText = "🎤 MANTENER PARA HABLAR";
-                    btn.classList.replace('mic-on', 'mic-off');
-                }
-            }
-        }
-
+        // 1. Manejar llamadas de video/audio (Entrantes)
         peer.on('call', call => {
-            call.answer(miStreamVoz);
+            // No contestamos con audio global, sino que manejaremos el audio individualmente después
+            call.answer(); 
             call.on('stream', remoteStream => {
                 crearCuadro(remoteStream, call.peer);
             });
         });
 
-        function crearCuadro(stream, idConexion) {
-            if (document.getElementById('div-' + idConexion)) return;
+        // 2. Manejar conexión de datos (Nombre, GPS, Alertas)
+        peer.on('connection', conn => {
+            conn.on('data', data => {
+                const id = conn.peer;
+                if(data.tipo === 'nombre') {
+                    const el = document.getElementById('tit-' + id);
+                    if(el) el.innerText = "🚖 " + data.valor;
+                }
+                if(data.tipo === 'alerta') {
+                    document.getElementById('div-' + id).classList.add('alerta-activa');
+                    new Audio('https://www.soundjay.com/buttons/beep-01a.mp3').play();
+                }
+                if(data.tipo === 'gps') {
+                    document.getElementById('map-' + id).src = `https://maps.google.com/maps?q=${data.lat},${data.lng}&z=15&output=embed`;
+                    document.getElementById('info-' + id).innerText = `📍 GPS: ${data.lat.toFixed(5)}, ${data.lng.toFixed(5)}`;
+                }
+            });
+        });
+
+        function crearCuadro(stream, id) {
+            if (document.getElementById('div-' + id)) return;
 
             const div = document.createElement('div');
-            div.id = 'div-' + idConexion;
+            div.id = 'div-' + id;
             div.className = 'cam-container';
             div.innerHTML = `
-                <div class="nombre-chofer" id="tit-${idConexion}">🚀 CONECTANDO...</div>
-                <video id="vid-${idConexion}" class="video-box" autoplay playsinline></video>
-                <div class="p-2 d-flex gap-1">
-                    <button class="btn btn-warning btn-sm w-100" onclick="toggleMute('${idConexion}')" id="btn-m-${idConexion}">SILENCIAR</button>
-                    <button class="btn btn-dark btn-sm" onclick="cerrar('${idConexion}')">X</button>
+                <div class="nombre-chofer" id="tit-${id}">CONECTANDO...</div>
+                <video id="vid-${id}" class="video-box" autoplay playsinline></video>
+                <div class="controls">
+                    <button class="btn btn-primary btn-sm" onclick="toggleMute('${id}')" id="btn-mute-${id}">🔇 ESCUCHAR MÓVIL: ON</button>
+                    
+                    <button class="btn-talk" 
+                        onmousedown="hablarA('${id}', true)" 
+                        onmouseup="hablarA('${id}', false)"
+                        onmouseleave="hablarA('${id}', false)">
+                        🎤 MANTENER PARA HABLAR
+                    </button>
+
+                    <div id="info-${id}" style="font-size:12px; color:#00ff00;">Buscando satélites...</div>
+                    <button class="btn btn-dark btn-sm mt-1" onclick="document.getElementById('div-${id}').remove()">DESCONECTAR</button>
                 </div>
-                <div id="info-${idConexion}" style="padding:5px; font-size:11px; color:#aaa;">Localizando...</div>
-                <iframe id="map-${idConexion}" class="map-mini"></iframe>
+                <iframe id="map-${id}" class="map-mini"></iframe>
             `;
             document.getElementById('gridMonitoreo').appendChild(div);
-            document.getElementById('vid-' + idConexion).srcObject = stream;
+            document.getElementById('vid-' + id).srcObject = stream;
+        }
 
-            peer.on('connection', conn => {
-                conn.on('data', data => {
-                    if(data.nombreChofer) {
-                        document.getElementById('tit-' + idConexion).innerText = "🚖 " + data.nombreChofer;
-                    }
-                    if(data.alerta) {
-                        document.getElementById('div-' + idConexion).classList.add('alerta-activa');
-                        new Audio('https://www.soundjay.com/buttons/beep-01a.mp3').play();
-                    }
-                    if(data.lat) {
-                        document.getElementById('map-'+idConexion).src = `https://maps.google.com/maps?q=${data.lat},${data.lng}&z=15&output=embed`;
-                        document.getElementById('info-'+idConexion).innerHTML = `📍 GPS: ${data.lat.toFixed(4)}, ${data.lng.toFixed(4)}`;
-                    }
-                });
-            });
+        async function hablarA(idChofer, activo) {
+            if (activo) {
+                try {
+                    const streamVoz = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    streamsChoferes[idChofer] = peer.call(idChofer, streamVoz);
+                    console.log("Hablando a: " + idChofer);
+                } catch (e) { console.error("Error micro:", e); }
+            } else {
+                if (streamsChoferes[idChofer]) {
+                    streamsChoferes[idChofer].close();
+                    delete streamsChoferes[idChofer];
+                    console.log("Corte de voz a: " + idChofer);
+                }
+            }
         }
 
         function toggleMute(id) {
             const v = document.getElementById('vid-' + id);
             v.muted = !v.muted;
-            document.getElementById('btn-m-' + id).innerText = v.muted ? "ESCUCHAR" : "SILENCIAR";
+            document.getElementById('btn-mute-' + id).innerText = v.muted ? "🔇 ESCUCHAR MÓVIL: OFF" : "🔊 ESCUCHAR MÓVIL: ON";
+            document.getElementById('btn-mute-' + id).className = v.muted ? "btn btn-secondary btn-sm" : "btn btn-primary btn-sm";
         }
 
-        function cerrar(id) { document.getElementById('div-' + id).remove(); }
-
         function generarLinkUnico() {
-            // Genera un ID aleatorio para evitar que los links choquen
-            const tokenUnico = 'M' + Math.floor(Math.random() * 999999);
-            const urlBase = window.location.href.split('index.html')[0];
-            const linkFinal = `${urlBase}visor.html?id=${tokenUnico}`;
-            
-            navigator.clipboard.writeText(linkFinal);
-            alert("LINK ÚNICO GENERADO:\n" + linkFinal + "\n\nEnvíalo al chofer.");
+            const token = 'M' + Math.floor(Math.random() * 9999);
+            const link = `${window.location.origin}${window.location.pathname.replace('index.html','')}visor.html?id=${token}`;
+            navigator.clipboard.writeText(link);
+            alert("LINK PARA CHOFER COPIADO:\n" + link);
         }
     </script>
 </body>
