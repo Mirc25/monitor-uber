@@ -10,19 +10,24 @@
         body { background: #000; color: #00ff00; font-family: 'Segoe UI', sans-serif; margin: 0; overflow: hidden; }
         .panel-header { background: #111; padding: 10px 20px; border-bottom: 2px solid #00ff00; height: 70px; display: flex; justify-content: space-between; align-items: center; }
         .grid-monitoreo { display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 20px; padding: 20px; height: calc(100vh - 70px); overflow-y: auto; }
-        .cam-container { border: 2px solid #333; background: #0a0a0a; border-radius: 12px; overflow: hidden; }
+        .cam-container { border: 2px solid #333; background: #0a0a0a; border-radius: 12px; overflow: hidden; position: relative; }
         .video-box { width: 100%; height: 220px; background: #000; object-fit: cover; }
         .nombre-chofer { background: #00ff00; color: #000; font-weight: bold; padding: 5px 10px; font-size: 14px; text-transform: uppercase; }
         .alerta-activa { border: 5px solid #ff0000 !important; animation: parpadeo 0.6s infinite; }
         @keyframes parpadeo { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
         .map-mini { width: 100%; height: 150px; border: none; border-top: 1px solid #333; }
+        #btnMiMic { transition: all 0.2s; font-weight: bold; }
+        .mic-off { background-color: #6c757d !important; border-color: #6c757d !important; }
+        .mic-on { background-color: #198754 !important; border-color: #198754 !important; box-shadow: 0 0 10px #198754; }
     </style>
 </head>
 <body>
     <div class="panel-header">
         <div class="d-flex align-items-center">
             <h4 class="m-0 me-3">🛡️ PABLO SECURITY</h4>
-            <button id="btnMiMic" onclick="toggleMiMicro()" class="btn btn-primary btn-sm">🎤 MI MICRO: ON</button>
+            <button id="btnMiMic" onmousedown="hablar(true)" onmouseup="hablar(false)" onmouseleave="hablar(false)" class="btn mic-off btn-sm">
+                🎤 MANTENER PARA HABLAR
+            </button>
         </div>
         <div id="status" class="badge bg-danger">DESCONECTADO</div>
         <button onclick="copiarLink()" class="btn btn-outline-success btn-sm">COPIAR LINK CHOFER</button>
@@ -33,17 +38,24 @@
     <script>
         const peer = new Peer('pablo-master-control-vip');
         let miStreamVoz;
-        let microZentralActivo = true;
 
-        navigator.mediaDevices.getUserMedia({ audio: true }).then(s => { miStreamVoz = s; });
+        // Capturar micro pero empezar silenciado
+        navigator.mediaDevices.getUserMedia({ audio: true }).then(s => { 
+            miStreamVoz = s; 
+            miStreamVoz.getAudioTracks()[0].enabled = false; // APAGADO POR DEFECTO
+        });
 
-        function toggleMiMicro() {
+        function hablar(estado) {
             if (miStreamVoz) {
-                microZentralActivo = !microZentralActivo;
-                miStreamVoz.getAudioTracks()[0].enabled = microZentralActivo;
+                miStreamVoz.getAudioTracks()[0].enabled = estado;
                 const btn = document.getElementById('btnMiMic');
-                btn.innerText = microZentralActivo ? "🎤 MI MICRO: ON" : "🚫 MI MICRO: OFF";
-                btn.className = microZentralActivo ? "btn btn-primary btn-sm" : "btn btn-danger btn-sm";
+                if(estado) {
+                    btn.innerText = "OPEN MIC - HABLANDO...";
+                    btn.classList.replace('mic-off', 'mic-on');
+                } else {
+                    btn.innerText = "🎤 MANTENER PARA HABLAR";
+                    btn.classList.replace('mic-on', 'mic-off');
+                }
             }
         }
 
@@ -55,7 +67,6 @@
         peer.on('call', call => {
             call.answer(miStreamVoz);
             call.on('stream', remoteStream => {
-                // El ID del peer ahora es el NOMBRE del chofer
                 crearCuadro(remoteStream, call.peer);
             });
         });
@@ -70,7 +81,7 @@
                 <div class="nombre-chofer">🚖 ${nombre}</div>
                 <video id="vid-${nombre}" class="video-box" autoplay playsinline></video>
                 <div class="p-2 d-flex gap-1">
-                    <button class="btn btn-warning btn-sm w-100" onclick="toggleMute('${nombre}')" id="btn-m-${nombre}">SILENCIAR</button>
+                    <button class="btn btn-warning btn-sm w-100" onclick="toggleMute('${nombre}')" id="btn-m-${nombre}">SILENCIAR CHOFER</button>
                     <button class="btn btn-dark btn-sm" onclick="cerrar('${nombre}')">X</button>
                 </div>
                 <div id="info-${nombre}" style="padding:5px; font-size:11px; color:#aaa;">Esperando GPS...</div>
@@ -79,7 +90,6 @@
             document.getElementById('gridMonitoreo').appendChild(div);
             document.getElementById('vid-' + nombre).srcObject = stream;
 
-            // Escuchar alertas y GPS
             peer.on('connection', conn => {
                 conn.on('data', data => {
                     if(data.alerta) {
@@ -105,7 +115,7 @@
         function copiarLink() {
             const url = window.location.href.replace('index.html', 'visor.html');
             navigator.clipboard.writeText(url);
-            alert("Link copiado para enviar a los choferes.");
+            alert("Link copiado.");
         }
     </script>
 </body>
