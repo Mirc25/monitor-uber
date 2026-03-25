@@ -1,0 +1,16 @@
+{
+  "name": "PABLO SECURITY CHOFER",
+  "short_name": "SecurityApp",
+  "start_url": "visor.html",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#00ff00",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/1182/1182761.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
