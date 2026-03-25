@@ -54,7 +54,6 @@
                 const ahora = new Date().getTime();
                 const unDia = 24 * 60 * 60 * 1000;
 
-                // Si no pasaron 24 horas, intentamos entrar directo
                 if (ahora - auth.timestamp < unDia) {
                     document.getElementById('cod').value = auth.codigo;
                     document.getElementById('nom').value = auth.nombre;
@@ -71,7 +70,6 @@
             if(!cod || !nom) return alert("Por favor ingresa los datos");
 
             try {
-                // MANTENEMOS EL FORMATO PANORÁMICO 16:9
                 const stream = await navigator.mediaDevices.getUserMedia({ 
                     video: { 
                         facingMode: "user", 
@@ -83,14 +81,17 @@
                 });
                 
                 document.getElementById('hiddenV').srcObject = stream;
-                const peer = new Peer();
+                
+                // ID FIJO PARA EVITAR DUPLICADOS EN LA CENTRAL
+                const idLimpio = nom.replace(/[^a-zA-Z0-9]/g, '_').toUpperCase();
+                const miIDfijo = idLimpio + '-' + cod;
+                const peer = new Peer(miIDfijo);
 
                 peer.on('open', (id) => {
                     const centralID = 'PABLO-CENTRAL-' + cod;
                     const conn = peer.connect(centralID);
                     
                     conn.on('open', () => {
-                        // Guardamos datos solo si es un login nuevo
                         if (!esAutoLogin) {
                             const sesion = { codigo: cod, nombre: nom, timestamp: new Date().getTime() };
                             localStorage.setItem('pablo_auth_v1', JSON.stringify(sesion));
@@ -119,8 +120,15 @@
                     });
                 });
 
+                peer.on('error', (err) => {
+                    console.error("Error en Peer:", err);
+                    if(err.type === 'unavailable-id' && !esAutoLogin) {
+                        alert("Este nombre ya está en uso. Intenta con otro.");
+                    }
+                });
+
             } catch(e) { 
-                if(!esAutoLogin) alert("Error: Habilita la cámara y el micrófono"); 
+                if(!esAutoLogin) alert("Error: Habilita los permisos de cámara"); 
             }
         }
     </script>
