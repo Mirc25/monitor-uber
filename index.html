@@ -11,14 +11,14 @@
         .panel-header { background: #111; padding: 10px 20px; border-bottom: 2px solid #00ff00; height: 70px; display: flex; justify-content: space-between; align-items: center; }
         .grid-monitoreo { display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 20px; padding: 20px; height: calc(100vh - 70px); overflow-y: auto; }
         .cam-container { border: 2px solid #333; background: #0a0a0a; border-radius: 12px; overflow: hidden; position: relative; }
-        .video-box { width: 100%; height: 220px; background: #000; object-fit: cover; }
-        .nombre-chofer { background: #00ff00; color: #000; font-weight: bold; padding: 5px 10px; font-size: 14px; text-transform: uppercase; }
+        .video-box { width: 100%; height: 240px; background: #000; object-fit: cover; }
+        .nombre-chofer { background: #00ff00; color: #000; font-weight: bold; padding: 5px 10px; font-size: 14px; }
         .alerta-activa { border: 5px solid #ff0000 !important; animation: parpadeo 0.6s infinite; }
         @keyframes parpadeo { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
         .map-mini { width: 100%; height: 150px; border: none; border-top: 1px solid #333; }
-        #btnMiMic { transition: all 0.2s; font-weight: bold; }
-        .mic-off { background-color: #6c757d !important; border-color: #6c757d !important; }
-        .mic-on { background-color: #198754 !important; border-color: #198754 !important; box-shadow: 0 0 10px #198754; }
+        #btnMiMic { transition: 0.2s; font-weight: bold; width: 250px; }
+        .mic-off { background-color: #444 !important; border-color: #666 !important; color: #ccc !important; }
+        .mic-on { background-color: #198754 !important; border-color: #198754 !important; color: #fff !important; box-shadow: 0 0 15px #198754; }
     </style>
 </head>
 <body>
@@ -29,20 +29,20 @@
                 🎤 MANTENER PARA HABLAR
             </button>
         </div>
-        <div id="status" class="badge bg-danger">DESCONECTADO</div>
-        <button onclick="copiarLink()" class="btn btn-outline-success btn-sm">COPIAR LINK CHOFER</button>
+        <div id="status" class="badge bg-success">CENTRAL ACTIVA</div>
+        <button onclick="generarLinkUnico()" class="btn btn-outline-success btn-sm">➕ GENERAR NUEVO LINK</button>
     </div>
 
     <div id="gridMonitoreo" class="grid-monitoreo"></div>
 
     <script>
+        // ID fijo para la central
         const peer = new Peer('pablo-master-control-vip');
         let miStreamVoz;
 
-        // Capturar micro pero empezar silenciado
         navigator.mediaDevices.getUserMedia({ audio: true }).then(s => { 
             miStreamVoz = s; 
-            miStreamVoz.getAudioTracks()[0].enabled = false; // APAGADO POR DEFECTO
+            miStreamVoz.getAudioTracks()[0].enabled = false; 
         });
 
         function hablar(estado) {
@@ -50,7 +50,7 @@
                 miStreamVoz.getAudioTracks()[0].enabled = estado;
                 const btn = document.getElementById('btnMiMic');
                 if(estado) {
-                    btn.innerText = "OPEN MIC - HABLANDO...";
+                    btn.innerText = "HABLANDO AL CHOFER...";
                     btn.classList.replace('mic-off', 'mic-on');
                 } else {
                     btn.innerText = "🎤 MANTENER PARA HABLAR";
@@ -59,11 +59,6 @@
             }
         }
 
-        peer.on('open', () => {
-            document.getElementById('status').innerText = "CENTRAL EN LÍNEA";
-            document.getElementById('status').className = "badge bg-success";
-        });
-
         peer.on('call', call => {
             call.answer(miStreamVoz);
             call.on('stream', remoteStream => {
@@ -71,34 +66,37 @@
             });
         });
 
-        function crearCuadro(stream, nombre) {
-            if (document.getElementById('div-' + nombre)) return;
+        function crearCuadro(stream, idConexion) {
+            if (document.getElementById('div-' + idConexion)) return;
 
             const div = document.createElement('div');
-            div.id = 'div-' + nombre;
+            div.id = 'div-' + idConexion;
             div.className = 'cam-container';
             div.innerHTML = `
-                <div class="nombre-chofer">🚖 ${nombre}</div>
-                <video id="vid-${nombre}" class="video-box" autoplay playsinline></video>
+                <div class="nombre-chofer" id="tit-${idConexion}">🚀 CONECTANDO...</div>
+                <video id="vid-${idConexion}" class="video-box" autoplay playsinline></video>
                 <div class="p-2 d-flex gap-1">
-                    <button class="btn btn-warning btn-sm w-100" onclick="toggleMute('${nombre}')" id="btn-m-${nombre}">SILENCIAR CHOFER</button>
-                    <button class="btn btn-dark btn-sm" onclick="cerrar('${nombre}')">X</button>
+                    <button class="btn btn-warning btn-sm w-100" onclick="toggleMute('${idConexion}')" id="btn-m-${idConexion}">SILENCIAR</button>
+                    <button class="btn btn-dark btn-sm" onclick="cerrar('${idConexion}')">X</button>
                 </div>
-                <div id="info-${nombre}" style="padding:5px; font-size:11px; color:#aaa;">Esperando GPS...</div>
-                <iframe id="map-${nombre}" class="map-mini"></iframe>
+                <div id="info-${idConexion}" style="padding:5px; font-size:11px; color:#aaa;">Localizando...</div>
+                <iframe id="map-${idConexion}" class="map-mini"></iframe>
             `;
             document.getElementById('gridMonitoreo').appendChild(div);
-            document.getElementById('vid-' + nombre).srcObject = stream;
+            document.getElementById('vid-' + idConexion).srcObject = stream;
 
             peer.on('connection', conn => {
                 conn.on('data', data => {
+                    if(data.nombreChofer) {
+                        document.getElementById('tit-' + idConexion).innerText = "🚖 " + data.nombreChofer;
+                    }
                     if(data.alerta) {
-                        document.getElementById('div-' + nombre).classList.add('alerta-activa');
+                        document.getElementById('div-' + idConexion).classList.add('alerta-activa');
                         new Audio('https://www.soundjay.com/buttons/beep-01a.mp3').play();
                     }
                     if(data.lat) {
-                        document.getElementById('map-'+nombre).src = `https://maps.google.com/maps?q=${data.lat},${data.lng}&z=15&output=embed`;
-                        document.getElementById('info-'+nombre).innerHTML = `<b>LAT:</b> ${data.lat.toFixed(4)} | <b>LNG:</b> ${data.lng.toFixed(4)}`;
+                        document.getElementById('map-'+idConexion).src = `https://maps.google.com/maps?q=${data.lat},${data.lng}&z=15&output=embed`;
+                        document.getElementById('info-'+idConexion).innerHTML = `📍 GPS: ${data.lat.toFixed(4)}, ${data.lng.toFixed(4)}`;
                     }
                 });
             });
@@ -112,10 +110,14 @@
 
         function cerrar(id) { document.getElementById('div-' + id).remove(); }
 
-        function copiarLink() {
-            const url = window.location.href.replace('index.html', 'visor.html');
-            navigator.clipboard.writeText(url);
-            alert("Link copiado.");
+        function generarLinkUnico() {
+            // Genera un ID aleatorio para evitar que los links choquen
+            const tokenUnico = 'M' + Math.floor(Math.random() * 999999);
+            const urlBase = window.location.href.split('index.html')[0];
+            const linkFinal = `${urlBase}visor.html?id=${tokenUnico}`;
+            
+            navigator.clipboard.writeText(linkFinal);
+            alert("LINK ÚNICO GENERADO:\n" + linkFinal + "\n\nEnvíalo al chofer.");
         }
     </script>
 </body>
