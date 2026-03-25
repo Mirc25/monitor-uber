@@ -2,99 +2,196 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PABLO SECURITY - ACCESO CHOFER</title>
+    <title>PABLO SECURITY - GESTIÓN DE ABONADOS</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        body { background: #000; color: #0f0; font-family: sans-serif; text-align: center; padding: 20px; }
-        .status { font-size: 12px; margin-top: 10px; color: #555; }
-        .btn-pablo { background: #0f0; color: #000; font-weight: bold; width: 100%; padding: 15px; border: none; border-radius: 8px; }
-        input { background: #111 !important; border: 1px solid #0f0 !important; color: #0f0 !important; text-align: center; margin-bottom: 10px; }
+        body { background: #000; color: #0f0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        .top-bar { background: #0a0a0a; border-bottom: 2px solid #0f0; padding: 10px; display: flex; justify-content: space-between; align-items: center; height: 70px; }
+        
+        /* PANEL DE REGISTRO */
+        .admin-controls { display: flex; gap: 10px; align-items: center; background: #111; padding: 5px 15px; border-radius: 10px; border: 1px solid #333; }
+        input, select { background: #000 !important; color: #0f0 !important; border: 1px solid #0f0 !important; font-size: 13px; }
+
+        .main-layout { display: flex; flex: 1; overflow: hidden; }
+        .grid-fleet { flex: 1; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px; padding: 15px; overflow-y: auto; }
+        .right-panel { width: 400px; background: #050505; border-left: 2px solid #0f0; padding: 15px; display: flex; flex-direction: column; }
+        
+        #mainMap { width: 100%; height: 350px; border: 2px solid #0f0; border-radius: 8px; margin-bottom: 15px; }
+
+        /* LISTA DE USUARIOS (EL BOTÓN QUE PEDISTE) */
+        .user-list-container { flex: 1; background: #111; border: 1px solid #222; border-radius: 5px; padding: 10px; overflow-y: auto; }
+        .user-item { border-bottom: 1px solid #222; padding: 5px 0; font-size: 12px; display: flex; justify-content: space-between; }
+        .user-item b { color: #ff0; }
+
+        .unit-card { background: #050505; border: 1px solid #333; height: 430px; position: relative; border-radius: 8px; }
+        .fuchsia-car-marker { filter: invert(19%) sepia(87%) saturate(6011%) hue-rotate(296deg) brightness(101%) contrast(110%); }
     </style>
 </head>
 <body>
 
-    <h3 class="mb-4">ACCESO DE SEGURIDAD</h3>
+<div class="top-bar">
+    <div class="fw-bold text-success">PABLO SECURITY <br><small>CONTROL DE ACCESOS</small></div>
     
-    <div id="loginForm">
-        <input type="text" id="nombreChofer" class="form-control" placeholder="TU NOMBRE (EJ: MOVIL 04)">
-        <input type="number" id="tokenAcceso" class="form-control" placeholder="CÓDIGO DE 4 DÍGITOS">
-        <button class="btn-pablo" onclick="conectar()">ACTIVAR SESIÓN</button>
+    <div class="admin-controls">
+        <input type="text" id="inputNombre" placeholder="NOMBRE DEL CHOFER" class="form-control form-control-sm" style="width: 180px;">
+        <select id="inputTiempo" class="form-select form-select-sm" style="width: 110px;">
+            <option value="12">12 HORAS</option>
+            <option value="24">24 HORAS</option>
+            <option value="720">30 DÍAS</option>
+        </select>
+        <button class="btn btn-success btn-sm fw-bold" onclick="registrarUsuario()">DAR DE ALTA</button>
     </div>
 
-    <div id="interfazChofer" style="display:none;">
-        <div class="alert alert-success">SESIÓN ACTIVA</div>
-        <p>Transmitiendo Video y GPS...</p>
-        <button class="btn btn-danger w-100 p-4 fw-bold" id="sosBtn">🚨 BOTÓN DE PÁNICO 🚨</button>
+    <div>
+        <button class="btn btn-outline-warning btn-sm" onclick="mostrarOcultarUsuarios()">📋 USUARIOS ACTIVOS</button>
     </div>
+</div>
 
-    <div class="status" id="statusTxt">Esperando conexión...</div>
+<div class="main-layout">
+    <div class="grid-fleet" id="monitorGrid"></div>
+    
+    <div class="right-panel" id="sidePanel">
+        <h6 class="text-center text-success small">RADAR FUCSIA</h6>
+        <div id="mainMap"></div>
+        
+        <div class="user-list-container">
+            <div class="d-flex justify-content-between border-bottom border-success mb-2">
+                <span class="text-success fw-bold small">LOG DE ABONADOS</span>
+                <button class="btn btn-dark btn-sm text-danger" style="font-size: 9px;" onclick="limpiarTodo()">BORRAR TODO</button>
+            </div>
+            <div id="listaContenido"></div>
+        </div>
+    </div>
+</div>
 
-    <script>
-        let peer, localStream, conn;
-        const CENTRAL_ID = 'PABLO-CENTRAL-MASTER-2026';
+<script>
+    let peer, mainMap;
+    const units = {};
+    const CENTRAL_ID = 'PABLO-CENTRAL-MASTER-2026';
+    const carIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', iconSize: [36, 36], iconAnchor: [18, 18], className: 'fuchsia-car-marker' });
 
-        async function conectar() {
-            const nombre = document.getElementById('nombreChofer').value.trim();
-            const token = document.getElementById('tokenAcceso').value.trim();
+    function init() {
+        mainMap = L.map('mainMap').setView([-31.5375, -68.5364], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mainMap);
+        
+        conectarCentral();
+        actualizarListaUI();
+        cargarSesionesActivas();
+    }
 
-            if(!nombre || !token) return alert("Completar Nombre y Token");
+    // === GESTIÓN DE USUARIOS (TU PEDIDO) ===
+    function registrarUsuario() {
+        const nombre = document.getElementById('inputNombre').value.trim().toUpperCase();
+        const horas = parseInt(document.getElementById('inputTiempo').value);
+        
+        if(!nombre) return alert("Escribí un nombre para el chofer");
 
-            // SOLUCIÓN AL ERROR: Creamos un ID ÚNICO usando el Token y el Nombre
-            // Esto evita el error de "Nombre en uso"
-            const idUnico = "CHOFER-" + token + "-" + nombre.replace(/\s+/g, '_');
+        let db = JSON.parse(localStorage.getItem('pablo_db') || '{}');
 
-            peer = new Peer(idUnico);
+        // Validar si el nombre existe
+        for(let k in db) {
+            if(db[k].nombre === nombre && Date.now() < db[k].expires) {
+                return alert("ERROR: Este chofer ya tiene una sesión activa.");
+            }
+        }
 
-            peer.on('open', (id) => {
-                document.getElementById('statusTxt').innerText = "Conectando a Central...";
-                
-                // Conectar datos a la central
-                conn = peer.connect(CENTRAL_ID);
-                
-                conn.on('open', () => {
-                    conn.send({ tipo: 'login', nombre: nombre, token: token });
-                    document.getElementById('loginForm').style.display = 'none';
-                    document.getElementById('interfazChofer').style.display = 'block';
-                    iniciarTransmision();
-                });
+        const token = Math.floor(1000 + Math.random() * 8999).toString();
+        const vence = Date.now() + (horas * 60 * 60 * 1000);
 
-                conn.on('data', (data) => {
-                    if(data.tipo === 'error') {
-                        alert(data.msg);
-                        location.reload();
+        db[token] = { nombre: nombre, expires: vence, conectado: false };
+        localStorage.setItem('pablo_db', JSON.stringify(db));
+
+        document.getElementById('inputNombre').value = "";
+        actualizarListaUI();
+        alert(`ALTA EXITOSA\nChofer: ${nombre}\nToken: ${token}\nDuración: ${horas}hs`);
+    }
+
+    function actualizarListaUI() {
+        const contenedor = document.getElementById('listaContenido');
+        let db = JSON.parse(localStorage.getItem('pablo_db') || '{}');
+        contenedor.innerHTML = "";
+
+        for(let t in db) {
+            const item = document.createElement('div');
+            item.className = "user-item";
+            const tiempoRestante = Math.round((db[t].expires - Date.now()) / (1000 * 60 * 60));
+            
+            item.innerHTML = `
+                <span>${db[t].nombre}</span>
+                <span>T: <b>${t}</b> (${tiempoRestante}h)</span>
+            `;
+            if(Date.now() < db[t].expires) contenedor.appendChild(item);
+        }
+    }
+
+    function conectarCentral() {
+        peer = new Peer(CENTRAL_ID);
+        peer.on('connection', (conn) => {
+            conn.on('data', (data) => {
+                if(data.tipo === 'login') {
+                    let db = JSON.parse(localStorage.getItem('pablo_db') || '{}');
+                    // Buscamos si el Token coincide con el nombre
+                    if(db[data.token] && db[data.token].nombre === data.nombre.toUpperCase() && Date.now() < db[data.token].expires) {
+                        db[data.token].conectado = true;
+                        db[data.token].peerID = conn.peer;
+                        localStorage.setItem('pablo_db', JSON.stringify(db));
+                        crearUnidad(conn.peer, data.nombre);
+                    } else {
+                        conn.send({ tipo: 'error', msg: 'ACCESO DENEGADO: REVISAR TOKEN O NOMBRE' });
                     }
-                });
-            });
-
-            peer.on('error', (err) => {
-                if(err.type === 'id-taken') {
-                    document.getElementById('statusTxt').innerText = "Reintentando conexión...";
-                    // Si el nombre está en uso, forzamos un pequeño cambio para que entre sí o sí
-                    setTimeout(conectar, 1000);
-                } else {
-                    console.error(err);
                 }
+                if(data.tipo === 'gps') actualizarGPS(conn.peer, data.lat, data.lng);
             });
+        });
+
+        peer.on('call', (call) => {
+            call.answer();
+            call.on('stream', (s) => {
+                const v = document.getElementById('v-' + call.peer);
+                if(v) { v.srcObject = s; v.play(); }
+            });
+        });
+    }
+
+    function cargarSesionesActivas() {
+        let db = JSON.parse(localStorage.getItem('pablo_db') || '{}');
+        for(let t in db) {
+            if(db[t].conectado && Date.now() < db[t].expires) {
+                crearUnidad(db[t].peerID, db[t].nombre);
+            }
         }
+    }
 
-        async function iniciarTransmision() {
-            // Activar Cámara
-            localStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: true });
-            peer.call(CENTRAL_ID, localStream);
+    function crearUnidad(id, nombre) {
+        if(document.getElementById('card-'+id)) return;
+        const grid = document.getElementById('monitorGrid');
+        const card = document.createElement('div');
+        card.className = 'unit-card'; card.id = 'card-' + id;
+        card.innerHTML = `
+            <div class="unit-header">${nombre}</div>
+            <div style="height:180px;background:#000;"><video id="v-${id}" autoplay playsinline muted style="width:100%;height:100%;"></video></div>
+            <div id="map-ind-${id}" style="height:170px;border-top:1px solid #222;"></div>
+        `;
+        grid.appendChild(card);
+        const mInd = L.map('map-ind-' + id, { zoomControl: false, attributionControl: false }).setView([0,0], 17);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mInd);
+        const markerGen = L.marker([0,0], {icon: carIcon}).addTo(mainMap);
+        units[id] = { mInd, markerInd: L.marker([0,0]).addTo(mInd), markerGen };
+    }
 
-            // Activar GPS constante
-            navigator.geolocation.watchPosition((pos) => {
-                if(conn && conn.open) {
-                    conn.send({ tipo: 'gps', lat: pos.coords.latitude, lng: pos.coords.longitude });
-                }
-            }, null, { enableHighAccuracy: true });
-        }
+    function actualizarGPS(id, lat, lng) {
+        if(!units[id]) return;
+        units[id].mInd.setView([lat, lng]);
+        units[id].markerInd.setLatLng([lat, lng]);
+        units[id].markerGen.setLatLng([lat, lng]);
+    }
 
-        document.getElementById('sosBtn').onclick = () => {
-            if(conn) conn.send({ tipo: 'sos' });
-        };
-    </script>
+    function limpiarTodo() { if(confirm("¿Borrar todos los tokens?")) { localStorage.clear(); location.reload(); } }
+
+    window.onload = init;
+</script>
 </body>
 </html>
