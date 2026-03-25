@@ -2,72 +2,46 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>PABLO SECURITY - CONTROL CENTER</title>
+    <title>PABLO SECURITY - PANEL DE CONTROL</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        body { background: #000; color: #0f0; font-family: 'Segoe UI', sans-serif; margin: 0; overflow: hidden; }
+        body { background: #000; color: #0f0; font-family: 'Courier New', monospace; margin: 0; overflow: hidden; }
         .top-bar { background: #0a0a0a; border-bottom: 2px solid #0f0; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; height: 60px; }
+        .grid-fleet { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); grid-auto-rows: 250px; gap: 10px; padding: 15px; height: calc(100vh - 60px); overflow-y: auto; }
         
-        /* Contenedor de 50 Monitores */
-        .grid-fleet { 
-            display: grid; 
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); 
-            grid-auto-rows: 220px; /* Mitad de alto para que entren más filas */
-            gap: 10px; 
-            padding: 15px; 
-            height: calc(100vh - 60px); 
-            overflow-y: auto; 
-        }
-
-        .unit-card { 
-            background: #111; border: 1px solid #333; border-radius: 8px; 
-            display: flex; flex-direction: column; position: relative; overflow: hidden;
-        }
+        .unit-card { background: #111; border: 1px solid #333; border-radius: 8px; position: relative; display: flex; flex-direction: column; }
+        .video-container { flex: 1; background: #000; position: relative; overflow: hidden; }
+        video { width: 100%; height: 100%; object-fit: cover; }
         
-        /* Video y Mapa lado a lado en la miniatura */
-        .unit-media { display: flex; flex: 1; background: #000; height: 120px; }
-        video { width: 50%; height: 100%; object-fit: cover; border-right: 1px solid #222; cursor: pointer; }
-        .mini-map { width: 50%; height: 100%; background: #222; }
-
-        .unit-info { padding: 5px 10px; background: #0a0a0a; font-size: 11px; }
-        .btn-group-custom { display: flex; gap: 2px; margin-top: 5px; }
-        .btn-ctrl { flex: 1; font-size: 9px; padding: 3px; background: #222; color: #0f0; border: 1px solid #444; font-weight: bold; }
+        .unit-controls { padding: 10px; background: #0a0a0a; }
+        .btn-panel { font-size: 10px; padding: 5px; background: #222; color: #0f0; border: 1px solid #444; border-radius: 4px; margin-right: 2px; }
+        .btn-panel:hover { background: #333; }
+        .btn-active { background: #0f0 !important; color: #000 !important; }
         
-        /* Alerta SOS */
-        .sos-overlay { 
-            position: absolute; top:0; left:0; width:100%; height:100%; 
-            background: rgba(255,0,0,0.7); display: none; flex-direction: column;
-            align-items: center; justify-content: center; z-index: 100;
-        }
-        .btn-stop-sos { background: #fff; color: #000; border: none; padding: 5px 10px; font-weight: bold; margin-top: 10px; border-radius: 5px; }
+        .sos-overlay { position: absolute; top:0; left:0; width:100%; height:100%; background: rgba(255,0,0,0.8); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 50; }
+        .btn-stop-alert { background: #fff; color: #000; font-weight: bold; border: none; padding: 10px; border-radius: 5px; }
 
-        /* Estilo para el Mapa de Leaflet */
-        .leaflet-container { filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%); }
+        /* Maximizar */
+        .maximized { position: fixed !important; top: 60px; left: 0; width: 100% !important; height: calc(100vh - 60px) !important; z-index: 1000; grid-column: span 1 / -1; }
     </style>
 </head>
 <body>
 
 <div class="top-bar">
-    <div><strong>PABLO SECURITY</strong> <span class="text-secondary small">| FLOTA UBER</span></div>
+    <div><strong>PABLO SECURITY</strong> | CENTRAL DE MONITOREO</div>
     <div class="d-flex align-items-center">
-        <span class="me-2 small">CÓDIGO CENTRAL:</span>
-        <div id="mainCode" class="badge bg-dark border border-success p-2 fs-5">------</div>
-        <button onclick="location.reload()" class="btn btn-sm btn-danger ms-3">REINICIAR TODO</button>
+        <span class="me-2 small">CÓDIGO:</span>
+        <div id="displayCod" class="badge bg-dark border border-success p-2 fs-5">------</div>
     </div>
 </div>
 
-<div class="grid-fleet" id="fleetGrid">
-    </div>
+<div class="grid-fleet" id="monitorGrid"></div>
 
 <script>
     const code = Math.floor(100000 + Math.random() * 900000).toString();
-    document.getElementById('mainCode').innerText = code;
-
+    document.getElementById('displayCod').innerText = code;
     const peer = new Peer('pablo-' + code);
-    const units = {};
 
     peer.on('call', (call) => {
         call.answer();
@@ -79,99 +53,57 @@
 
     peer.on('connection', (conn) => {
         conn.on('data', (data) => {
-            if (data.tipo === 'nombre') createUnitCard(conn.peer, data.valor);
-            if (data.tipo === 'gps') updateGPS(conn.peer, data.lat, data.lng);
-            if (data.tipo === 'alerta') triggerSOS(conn.peer);
+            if(data.tipo === 'nombre') crearTarjeta(conn.peer, data.valor);
+            if(data.tipo === 'alerta') sonarAlerta(conn.peer);
         });
     });
 
-    function createUnitCard(id, name) {
-        if (document.getElementById('card-' + id)) return;
-        const grid = document.getElementById('fleetGrid');
+    function crearTarjeta(id, nombre) {
+        if(document.getElementById('card-'+id)) return;
+        const grid = document.getElementById('monitorGrid');
         const card = document.createElement('div');
         card.className = 'unit-card';
         card.id = 'card-' + id;
         card.innerHTML = `
             <div class="sos-overlay" id="sos-${id}">
-                <h2 class="m-0">ALERTA SOS</h2>
-                <button class="btn-stop-sos" onclick="stopSOS('${id}')">CORTAR ALERTA</button>
+                <h3 class="text-white">🚨 SOS 🚨</h3>
+                <button class="btn-stop-alert" onclick="pararAlerta('${id}')">PARAR ALERTA</button>
             </div>
-            <div class="unit-media">
-                <video id="video-${id}" autoplay playsinline muted onclick="maximize('${id}')"></video>
-                <div id="map-${id}" class="mini-map"></div>
+            <div class="video-container">
+                <video id="video-${id}" autoplay playsinline muted></video>
             </div>
-            <div class="unit-info">
-                <div class="d-flex justify-content-between">
-                    <strong>${name.toUpperCase()}</strong>
-                    <span id="status-${id}" class="text-success">ONLINE</span>
-                </div>
-                <div class="btn-group-custom">
-                    <button class="btn-ctrl" onclick="toggleMute('${id}', this)">ESCUCHAR</button>
-                    <button class="btn-ctrl" onclick="alert('Hablando con ${name}...')">HABLAR</button>
-                    <button class="btn-ctrl" onclick="maximize('${id}')">MAXIMIZAR</button>
-                </div>
+            <div class="unit-controls">
+                <div class="text-white small mb-2"><strong>${nombre.toUpperCase()}</strong></div>
+                <button class="btn-panel" id="listen-${id}" onclick="toggleEscuchar('${id}')">ESCUCHAR</button>
+                <button class="btn-panel" onclick="alert('Hablando...')">HABLAR</button>
+                <button class="btn-panel" onclick="maximizar('${id}')">MAXIMIZAR</button>
             </div>
         `;
         grid.appendChild(card);
-        
-        // Inicializar Mapa para esta unidad
-        units[id] = {
-            map: L.map('map-' + id, { zoomControl: false }).setView([0,0], 15),
-            marker: null
-        };
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(units[id].map);
     }
 
-    function updateGPS(id, lat, lng) {
-        if (!units[id]) return;
-        const pos = [lat, lng];
-        units[id].map.setView(pos);
-        if (units[id].marker) {
-            units[id].marker.setLatLng(pos);
-        } else {
-            units[id].marker = L.marker(pos).addTo(units[id].map);
-        }
+    function sonarAlerta(id) {
+        document.getElementById('sos-'+id).style.display = 'flex';
+        const a = new Audio('https://www.soundjay.com/buttons/beep-01a.mp3');
+        a.loop = true; a.id = "snd-"+id; a.play();
     }
 
-    function triggerSOS(id) {
-        document.getElementById('sos-' + id).style.display = 'flex';
-        const audio = new Audio('https://www.soundjay.com/buttons/beep-01a.mp3');
-        audio.loop = true;
-        audio.id = "audio-" + id;
-        audio.play();
+    function pararAlerta(id) {
+        document.getElementById('sos-'+id).style.display = 'none';
+        const a = document.getElementById("snd-"+id);
+        if(a) { a.pause(); a.remove(); }
     }
 
-    function stopSOS(id) {
-        document.getElementById('sos-' + id).style.display = 'none';
-        const audio = document.getElementById('audio-' + id);
-        if(audio) { audio.pause(); audio.remove(); }
-    }
-
-    function toggleMute(id, btn) {
-        const v = document.getElementById('video-' + id);
+    function toggleEscuchar(id) {
+        const v = document.getElementById('video-'+id);
+        const btn = document.getElementById('listen-'+id);
         v.muted = !v.muted;
+        btn.classList.toggle('btn-active');
         btn.innerText = v.muted ? "ESCUCHAR" : "ESC_ON";
-        btn.style.background = v.muted ? "#222" : "#00f";
     }
 
-    function maximize(id) {
-        const card = document.getElementById('card-' + id);
-        card.style.position = 'fixed';
-        card.style.top = '60px';
-        card.style.left = '0';
-        card.style.width = '100%';
-        card.style.height = 'calc(100vh - 60px)';
-        card.style.zIndex = '200';
-        card.onclick = () => {
-            card.style.position = 'relative';
-            card.style.top = '0';
-            card.style.width = 'auto';
-            card.style.height = 'auto';
-            card.style.zIndex = '1';
-            card.onclick = null;
-            units[id].map.invalidateSize();
-        };
-        units[id].map.invalidateSize();
+    function maximizar(id) {
+        document.getElementById('card-'+id).classList.toggle('maximized');
     }
 </script>
 </body>
