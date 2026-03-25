@@ -2,105 +2,95 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>PABLO SECURITY - UNIDAD</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        body { background: #000; color: #fff; height: 100vh; display: flex; align-items: center; justify-content: center; margin: 0; font-family: sans-serif; }
-        .app-card { width: 92%; max-width: 400px; padding: 25px; background: #111; border-radius: 25px; border: 1px solid #0f0; text-align: center; box-shadow: 0 0 15px rgba(0,255,0,0.1); }
-        .form-control { background: #1a1a1a !important; border: 1px solid #333 !important; color: #0f0 !important; font-size: 1.1rem !important; text-align: center; margin-bottom: 15px; height: 50px; }
-        .btn-activate { background: #0f0; color: #000; font-weight: bold; border: none; border-radius: 12px; width: 100%; padding: 15px; font-size: 1.1rem; }
-        .sos-btn { width: 160px; height: 160px; border-radius: 50%; background: radial-gradient(#f00, #800); color: #fff; font-size: 30px; font-weight: bold; border: 6px solid #fff; box-shadow: 0 0 20px red; margin: 20px 0; }
-        .status-msg { font-size: 12px; color: #0f0; margin-top: 10px; }
+        body { background: #000; color: #0f0; font-family: Arial, sans-serif; margin: 0; display: flex; align-items: center; justify-content: center; height: 100vh; }
+        .card { width: 90%; max-width: 350px; background: #111; border: 1px solid #0f0; border-radius: 20px; padding: 25px; text-align: center; box-shadow: 0 0 20px rgba(0,255,0,0.1); }
+        h1 { margin: 0 0 10px 0; font-size: 24px; font-weight: 900; }
+        input { width: 100%; padding: 12px; margin-bottom: 15px; background: #222; border: 1px solid #444; color: #0f0; border-radius: 10px; box-sizing: border-box; font-size: 16px; text-align: center; }
+        button { width: 100%; padding: 15px; background: #0f0; color: #000; border: none; border-radius: 10px; font-weight: bold; font-size: 18px; cursor: pointer; }
+        #transmision { display: none; }
+        .sos-btn { width: 150px; height: 150px; border-radius: 50%; background: red; color: white; border: 5px solid white; font-size: 28px; font-weight: bold; margin: 20px 0; box-shadow: 0 0 20px red; }
+        .status { font-size: 12px; color: #888; margin-top: 10px; }
     </style>
 </head>
 <body>
 
-    <div id="login-screen" class="app-card">
-        <h2 style="color:#0f0; font-weight:900; margin-bottom: 20px;">PABLO SECURITY</h2>
-        <input type="number" id="codInput" class="form-control" placeholder="CÓDIGO DE CENTRAL">
-        <input type="text" id="nomInput" class="form-control" placeholder="NOMBRE / MÓVIL">
-        <button id="startBtn" class="btn-activate">CONECTAR UNIDAD</button>
-        <div id="error-log" style="color:red; font-size:10px; margin-top:10px;"></div>
+    <div id="login" class="card">
+        <h1>PABLO SECURITY</h1>
+        <p style="color: #666; font-size: 12px; margin-bottom: 20px;">CONTROL DE FLOTA UBER</p>
+        <input type="number" id="cod" placeholder="CÓDIGO DE CENTRAL">
+        <input type="text" id="nom" placeholder="NOMBRE O MÓVIL">
+        <button id="btnConectar">CONECTAR AHORA</button>
+        <p id="msg" style="color: red; font-size: 10px; margin-top: 10px;"></p>
     </div>
 
-    <div id="active-screen" class="app-card" style="display:none;">
-        <div class="status-msg">● TRANSMITIENDO VIVO</div>
-        <h4 id="displayName" style="margin: 10px 0;">---</h4>
-        <button id="sosBtn" class="sos-btn">S.O.S</button>
-        <div style="background:#000; padding:10px; border-radius:10px; border:1px solid #222;">
-            <small id="gps-status" style="color:#555;">GPS: BUSCANDO...</small>
-        </div>
+    <div id="transmision" class="card">
+        <h2 id="nomUnidad">---</h2>
+        <p style="color: #0f0;">● EN VIVO</p>
+        <button id="sos" class="sos-btn">S.O.S</button>
+        <div class="status" id="gpsStatus">GPS: ESPERANDO...</div>
     </div>
 
     <script>
-        const startBtn = document.getElementById('startBtn');
-        const loginScreen = document.getElementById('login-screen');
-        const activeScreen = document.getElementById('active-screen');
-        const errorLog = document.getElementById('error-log');
+        // Todo el código dentro de un evento de carga para asegurar que nada falle
+        window.onload = function() {
+            const btn = document.getElementById('btnConectar');
+            
+            btn.onclick = async function() {
+                const codigo = document.getElementById('cod').value;
+                const nombre = document.getElementById('nom').value;
 
-        startBtn.addEventListener('click', async () => {
-            const codigo = document.getElementById('codInput').value.trim();
-            const nombre = document.getElementById('nomInput').value.trim();
+                if(!codigo || !nombre) {
+                    alert("Completa los campos");
+                    return;
+                }
 
-            if (!codigo || !nombre) {
-                alert("Completa el código y tu nombre.");
-                return;
-            }
-
-            try {
-                // Solicitar cámara y audio
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: "environment" }, 
-                    audio: true 
-                });
-
-                // Cambiar de pantalla
-                loginScreen.style.display = 'none';
-                activeScreen.style.display = 'block';
-                document.getElementById('displayName').innerText = nombre.toUpperCase();
-
-                // Inicializar PeerJS
-                const peer = new Peer();
-
-                peer.on('open', (id) => {
-                    const centralID = 'pablo-' + codigo;
-                    const conn = peer.connect(centralID);
-
-                    conn.on('open', () => {
-                        // Enviar datos iniciales
-                        conn.send({ tipo: 'nombre', valor: nombre });
-                        
-                        // Llamar con video
-                        peer.call(centralID, stream);
-
-                        // Enviar GPS
-                        navigator.geolocation.watchPosition((pos) => {
-                            conn.send({ tipo: 'gps', lat: pos.coords.latitude, lng: pos.coords.longitude });
-                            document.getElementById('gps-status').innerText = "GPS: CONECTADO";
-                            document.getElementById('gps-status').style.color = "#0f0";
-                        }, (err) => {
-                            console.error(err);
-                        }, { enableHighAccuracy: true });
+                try {
+                    // 1. Pedir Cámara (Si esto falla, salta al catch)
+                    const stream = await navigator.mediaDevices.getUserMedia({ 
+                        video: { facingMode: "environment" }, 
+                        audio: true 
                     });
 
-                    // Botón de Pánico
-                    document.getElementById('sosBtn').onclick = () => {
-                        conn.send({ tipo: 'alerta' });
-                        alert("ALERTA ENVIADA A CENTRAL");
-                    };
-                });
+                    // 2. Cambiar de pantalla si hay cámara
+                    document.getElementById('login').style.display = 'none';
+                    document.getElementById('transmision').style.display = 'block';
+                    document.getElementById('nomUnidad').innerText = nombre.toUpperCase();
 
-                peer.on('error', (err) => {
-                    errorLog.innerText = "Error de conexión: " + err.type;
-                });
+                    // 3. Conectar PeerJS
+                    const peer = new Peer();
+                    
+                    peer.on('open', (id) => {
+                        const centralID = 'pablo-' + codigo;
+                        const conn = peer.connect(centralID);
 
-            } catch (err) {
-                errorLog.innerText = "Error: Permisos de cámara denegados o sin HTTPS.";
-                console.error(err);
-            }
-        });
+                        conn.on('open', () => {
+                            conn.send({ tipo: 'nombre', valor: nombre });
+                            peer.call(centralID, stream);
+
+                            // GPS dinámico
+                            navigator.geolocation.watchPosition((p) => {
+                                conn.send({ tipo: 'gps', lat: p.coords.latitude, lng: p.coords.longitude });
+                                document.getElementById('gpsStatus').innerText = "GPS: LOCALIZADO";
+                                document.getElementById('gpsStatus').style.color = "#0f0";
+                            }, null, { enableHighAccuracy: true });
+                        });
+
+                        document.getElementById('sos').onclick = () => {
+                            conn.send({ tipo: 'alerta' });
+                            alert("¡SOS ENVIADO!");
+                        };
+                    });
+
+                } catch (err) {
+                    document.getElementById('msg').innerText = "ERROR: Acepta los permisos de cámara y ubicación.";
+                    console.error(err);
+                }
+            };
+        };
     </script>
 </body>
 </html>
