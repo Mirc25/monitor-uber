@@ -2,88 +2,142 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>CENTRAL DE MONITOREO - PABLO SECURITY</title>
+    <title>PABLO SECURITY - CENTRAL 50 UNIDADES</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        body { background: #000; color: #0f0; font-family: 'Courier New', monospace; margin: 0; overflow: hidden; }
-        .header { border-bottom: 2px solid #0f0; background: #0a0a0a; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; }
-        .codigo-box { background: #1a1a1a; border: 2px dashed #0f0; padding: 10px; border-radius: 8px; color: #fff; font-size: 1.4rem; font-weight: bold; }
-        .main-container { display: flex; height: calc(100vh - 70px); }
-        .video-section { flex: 3; position: relative; background: #050505; display: flex; align-items: center; justify-content: center; border-right: 1px solid #333; }
-        video { width: 100%; height: 100%; object-fit: contain; }
-        .side-panel { flex: 1; background: #0a0a0a; padding: 20px; display: flex; flex-direction: column; }
-        .btn-danger-custom { background: #600; color: #fff; border: 2px solid #f00; width: 100%; padding: 15px; font-weight: bold; margin-top: 10px; }
-        .btn-danger-custom:hover { background: #a00; }
-        .status-card { border: 1px solid #444; padding: 15px; border-radius: 10px; margin-bottom: 20px; }
-        .alert-sos { background: #f00; color: #fff; padding: 20px; text-align: center; border-radius: 10px; display: none; animation: blink 1s infinite; }
+        body { background: #000; color: #0f0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; overflow: hidden; }
+        .top-bar { background: #0a0a0a; border-bottom: 2px solid #0f0; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; height: 60px; }
+        .codigo-tag { background: #1a1a1a; border: 1px dashed #0f0; padding: 5px 15px; border-radius: 5px; color: #fff; font-weight: bold; }
+        
+        /* Cuadrícula de Videos */
+        .grid-container { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); 
+            gap: 15px; 
+            padding: 20px; 
+            height: calc(100vh - 60px); 
+            overflow-y: auto; 
+            background: #050505;
+        }
+
+        .unidad-card { 
+            background: #111; 
+            border: 1px solid #333; 
+            border-radius: 10px; 
+            overflow: hidden; 
+            display: flex; 
+            flex-direction: column;
+            transition: border 0.3s;
+        }
+        .unidad-card.active { border-color: #0f0; box-shadow: 0 0 10px rgba(0,255,0,0.2); }
+
+        .video-box { width: 100%; aspect-ratio: 4/3; background: #000; position: relative; }
+        video { width: 100%; height: 100%; object-fit: cover; background: #000; }
+        
+        .unidad-info { padding: 10px; background: #1a1a1a; }
+        .nombre-label { font-weight: bold; color: #fff; font-size: 0.9rem; margin-bottom: 5px; display: block; }
+        
+        .controles-btn { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-top: 5px; }
+        .btn-sec { font-size: 10px; padding: 5px; font-weight: bold; text-transform: uppercase; border-radius: 4px; border: 1px solid #444; background: #222; color: #ccc; }
+        .btn-sec.active-talk { background: #0f0; color: #000; }
+        .btn-sec.active-listen { background: #007bff; color: #fff; }
+
+        .gps-data { font-size: 10px; color: #888; margin-top: 5px; background: #000; padding: 2px 5px; border-radius: 3px; }
+        
+        .alert-sos { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,0,0,0.6); display: none; align-items: center; justify-content: center; z-index: 10; font-weight: bold; color: white; animation: blink 0.5s infinite; }
         @keyframes blink { 50% { opacity: 0; } }
     </style>
 </head>
 <body>
 
-<div class="header">
-    <div><strong style="font-size: 1.5rem;">PABLO SECURITY</strong> <span class="text-secondary">| MONITORING V.3</span></div>
+<div class="top-bar">
+    <div><strong>PABLO SECURITY</strong> <span class="text-secondary small">| CONTROL DE FLOTA</span></div>
     <div class="d-flex align-items-center">
-        <span class="me-3 text-secondary">CÓDIGO DE ENLACE:</span>
-        <div id="numCodigo" class="codigo-box">------</div>
+        <span class="me-2 small text-secondary">ENLACE:</span>
+        <div id="displayCod" class="codigo-tag">------</div>
+        <button onclick="location.reload()" class="btn btn-sm btn-outline-danger ms-3">REINICIAR PANEL</button>
     </div>
 </div>
 
-<div class="main-container">
-    <div class="video-section">
-        <video id="videoRemote" autoplay playsinline></video>
-        <div id="no-signal" style="position: absolute; color: #333;">SIN SEÑAL DE VIDEO</div>
+<div class="grid-container" id="monitorGrid">
     </div>
-
-    <div class="side-panel">
-        <div id="sosAlert" class="alert-sos mb-3">🚨 BOTÓN DE PÁNICO 🚨</div>
-        
-        <div class="status-card">
-            <h6 class="text-secondary border-bottom pb-2">DATOS DE UNIDAD</h6>
-            <p class="mb-1">UNIDAD: <strong id="txtNombre" class="text-white">---</strong></p>
-            <p class="mb-1">COORDENADAS: <strong id="txtGps" class="text-white">---</strong></p>
-            <p class="mb-0">ESTADO: <span id="txtStatus" class="text-warning">LISTO</span></p>
-        </div>
-
-        <button onclick="window.location.reload()" class="btn-danger-custom">CORTAR LLAMADA / RESET</button>
-        
-        <div class="mt-auto">
-            <p class="small text-secondary mb-1">REGISTRO DE ACTIVIDAD:</p>
-            <div id="log" style="font-size: 10px; color: #444; height: 100px; overflow-y: auto; border-top: 1px solid #222;"></div>
-        </div>
-    </div>
-</div>
 
 <script>
-    const miCodigo = Math.floor(100000 + Math.random() * 900000).toString();
-    document.getElementById('numCodigo').innerText = miCodigo;
+    const miCod = Math.floor(100000 + Math.random() * 900000).toString();
+    document.getElementById('displayCod').innerText = miCod;
 
-    const peer = new Peer('pablo-' + miCodigo);
-    const log = (m) => { document.getElementById('log').innerHTML += `<div>[${new Date().toLocaleTimeString()}] ${m}</div>`; };
+    const peer = new Peer('pablo-' + miCod);
+    const unidades = {};
 
     peer.on('call', (call) => {
-        log("Llamada entrante...");
         call.answer();
         call.on('stream', (stream) => {
-            document.getElementById('videoRemote').srcObject = stream;
-            document.getElementById('no-signal').style.display = 'none';
-            document.getElementById('txtStatus').innerText = "TRANSMITIENDO";
-            document.getElementById('txtStatus').className = "text-danger";
+            const peerId = call.peer;
+            if (unidades[peerId]) {
+                const videoElement = document.getElementById('video-' + peerId);
+                videoElement.srcObject = stream;
+                videoElement.play().catch(e => console.log("Auto-play blocked"));
+            }
         });
     });
 
     peer.on('connection', (conn) => {
-        log("Conexión de datos establecida.");
+        const peerId = conn.peer;
+        
         conn.on('data', (data) => {
-            if(data.tipo === 'nombre') document.getElementById('txtNombre').innerText = data.valor.toUpperCase();
-            if(data.tipo === 'gps') document.getElementById('txtGps').innerText = data.lat.toFixed(6) + "," + data.lng.toFixed(6);
-            if(data.tipo === 'alerta') {
-                document.getElementById('sosAlert').style.display = 'block';
+            if (data.tipo === 'nombre') {
+                crearTarjetaUnidad(peerId, data.valor);
+            }
+            if (data.tipo === 'gps') {
+                document.getElementById('gps-' + peerId).innerText = `LAT: ${data.lat.toFixed(5)} | LNG: ${data.lng.toFixed(5)}`;
+            }
+            if (data.tipo === 'alerta') {
+                const sos = document.getElementById('sos-' + peerId);
+                sos.style.display = 'flex';
                 new Audio('https://www.soundjay.com/buttons/beep-01a.mp3').play();
             }
         });
     });
+
+    function crearTarjetaUnidad(id, nombre) {
+        if (document.getElementById('card-' + id)) return;
+
+        const grid = document.getElementById('monitorGrid');
+        const card = document.createElement('div');
+        card.className = 'unidad-card active';
+        card.id = 'card-' + id;
+        
+        card.innerHTML = `
+            <div class="video-box">
+                <div class="alert-sos" id="sos-${id}">SOS</div>
+                <video id="video-${id}" autoplay playsinline muted></video>
+            </div>
+            <div class="unidad-info">
+                <span class="nombre-label">${nombre.toUpperCase()}</span>
+                <div class="gps-data" id="gps-${id}">ESPERANDO GPS...</div>
+                <div class="controles-btn">
+                    <button class="btn-sec" onclick="toggleAudio('${id}', this)">Escuchar</button>
+                    <button class="btn-sec" onclick="hablar('${id}', this)">Hablar</button>
+                </div>
+            </div>
+        `;
+        grid.appendChild(card);
+        unidades[id] = true;
+    }
+
+    function toggleAudio(id, btn) {
+        const v = document.getElementById('video-' + id);
+        v.muted = !v.muted;
+        btn.classList.toggle('active-listen');
+        btn.innerText = v.muted ? "Escuchar" : "Escuchando...";
+    }
+
+    function hablar(id, btn) {
+        // Lógica para intercomunicador (requiere manejar stream de vuelta)
+        btn.classList.toggle('active-talk');
+        btn.innerText = btn.classList.contains('active-talk') ? "HABLANDO..." : "Hablar";
+    }
 </script>
 </body>
 </html>
