@@ -2,17 +2,15 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PABLO SECURITY - UNIDAD</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        body { background: #000; color: #0f0; font-family: Arial, sans-serif; margin: 0; display: flex; align-items: center; justify-content: center; height: 100vh; }
+        body { background: #000; color: #0f0; font-family: sans-serif; height: 100vh; display: flex; align-items: center; justify-content: center; margin: 0; }
         .card { width: 90%; max-width: 350px; background: #111; border: 1px solid #0f0; border-radius: 20px; padding: 25px; text-align: center; }
-        input { width: 100%; padding: 12px; margin-bottom: 15px; background: #222; border: 1px solid #444; color: #0f0; border-radius: 10px; text-align: center; }
-        button { width: 100%; padding: 15px; background: #0f0; color: #000; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; margin-bottom: 10px; }
-        .sos-btn { width: 140px; height: 140px; border-radius: 50%; background: red; color: white; border: 5px solid white; font-size: 24px; font-weight: bold; box-shadow: 0 0 20px red; margin: 15px 0; }
-        #btnCambiar { background: #555; color: #fff; font-size: 12px; padding: 8px; }
-        #transmision { display: none; }
+        input { width: 100%; padding: 15px; margin-bottom: 10px; background: #222; border: 1px solid #444; color: #0f0; border-radius: 10px; text-align: center; font-size: 16px; }
+        button { width: 100%; padding: 15px; background: #0f0; color: #000; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; }
+        .sos-btn { width: 150px; height: 150px; border-radius: 50%; background: red; color: white; border: 5px solid white; font-size: 28px; font-weight: bold; box-shadow: 0 0 20px red; margin: 20px 0; }
     </style>
 </head>
 <body>
@@ -21,40 +19,25 @@
         <h1>PABLO SECURITY</h1>
         <input type="number" id="cod" placeholder="CÓDIGO CENTRAL">
         <input type="text" id="nom" placeholder="MÓVIL / NOMBRE">
-        <button id="btnConectar">CONECTAR UNIDAD</button>
+        <button onclick="conectar()">CONECTAR UNIDAD</button>
     </div>
 
-    <div id="transmision" class="card">
+    <div id="transmision" class="card" style="display:none;">
         <h2 id="nomUnidad">---</h2>
-        <button id="btnCambiar">🔄 CAMBIAR CÁMARA</button>
+        <p style="color:#0f0">CAMARA FRONTAL ACTIVA</p>
         <button id="sos" class="sos-btn">S.O.S</button>
-        <div id="gpsStatus" style="font-size: 11px; color: #888;">GPS: BUSCANDO...</div>
     </div>
 
     <script>
-        let currentStream;
-        let useFrontCamera = false;
-        let currentPeer;
-        let currentCall;
-
-        document.getElementById('btnConectar').onclick = async function() {
+        async function conectar() {
             const codigo = document.getElementById('cod').value;
             const nombre = document.getElementById('nom').value;
             if(!codigo || !nombre) return alert("Faltan datos");
 
-            await iniciarCamara(codigo, nombre);
-        };
-
-        async function iniciarCamara(codigo, nombre) {
             try {
-                if (currentStream) {
-                    currentStream.getTracks().forEach(track => track.stop());
-                }
-
-                // Definimos qué cámara usar
-                const mode = useFrontCamera ? "user" : "environment";
-                currentStream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: mode }, 
+                // FORZAR CAMARA FRONTAL (user)
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: "user" }, 
                     audio: true 
                 });
 
@@ -62,48 +45,18 @@
                 document.getElementById('transmision').style.display = 'block';
                 document.getElementById('nomUnidad').innerText = nombre.toUpperCase();
 
-                if (!currentPeer) {
-                    currentPeer = new Peer();
-                    currentPeer.on('open', (id) => {
-                        conectarCentral(codigo, nombre);
+                const peer = new Peer();
+                peer.on('open', () => {
+                    const centralID = 'pablo-' + codigo;
+                    const conn = peer.connect(centralID);
+                    conn.on('open', () => {
+                        conn.send({ tipo: 'nombre', valor: nombre });
+                        peer.call(centralID, stream);
                     });
-                } else {
-                    // Si ya existe el peer (al cambiar cámara), solo llamamos de nuevo
-                    conectarCentral(codigo, nombre);
-                }
-
-            } catch (err) {
-                alert("Error de cámara: " + err);
-            }
-        }
-
-        function conectarCentral(codigo, nombre) {
-            const centralID = 'pablo-' + codigo;
-            const conn = currentPeer.connect(centralID);
-
-            conn.on('open', () => {
-                conn.send({ tipo: 'nombre', valor: nombre });
-                
-                // Si había una llamada activa, la cerramos para la nueva cámara
-                if(currentCall) currentCall.close();
-                currentCall = currentPeer.call(centralID, currentStream);
-
-                navigator.geolocation.watchPosition((p) => {
-                    conn.send({ tipo: 'gps', lat: p.coords.latitude, lng: p.coords.longitude });
-                    document.getElementById('gpsStatus').innerText = "GPS: LOCALIZADO";
+                    document.getElementById('sos').onclick = () => { conn.send({ tipo: 'alerta' }); };
                 });
-            });
-
-            document.getElementById('sos').onclick = () => { conn.send({ tipo: 'alerta' }); alert("SOS ENVIADO"); };
+            } catch (e) { alert("Error: Acepta permisos de cámara."); }
         }
-
-        // Botón para rotar cámara
-        document.getElementById('btnCambiar').onclick = function() {
-            useFrontCamera = !useFrontCamera;
-            const codigo = document.getElementById('cod').value;
-            const nombre = document.getElementById('nom').value;
-            iniciarCamara(codigo, nombre);
-        };
     </script>
 </body>
 </html>
