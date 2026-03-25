@@ -2,94 +2,120 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>PABLO SECURITY - CENTRAL PROFESIONAL (SESSIONS)</title>
+    <title>PABLO SECURITY - CONTROL DE SUSCRIPCIONES</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         body { background: #000; color: #0f0; font-family: sans-serif; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
-        .top-bar { background: #0a0a0a; border-bottom: 2px solid #0f0; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; height: 65px; flex-shrink: 0; z-index: 1000; }
-        .main-layout { display: flex; flex: 1; overflow: hidden; }
-        .grid-fleet { flex: 1; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px; padding: 15px; overflow-y: auto; background: #000; align-content: start; scroll-behavior: smooth; }
-        .right-panel { width: 440px; background: #050505; border-left: 2px solid #0f0; padding: 15px; display: flex; flex-direction: column; align-items: center; flex-shrink: 0; }
-        #mainMap { width: 400px; height: 400px; border: 2px solid #0f0; border-radius: 10px; background: #111; }
+        .top-bar { background: #0a0a0a; border-bottom: 2px solid #0f0; padding: 10px; display: flex; justify-content: space-between; align-items: center; height: 70px; z-index: 1000; }
         
-        /* TARJETA INDIVIDUAL */
-        .unit-card { background: #050505; border: 1px solid #333; border-radius: 8px; width: 300px; height: 430px; display: flex; flex-direction: column; position: relative; overflow: hidden; margin: 0 auto; }
-        .unit-header { background: #111; padding: 6px; font-size: 11px; text-align: center; border-bottom: 1px solid #222; color: #0f0; font-weight: bold; }
-        .video-box { width: 300px; height: 180px; background: #000; cursor: pointer; }
-        video { width: 100%; height: 100%; object-fit: contain; }
-        .map-box { width: 300px; height: 170px; border-top: 1px solid #222; }
+        /* PANEL DE COBRO */
+        .admin-panel { background: #111; border: 1px solid #0f0; padding: 5px 15px; border-radius: 8px; display: flex; align-items: center; gap: 15px; }
+        .token-val { font-size: 20px; color: #ff0; font-weight: bold; border: 1px dashed #ff0; padding: 2px 10px; }
 
-        /* ESTILOS TÁCTICOS */
-        .maximized { position: fixed !important; top: 10%; left: 25%; width: 50% !important; height: 80% !important; z-index: 9999 !important; background: #000 !important; border: 4px solid #0f0 !important; box-shadow: 0 0 50px #0f0; }
-        .fuchsia-car-marker { filter: invert(19%) sepia(87%) saturate(6011%) hue-rotate(296deg) brightness(101%) contrast(110%); }
+        .main-layout { display: flex; flex: 1; overflow: hidden; }
+        .grid-fleet { flex: 1; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px; padding: 15px; overflow-y: auto; scroll-behavior: smooth; }
+        .right-panel { width: 440px; background: #050505; border-left: 2px solid #0f0; padding: 15px; display: flex; flex-direction: column; }
+        #mainMap { width: 400px; height: 400px; border: 2px solid #0f0; border-radius: 10px; }
+
+        /* TARJETAS Y EFECTOS */
+        .unit-card { background: #050505; border: 1px solid #333; border-radius: 8px; width: 300px; height: 430px; position: relative; overflow: hidden; transition: 0.3s; }
+        .unit-header { background: #111; padding: 5px; text-align: center; color: #0f0; font-size: 11px; font-weight: bold; border-bottom: 1px solid #222; }
+        .video-box { height: 180px; background: #000; cursor: pointer; }
+        video { width: 100%; height: 100%; object-fit: contain; }
+        .map-box { height: 170px; border-top: 1px solid #222; }
+
+        /* NEÓN Y ALERTAS */
+        .fuchsia-car-marker { filter: invert(19%) sepia(87%) saturate(6011%) hue-rotate(296deg) brightness(101%) contrast(110%); drop-shadow(0 0 8px #f0f); }
         .zona-roja-alert { border: 5px solid red !important; animation: blinker 0.6s linear infinite; }
         @keyframes blinker { 50% { border-color: transparent; } }
+        
+        .maximized { position: fixed !important; top: 10%; left: 25%; width: 50% !important; height: 80% !important; z-index: 9999 !important; border: 4px solid #0f0 !important; background: #000 !important; }
+        .maximized .video-box { height: 60% !important; }
+        .maximized .map-box { height: 40% !important; }
 
-        /* PANEL DE GENERACIÓN */
-        .token-gen-box { background: #111; border: 1px solid #0f0; padding: 10px; border-radius: 5px; display: flex; gap: 10px; align-items: center; }
         .leaflet-container { filter: invert(90%) hue-rotate(180deg) brightness(100%) contrast(100%); }
     </style>
 </head>
 <body>
 
 <div class="top-bar">
-    <div class="fw-bold">PABLO SECURITY - CENTRAL SESSIONS</div>
-    <div class="token-gen-box">
-        <select id="timeSelect" class="btn btn-dark btn-sm border-success text-success">
+    <div class="fw-bold text-success">PABLO SECURITY <br><small style="font-size: 10px; color:#666;">CENTRAL DE ABONADOS</small></div>
+    
+    <div class="admin-panel">
+        <span class="small text-white">GENERAR SUSCRIPCIÓN:</span>
+        <select id="duracion" class="form-select form-select-sm bg-dark text-success border-success" style="width: 120px;">
             <option value="12">12 HORAS</option>
             <option value="24">24 HORAS</option>
             <option value="720">30 DÍAS</option>
         </select>
-        <button class="btn btn-success btn-sm fw-bold" onclick="generarTokenNuevo()">GENERAR TOKEN</button>
-        <span id="tokenDisplay" class="badge bg-dark border border-warning fs-5">----</span>
+        <button class="btn btn-success btn-sm fw-bold" onclick="crearSuscripcion()">ACTIVAR CÓDIGO</button>
+        <div id="nuevoToken" class="token-val">----</div>
     </div>
-    <div id="status" class="text-success small">SISTEMA LISTO</div>
 </div>
 
 <div class="main-layout">
     <div class="grid-fleet" id="monitorGrid"></div>
     <div class="right-panel">
-        <h6 class="text-center text-success mb-2">RADAR TÁCTICO</h6>
+        <h6 class="text-center text-success mb-2">RADAR GENERAL</h6>
         <div id="mainMap"></div>
-        <div id="activeList" class="mt-3 w-100 text-white small"></div>
+        <div id="listaAbonados" class="mt-3 p-2 border border-secondary rounded" style="font-size: 11px; color: #aaa; overflow-y: auto; max-height: 200px;">
+            <b class="text-white">CHOFERES ACTIVOS:</b><br>
+            <div id="nombresActivos"></div>
+        </div>
     </div>
 </div>
 
 <script>
     let peer, mainMap;
     const units = {};
-    const CENTRAL_ID = 'PABLO-CENTRAL-MASTER-2026'; // ID fijo para que los choferes siempre encuentren la central
+    const CENTRAL_ID = 'PABLO-CENTRAL-MASTER-2026';
     const carIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', iconSize: [36, 36], iconAnchor: [18, 18], className: 'fuchsia-car-marker' });
 
-    // 1. INICIALIZAR MAPA Y PERSISTENCIA
     function init() {
         mainMap = L.map('mainMap').setView([-31.5375, -68.5364], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mainMap);
         
-        // Cargar choferes que ya estaban conectados antes del F5
-        const savedUnits = JSON.parse(localStorage.getItem('pablo_units') || '{}');
-        Object.keys(savedUnits).forEach(id => {
-            if (Date.now() < savedUnits[id].expires) {
-                crearUnidad(id, savedUnits[id].nombre);
-            }
-        });
-
         conectarCentral();
+        verificarSesionesPersistentes();
+        setInterval(limpiarTokensVencidos, 60000); // Revisa cada minuto si alguien venció
+    }
+
+    // 1. LÓGICA DE SUSCRIPCIÓN
+    function crearSuscripcion() {
+        const horas = parseInt(document.getElementById('duracion').value);
+        const token = Math.floor(1000 + Math.random() * 9000).toString();
+        const vencimiento = Date.now() + (horas * 60 * 60 * 1000);
+
+        // Guardamos el token legal en la "Base de Datos" del navegador
+        let db = JSON.parse(localStorage.getItem('tokens_pablo') || '{}');
+        db[token] = { expires: vencimiento, activa: false, chofer: '' };
+        localStorage.setItem('tokens_pablo', JSON.stringify(db));
+
+        document.getElementById('nuevoToken').innerText = token;
+        alert(`Token ${token} ACTIVADO por ${horas} horas.`);
     }
 
     function conectarCentral() {
         peer = new Peer(CENTRAL_ID);
-        peer.on('open', () => document.getElementById('status').innerText = "CENTRAL ONLINE");
         
         peer.on('connection', (conn) => {
             conn.on('data', (data) => {
                 if(data.tipo === 'login') {
-                    // Validar si el token del chofer es válido (lógica simulada)
-                    crearUnidad(conn.peer, data.nombre);
-                    guardarEnMemoria(conn.peer, data.nombre);
+                    let db = JSON.parse(localStorage.getItem('tokens_pablo') || '{}');
+                    // VALIDACIÓN REAL: ¿Existe el token y no venció?
+                    if(db[data.token] && Date.now() < db[data.token].expires) {
+                        db[data.token].activa = true;
+                        db[data.token].chofer = data.nombre;
+                        db[data.token].peerID = conn.peer;
+                        localStorage.setItem('tokens_pablo', JSON.stringify(db));
+                        
+                        crearUnidad(conn.peer, data.nombre);
+                    } else {
+                        conn.send({ tipo: 'error', msg: 'TOKEN VENCIDO O INVÁLIDO' });
+                    }
                 }
                 if(data.tipo === 'gps') actualizarGPS(conn.peer, data.lat, data.lng);
             });
@@ -104,22 +130,29 @@
         });
     }
 
-    // 2. GENERACIÓN DE TOKENS POR TIEMPO
-    function generarTokenNuevo() {
-        const horas = document.getElementById('timeSelect').value;
-        const randomCode = Math.floor(1000 + Math.random() * 9000);
-        const expires = Date.now() + (horas * 60 * 60 * 1000);
-        
-        const tokenData = { code: randomCode, expires: expires };
-        document.getElementById('tokenDisplay').innerText = randomCode;
-        
-        alert(`Token ${randomCode} generado por ${horas}hs.\nEntréguelo al chofer.`);
+    // 2. LÓGICA ANTI-F5 (Reconectar automáticamente)
+    function verificarSesionesPersistentes() {
+        let db = JSON.parse(localStorage.getItem('tokens_pablo') || '{}');
+        for (let t in db) {
+            if (db[t].activa && Date.now() < db[t].expires) {
+                // Si la sesión sigue vigente, creamos el espacio para cuando el celu se reconecte
+                crearUnidad(db[t].peerID, db[t].chofer);
+            }
+        }
     }
 
-    function guardarEnMemoria(id, nombre) {
-        const savedUnits = JSON.parse(localStorage.getItem('pablo_units') || '{}');
-        savedUnits[id] = { nombre: nombre, expires: Date.now() + (24 * 60 * 60 * 1000) }; // Default 24h al conectar
-        localStorage.setItem('pablo_units', JSON.stringify(savedUnits));
+    function limpiarTokensVencidos() {
+        let db = JSON.parse(localStorage.getItem('tokens_pablo') || '{}');
+        let cambio = false;
+        for (let t in db) {
+            if (Date.now() > db[t].expires) {
+                const id = db[t].peerID;
+                if(units[id]) eliminarUnidad(id);
+                delete db[t];
+                cambio = true;
+            }
+        }
+        if(cambio) localStorage.setItem('tokens_pablo', JSON.stringify(db));
     }
 
     function crearUnidad(id, nombre) {
@@ -143,7 +176,8 @@
             toggleMax(id);
         });
 
-        units[id] = { mInd, markerInd: L.marker([0,0]).addTo(mInd), markerGen };
+        units[id] = { mInd, markerInd: L.marker([0,0]).addTo(mInd), markerGen, card };
+        actualizarListaTexto();
     }
 
     function actualizarGPS(id, lat, lng) {
@@ -158,6 +192,12 @@
         const card = document.getElementById('card-' + id);
         card.classList.toggle('maximized');
         setTimeout(() => { units[id].mInd.invalidateSize(); }, 300);
+    }
+
+    function actualizarListaTexto() {
+        let txt = "";
+        for(let id in units) txt += `• ${id.split('-').pop()} (Activo)<br>`;
+        document.getElementById('nombresActivos').innerHTML = txt;
     }
 
     window.onload = init;
