@@ -2,52 +2,49 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>PABLO SECURITY - CONSOLA DE ADMINISTRACIÓN</title>
+    <title>PABLO SECURITY - CONSOLA MAESTRA</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        body { background: #000; color: #0f0; font-family: 'Segoe UI', sans-serif; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
-        .top-bar { background: #0a0a0a; border-bottom: 2px solid #0f0; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; height: 75px; }
-        .alta-panel { display: flex; gap: 10px; background: #111; padding: 8px; border-radius: 8px; border: 1px solid #333; }
-        input, select { background: #000 !important; color: #0f0 !important; border: 1px solid #0f0 !important; font-weight: bold; }
+        body { background: #000; color: #0f0; font-family: 'Courier New', Courier, monospace; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        .top-bar { background: #0a0a0a; border-bottom: 2px solid #0f0; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; height: 80px; box-shadow: 0 0 15px #0f0; }
+        .alta-panel { display: flex; gap: 10px; background: #111; padding: 10px; border-radius: 8px; border: 1px solid #0f0; }
+        input, select { background: #000 !important; color: #0f0 !important; border: 1px solid #0f0 !important; }
         
         .main-layout { display: flex; flex: 1; overflow: hidden; }
-        .grid-fleet { flex: 1; display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 15px; padding: 15px; overflow-y: auto; }
+        .grid-fleet { flex: 1; display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 15px; padding: 15px; overflow-y: auto; }
         
         .right-panel { width: 450px; background: #050505; border-left: 2px solid #0f0; padding: 15px; display: flex; flex-direction: column; }
-        #mainMap { width: 100%; height: 250px; border: 1px solid #0f0; border-radius: 8px; margin-bottom: 10px; }
+        #mainMap { width: 100%; height: 250px; border: 1px solid #0f0; border-radius: 8px; margin-bottom: 15px; }
 
-        /* AGENDA DE USUARIOS */
-        .db-container { flex: 1; background: #0a0a0a; border: 1px solid #222; border-radius: 5px; display: flex; flex-direction: column; }
-        .db-header { background: #1a1a1a; padding: 8px; font-size: 13px; font-weight: bold; color: #0f0; border-bottom: 1px solid #0f0; text-align: center; }
-        .db-body { flex: 1; overflow-y: auto; padding: 5px; }
+        .db-container { flex: 1; background: #0a0a0a; border: 1px solid #0f0; border-radius: 5px; display: flex; flex-direction: column; overflow: hidden; }
+        .db-header { background: #0f0; padding: 8px; font-weight: bold; color: #000; text-align: center; }
+        .db-body { flex: 1; overflow-y: auto; padding: 10px; }
         
-        .user-card-db { background: #111; border: 1px solid #333; margin-bottom: 8px; padding: 8px; border-radius: 5px; }
-        .user-info { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
-        .user-info b { color: #ff0; font-size: 14px; }
-        .btn-edit { font-size: 10px; padding: 2px 8px; }
+        .user-card-db { background: #111; border: 1px solid #333; margin-bottom: 10px; padding: 10px; border-radius: 5px; border-left: 4px solid #0f0; }
+        .btn-edit { font-size: 11px; padding: 4px 8px; color: #0f0; border-color: #0f0; }
+        .btn-edit:hover { background: #0f0; color: #000; }
 
-        .unit-card { background: #050505; border: 1px solid #333; height: 430px; border-radius: 8px; overflow: hidden; }
-        .unit-header { background: #111; padding: 5px; text-align: center; font-weight: bold; border-bottom: 1px solid #0f0; }
-        .fuchsia-car-marker { filter: invert(19%) sepia(87%) saturate(6011%) hue-rotate(296deg) brightness(101%) contrast(110%); }
+        .unit-card { background: #050505; border: 2px solid #0f0; border-radius: 8px; overflow: hidden; position: relative; }
+        .unit-header { background: #0f0; color: #000; padding: 5px; text-align: center; font-weight: bold; font-size: 1.1em; }
+        .fuchsia-car { filter: invert(19%) sepia(87%) saturate(6011%) hue-rotate(296deg) brightness(101%) contrast(110%); }
     </style>
 </head>
 <body>
 
 <div class="top-bar">
-    <div class="fw-bold">PABLO SECURITY <br><small class="text-secondary">ADMINISTRACIÓN CENTRAL</small></div>
+    <div><h4 class="m-0 text-uppercase">Pablo Security</h4><small>SISTEMA DE MONITOREO CENTRAL</small></div>
     <div class="alta-panel">
-        <input type="text" id="regNombre" placeholder="NOMBRE CHOFER" class="form-control form-control-sm" style="width: 150px;">
-        <select id="regTiempo" class="form-select form-select-sm" style="width: 100px;">
-            <option value="12">12 HS</option>
-            <option value="24">24 HS</option>
+        <input type="text" id="regNombre" placeholder="NOMBRE CHOFER" class="form-control form-control-sm">
+        <select id="regTiempo" class="form-select form-select-sm" style="width: 110px;">
+            <option value="12">12 HORAS</option>
+            <option value="24">24 HORAS</option>
             <option value="720">30 DÍAS</option>
         </select>
-        <button class="btn btn-success btn-sm fw-bold" onclick="crearAbonado()">NUEVO ALTA</button>
+        <button class="btn btn-dark btn-sm fw-bold border-success text-success" onclick="crearAbonado()">+ ALTA</button>
     </div>
-    <div id="centralStatus" class="badge bg-success">CENTRAL ACTIVA</div>
 </div>
 
 <div class="main-layout">
@@ -56,7 +53,7 @@
     <div class="right-panel">
         <div id="mainMap"></div>
         <div class="db-container">
-            <div class="db-header">📋 AGENDA DE USUARIOS Y TOKENS</div>
+            <div class="db-header">AGENDA DE USUARIOS ACTIVOS</div>
             <div class="db-body" id="agendaContenido"></div>
         </div>
     </div>
@@ -65,8 +62,8 @@
 <script>
     let peer, mainMap;
     const units = {};
-    const CENTRAL_ID = 'PABLO-CENTRAL-MASTER-2026';
-    const carIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', iconSize: [36, 36], className: 'fuchsia-car-marker' });
+    const CENTRAL_ID = 'PABLO-CENTRAL-MASTER-2026'; // ID FIJO PARA LA CENTRAL
+    const carIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', iconSize: [36, 36], className: 'fuchsia-car' });
 
     function init() {
         mainMap = L.map('mainMap').setView([-31.5375, -68.5364], 13);
@@ -75,29 +72,29 @@
         renderAgenda();
     }
 
-    // === GESTIÓN DE AGENDA ===
+    // === GESTIÓN DE AGENDA Y PERSISTENCIA ===
     function crearAbonado() {
         const nombre = document.getElementById('regNombre').value.trim().toUpperCase();
         const horas = parseInt(document.getElementById('regTiempo').value);
-        if(!nombre) return alert("Escribí un nombre");
+        if(!nombre) return alert("Ingrese un nombre válido.");
 
         let db = JSON.parse(localStorage.getItem('pablo_agenda') || '[]');
         
-        // Evitar nombres repetidos
-        if(db.find(u => u.nombre === nombre)) return alert("Este nombre ya existe en la agenda.");
+        // Si el nombre ya existe, avisar (pero el login lo dejará pasar)
+        if(db.find(u => u.nombre === nombre)) return alert("Este usuario ya figura en la agenda.");
 
         const nuevo = {
-            id: 'ID-' + Math.random().toString(36).substr(2, 9),
             nombre: nombre,
             token: Math.floor(1000 + Math.random() * 8999).toString(),
             vence: Date.now() + (horas * 60 * 60 * 1000),
-            conectado: false
+            online: false
         };
 
         db.push(nuevo);
         localStorage.setItem('pablo_agenda', JSON.stringify(db));
         document.getElementById('regNombre').value = "";
         renderAgenda();
+        alert(`Alta Exitosa: ${nombre}\nToken: ${nuevo.token}`);
     }
 
     function renderAgenda() {
@@ -110,16 +107,13 @@
             const card = document.createElement('div');
             card.className = "user-card-db";
             card.innerHTML = `
-                <div class="user-info">
-                    <span><b>${user.nombre}</b></span>
-                    <span class="badge ${user.conectado ? 'bg-success' : 'bg-dark'}">${user.conectado ? 'ONLINE' : 'OFFLINE'}</span>
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="fw-bold text-warning">${user.nombre}</span>
+                    <span class="badge ${user.online ? 'bg-success' : 'bg-secondary'}">${user.online ? 'CONECTADO' : 'OFFLINE'}</span>
                 </div>
-                <div class="d-flex justify-content-between align-items:center small">
-                    <span>Token: <b class="text-warning">${user.token}</b></span>
-                    <span>Quedan: ${horasRestantes}hs</span>
-                </div>
+                <div class="small mt-1">Token: <span class="text-info">${user.token}</span> | Saldo: ${horasRestantes}hs</div>
                 <div class="mt-2 d-flex gap-2">
-                    <button class="btn btn-outline-info btn-edit" onclick="editarUser(${index})">EDITAR / SUMAR TIEMPO</button>
+                    <button class="btn btn-outline-info btn-edit" onclick="editarUser(${index})">EDITAR/TIEMPO</button>
                     <button class="btn btn-outline-danger btn-edit" onclick="borrarUser(${index})">ELIMINAR</button>
                 </div>
             `;
@@ -129,8 +123,8 @@
 
     function editarUser(index) {
         let db = JSON.parse(localStorage.getItem('pablo_agenda') || '[]');
-        const nuevoNombre = prompt("Nuevo nombre:", db[index].nombre);
-        const masHoras = prompt("¿Cuántas horas querés sumar? (Ej: 12, 24)", "0");
+        const nuevoNombre = prompt("Modificar nombre del chofer:", db[index].nombre);
+        const masHoras = prompt("¿Cuántas HORAS querés sumar al plazo?", "0");
         
         if (nuevoNombre) db[index].nombre = nuevoNombre.toUpperCase();
         if (masHoras && !isNaN(masHoras)) {
@@ -142,7 +136,7 @@
     }
 
     function borrarUser(index) {
-        if(confirm("¿Eliminar este usuario de la agenda?")) {
+        if(confirm("¿Seguro que desea eliminar este usuario de la base de datos?")) {
             let db = JSON.parse(localStorage.getItem('pablo_agenda') || '[]');
             db.splice(index, 1);
             localStorage.setItem('pablo_agenda', JSON.stringify(db));
@@ -150,23 +144,29 @@
         }
     }
 
-    // === COMUNICACIÓN ===
+    // === LÓGICA DE CONEXIÓN Y VIDEO ===
     function conectarCentral() {
         peer = new Peer(CENTRAL_ID);
+        
         peer.on('connection', (conn) => {
             conn.on('data', (data) => {
+                // EL CAMBIO CLAVE ESTÁ AQUÍ: VALIDACIÓN SIN BLOQUEO
                 if(data.tipo === 'login') {
                     let db = JSON.parse(localStorage.getItem('pablo_agenda') || '[]');
                     let user = db.find(u => u.nombre === data.nombre.toUpperCase() && u.token === data.token);
 
-                    if(user && Date.now() < user.vence) {
-                        user.conectado = true;
-                        user.peerID = conn.peer;
-                        localStorage.setItem('pablo_agenda', JSON.stringify(db));
-                        renderAgenda();
-                        crearVentanaMonitor(conn.peer, user.nombre);
+                    if(user) {
+                        if(Date.now() < user.vence) {
+                            user.online = true;
+                            user.currentPeerID = conn.peer;
+                            localStorage.setItem('pablo_agenda', JSON.stringify(db));
+                            renderAgenda();
+                            crearVentanaMonitor(conn.peer, user.nombre);
+                        } else {
+                            conn.send({ tipo: 'error', msg: 'TIEMPO AGOTADO - CARGUE SALDO' });
+                        }
                     } else {
-                        conn.send({ tipo: 'error', msg: 'ACCESO DENEGADO' });
+                        conn.send({ tipo: 'error', msg: 'DATOS INCORRECTOS' });
                     }
                 }
                 if(data.tipo === 'gps') actualizarPosicion(conn.peer, data.lat, data.lng);
@@ -183,20 +183,38 @@
     }
 
     function crearVentanaMonitor(peerID, nombre) {
-        if(document.getElementById('card-' + peerID)) return;
+        // Si ya existe el cuadro para ese NOMBRE, solo actualizamos el ID del video
+        let existente = document.querySelector(`[data-chofer="${nombre}"]`);
+        if(existente) {
+            existente.id = 'card-' + peerID;
+            const video = existente.querySelector('video');
+            video.id = 'v-' + peerID;
+            return;
+        }
+
         const grid = document.getElementById('monitorGrid');
         const card = document.createElement('div');
-        card.className = 'unit-card'; card.id = 'card-' + peerID;
+        card.className = 'unit-card'; 
+        card.id = 'card-' + peerID;
+        card.setAttribute('data-chofer', nombre);
+        
         card.innerHTML = `
             <div class="unit-header">${nombre}</div>
-            <div style="height:200px;background:#000;"><video id="v-${peerID}" autoplay playsinline muted style="width:100%;height:100%;object-fit:cover;"></video></div>
+            <div style="height:220px;background:#000;">
+                <video id="v-${peerID}" autoplay playsinline muted style="width:100%;height:100%;object-fit:cover;"></video>
+            </div>
             <div id="map-ind-${peerID}" style="height:180px;"></div>
         `;
         grid.appendChild(card);
         
-        const mInd = L.map('map-ind-' + peerID, { zoomControl: false, attributionControl: false }).setView([0,0], 16);
+        const mInd = L.map('map-ind-' + peerID, { zoomControl: false, attributionControl: false }).setView([0,0], 15);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mInd);
-        units[peerID] = { mInd, markerInd: L.marker([0,0]).addTo(mInd), markerGen: L.marker([0,0], {icon: carIcon}).addTo(mainMap) };
+        
+        units[peerID] = { 
+            mInd, 
+            markerInd: L.marker([0,0]).addTo(mInd), 
+            markerGen: L.marker([0,0], {icon: carIcon}).addTo(mainMap).bindPopup(nombre) 
+        };
     }
 
     function actualizarPosicion(id, lat, lng) {
