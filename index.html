@@ -1,51 +1,128 @@
-<script>
-    async function activarServicio() {
-        const cod = document.getElementById('cod').value;
-        const nom = document.getElementById('nom').value;
-        if(!cod || !nom) return alert("Ingresa datos");
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>PABLO SECURITY - CHOFER</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        body { background: #000; color: #0f0; font-family: sans-serif; text-align: center; margin: 0; overflow: hidden; }
+        #app, #sos { display: none; }
+        #login { padding-top: 50px; }
+        h2 { color: #0f0; text-shadow: 0 0 10px #0f0; }
+        input { 
+            width: 80%; padding: 15px; margin: 10px; border-radius: 5px; 
+            border: 1px solid #0f0; background: #111; color: #0f0; font-size: 16px; 
+        }
+        button { 
+            width: 85%; padding: 15px; background: #008000; color: white; 
+            border: none; border-radius: 5px; font-weight: bold; cursor: pointer;
+        }
+        #sos { 
+            background: #ff0000; position: fixed; bottom: 20px; left: 7.5%; 
+            width: 85%; height: 80px; font-size: 24px; z-index: 100; color: white; border: none; border-radius: 10px; font-weight: bold;
+        }
+        #driver { font-size: 20px; color: #00ff00; margin-top: 20px; font-weight: bold; }
+        video { width: 100%; height: auto; display: block; margin-top: 10px; border-top: 2px solid #333; }
+    </style>
+</head>
+<body>
 
-        try {
-            // FORZAMOS MODO PANORÁMICO 16:9 PARA VER TODO EL ANCHO DEL AUTO
-            const stream = await navigator.mediaDevices.getUserMedia({ 
-                video: { 
-                    facingMode: "user",
-                    width: { ideal: 1280 }, // Resolución HD para captar más detalle
-                    height: { ideal: 720 }, // Proporción 16:9 (alargada)
-                    aspectRatio: 1.777777778 // Forzamos el formato panorámico
-                }, 
-                audio: true 
-            });
-            
-            document.getElementById('hiddenV').srcObject = stream;
-            const peer = new Peer();
+    <div id="login">
+        <h2>PABLO SECURITY</h2>
+        <p>CONTROL DE ACCESO</p>
+        <input type="text" id="cod" placeholder="Código de la Central">
+        <input type="text" id="nom" placeholder="Tu Nombre o Móvil">
+        <button onclick="activarServicio()">ACTIVAR SERVICIO</button>
+    </div>
 
-            peer.on('open', (id) => {
-                const centralID = 'PABLO-CENTRAL-' + cod;
-                const conn = peer.connect(centralID);
+    <div id="app">
+        <div id="driver"></div>
+        <p style="color: #0f0; font-size: 12px;">● TRANSMITIENDO EN VIVO</p>
+        <video id="hiddenV" autoplay muted playsinline></video>
+        <audio id="audioCentral" autoplay></audio>
+    </div>
+
+    <button id="sos">BOTÓN S.O.S</button>
+
+    <script>
+        // LÓGICA DE PERSISTENCIA 24 HORAS
+        window.onload = function() {
+            const datosGuardados = localStorage.getItem('pablo_auth_v1');
+            if (datosGuardados) {
+                const auth = JSON.parse(datosGuardados);
+                const ahora = new Date().getTime();
+                const unDia = 24 * 60 * 60 * 1000;
+
+                // Si no pasaron 24 horas, intentamos entrar directo
+                if (ahora - auth.timestamp < unDia) {
+                    document.getElementById('cod').value = auth.codigo;
+                    document.getElementById('nom').value = auth.nombre;
+                    activarServicio(true);
+                } else {
+                    localStorage.removeItem('pablo_auth_v1');
+                }
+            }
+        };
+
+        async function activarServicio(esAutoLogin = false) {
+            const cod = document.getElementById('cod').value;
+            const nom = document.getElementById('nom').value;
+            if(!cod || !nom) return alert("Por favor ingresa los datos");
+
+            try {
+                // MANTENEMOS EL FORMATO PANORÁMICO 16:9
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        facingMode: "user", 
+                        width: { ideal: 1280 }, 
+                        height: { ideal: 720 }, 
+                        aspectRatio: 1.777777778 
+                    }, 
+                    audio: true 
+                });
                 
-                conn.on('open', () => {
-                    document.getElementById('login').style.display = 'none';
-                    document.getElementById('app').style.display = 'block';
-                    document.getElementById('sos').style.display = 'block';
-                    document.getElementById('driver').innerText = nom.toUpperCase();
+                document.getElementById('hiddenV').srcObject = stream;
+                const peer = new Peer();
+
+                peer.on('open', (id) => {
+                    const centralID = 'PABLO-CENTRAL-' + cod;
+                    const conn = peer.connect(centralID);
                     
-                    conn.send({ tipo: 'login', nombre: nom });
-                    peer.call(centralID, stream);
+                    conn.on('open', () => {
+                        // Guardamos datos solo si es un login nuevo
+                        if (!esAutoLogin) {
+                            const sesion = { codigo: cod, nombre: nom, timestamp: new Date().getTime() };
+                            localStorage.setItem('pablo_auth_v1', JSON.stringify(sesion));
+                        }
 
-                    navigator.geolocation.watchPosition(p => {
-                        conn.send({ tipo: 'gps', lat: p.coords.latitude, lng: p.coords.longitude });
-                    }, null, { enableHighAccuracy: true });
+                        document.getElementById('login').style.display = 'none';
+                        document.getElementById('app').style.display = 'block';
+                        document.getElementById('sos').style.display = 'block';
+                        document.getElementById('driver').innerText = nom.toUpperCase();
+                        
+                        conn.send({ tipo: 'login', nombre: nom });
+                        peer.call(centralID, stream);
 
-                    document.getElementById('sos').onclick = () => conn.send({ tipo: 'sos' });
+                        navigator.geolocation.watchPosition(p => {
+                            conn.send({ tipo: 'gps', lat: p.coords.latitude, lng: p.coords.longitude });
+                        }, null, { enableHighAccuracy: true });
+
+                        document.getElementById('sos').onclick = () => conn.send({ tipo: 'sos' });
+                    });
                 });
-            });
 
-            peer.on('call', call => {
-                call.answer();
-                call.on('stream', s => {
-                    document.getElementById('audioCentral').srcObject = s;
+                peer.on('call', call => {
+                    call.answer();
+                    call.on('stream', s => { 
+                        document.getElementById('audioCentral').srcObject = s; 
+                    });
                 });
-            });
-        } catch(e) { alert("Error: Verifica los permisos de cámara"); }
-    }
-</script>
+
+            } catch(e) { 
+                if(!esAutoLogin) alert("Error: Habilita la cámara y el micrófono"); 
+            }
+        }
+    </script>
+</body>
+</html>
