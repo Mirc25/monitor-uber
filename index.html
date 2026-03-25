@@ -3,81 +3,120 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SISTEMA CHOFER</title>
+    <title>SISTEMA CHOFER - PABLO SECURITY</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        body { background: #000; color: #0f0; font-family: sans-serif; text-align: center; padding: 20px; }
-        .box { border: 1px solid #0f0; padding: 20px; border-radius: 15px; margin-top: 50px; }
-        input { width: 90%; padding: 15px; margin: 10px 0; background: #111; border: 1px solid #444; color: #0f0; border-radius: 10px; font-size: 20px; text-align: center; }
-        .btn-p { width: 100%; padding: 20px; background: #0f0; color: #000; border: none; font-weight: bold; border-radius: 10px; font-size: 18px; }
-        #sos { width: 220px; height: 220px; background: #800; color: #fff; border-radius: 50%; font-size: 40px; border: 5px solid #fff; display: none; margin: 40px auto; }
-        #status { color: #555; margin-top: 20px; font-size: 14px; }
+        body { background: #000; color: #0f0; font-family: sans-serif; text-align: center; margin: 0; padding: 20px; }
+        .box { border: 2px solid #0f0; padding: 25px; border-radius: 20px; margin-top: 40px; background: #050505; }
+        input { width: 90%; padding: 18px; margin: 12px 0; background: #111; border: 1px solid #333; color: #0f0; border-radius: 12px; font-size: 22px; text-align: center; font-weight: bold; }
+        input:focus { border-color: #0f0; outline: none; }
+        .btn-p { width: 100%; padding: 22px; background: #0f0; color: #000; border: none; font-weight: bold; border-radius: 12px; font-size: 20px; cursor: pointer; text-transform: uppercase; }
+        #sos { width: 240px; height: 240px; background: #900; color: #fff; border-radius: 50%; font-size: 45px; border: 6px solid #fff; display: none; margin: 50px auto; font-weight: bold; box-shadow: 0 0 20px red; }
+        #status-msg { color: #666; margin-top: 25px; font-size: 16px; font-weight: bold; }
+        .loading { color: #f0f; display: none; margin-top: 10px; }
     </style>
 </head>
 <body>
     <div id="login" class="box">
-        <h2>ACCESO SEGURIDAD</h2>
+        <h2 style="letter-spacing: 2px;">ACCESO UNIDAD</h2>
         <input type="number" id="cod" placeholder="CÓDIGO DE PAGO" inputmode="numeric">
         <input type="text" id="nom" placeholder="TU NOMBRE / MÓVIL">
-        <button class="btn-p" onclick="validarYConectar()">INGRESAR AL SISTEMA</button>
+        <button class="btn-p" id="btnEntrar" onclick="validarYConectar()">ACTIVAR SERVICIO</button>
+        <div id="loader" class="loading">CONECTANDO CON CENTRAL...</div>
     </div>
 
     <div id="app" style="display:none;">
-        <h2 style="color: #222;">SISTEMA ACTIVO</h2>
+        <h2 id="driverName" style="color: #0f0; margin-bottom: 5px;"></h2>
+        <p style="color: #444; margin: 0;">SISTEMA DE MONITOREO ACTIVO</p>
         <button id="sos">S.O.S</button>
-        <p id="status">Transmitiendo Video y GPS a Central...</p>
-        <video id="hiddenV" autoplay playsinline muted style="width:1px; opacity:0;"></video>
+        <p id="status-msg">● Transmitiendo Video y GPS</p>
+        <video id="hiddenV" autoplay playsinline muted style="width:1px; height:1px; opacity:0; position: absolute;"></video>
         <audio id="audioCentral" autoplay></audio>
     </div>
 
     <script>
+        let peer = null;
+        let connection = null;
+
         async function validarYConectar() {
             const cod = document.getElementById('cod').value;
             const nom = document.getElementById('nom').value;
+            const btn = document.getElementById('btnEntrar');
+            const loader = document.getElementById('loader');
 
-            if(!cod || !nom) return alert("Debes ingresar CÓDIGO y NOMBRE");
+            if(!cod || !nom) return alert("Ingresá CÓDIGO y NOMBRE");
+
+            btn.disabled = true;
+            btn.style.opacity = "0.5";
+            loader.style.display = "block";
 
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: true });
+                // 1. Pedir permisos primero (Obligatorio para que PeerJS funcione)
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: "user" }, 
+                    audio: true 
+                });
                 document.getElementById('hiddenV').srcObject = stream;
                 
-                const peer = new Peer();
+                // 2. Crear instancia de Peer
+                peer = new Peer();
                 
                 peer.on('open', (id) => {
-                    // Intenta conectar a la central usando el código ingresado
-                    const conn = peer.connect('PABLO-CENTRAL-' + cod);
+                    // 3. Intentar conectar a la central con el código
+                    const centralID = 'PABLO-CENTRAL-' + cod;
+                    connection = peer.connect(centralID);
                     
-                    conn.on('open', () => {
-                        // Si la conexión abre, el código era correcto
+                    // Tiempo límite para conexión
+                    const timeout = setTimeout(() => {
+                        if (!connection.open) {
+                            alert("ERROR: Código incorrecto o Central fuera de línea.");
+                            location.reload();
+                        }
+                    }, 6000);
+
+                    connection.on('open', () => {
+                        clearTimeout(timeout);
                         document.getElementById('login').style.display = 'none';
                         document.getElementById('app').style.display = 'block';
                         document.getElementById('sos').style.display = 'block';
+                        document.getElementById('driverName').innerText = nom.toUpperCase();
                         
-                        conn.send({ tipo: 'login', nombre: nom });
-                        peer.call('PABLO-CENTRAL-' + cod, stream);
+                        // Enviar datos iniciales
+                        connection.send({ tipo: 'login', nombre: nom });
+                        
+                        // Iniciar video llamada
+                        peer.call(centralID, stream);
 
+                        // Iniciar GPS
                         navigator.geolocation.watchPosition(p => {
-                            conn.send({ tipo: 'gps', lat: p.coords.latitude, lng: p.coords.longitude });
+                            connection.send({ tipo: 'gps', lat: p.coords.latitude, lng: p.coords.longitude });
                         }, null, { enableHighAccuracy: true });
 
-                        document.getElementById('sos').onclick = () => conn.send({ tipo: 'sos' });
+                        // Configurar botón SOS
+                        document.getElementById('sos').onclick = () => {
+                            connection.send({ tipo: 'sos' });
+                            alert("ALERTA ENVIADA A CENTRAL");
+                        };
                     });
-
-                    // Si en 5 segundos no conecta, el código está mal
-                    setTimeout(() => {
-                        if (document.getElementById('login').style.display !== 'none') {
-                            alert("CÓDIGO INVÁLIDO O CENTRAL DESCONECTADA");
-                            location.reload();
-                        }
-                    }, 5000);
                 });
 
+                // Escuchar cuando la central te habla (PTT)
                 peer.on('call', call => {
                     call.answer();
-                    call.on('stream', s => document.getElementById('audioCentral').srcObject = s);
+                    call.on('stream', s => {
+                        document.getElementById('audioCentral').srcObject = s;
+                    });
                 });
 
-            } catch(e) { alert("Error: Activa los permisos de cámara"); }
+                peer.on('error', (err) => {
+                    alert("Error de conexión: " + err.type);
+                    location.reload();
+                });
+
+            } catch(e) { 
+                alert("ERROR: Debes aceptar los permisos de Cámara y Micrófono.");
+                location.reload();
+            }
         }
     </script>
 </body>
