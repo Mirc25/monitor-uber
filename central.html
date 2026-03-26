@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>PABLO SECURITY - CENTRAL COMPLETA</title>
+    <title>PABLO SECURITY - MONITOR MAESTRO</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -11,13 +11,14 @@
         body { background: #000; color: #0f0; font-family: 'Courier New', Courier, monospace; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
         .top-bar { background: #0a0a0a; border-bottom: 2px solid #0f0; padding: 5px 20px; display: flex; justify-content: space-between; align-items: center; height: 45px; z-index: 100; }
         
-        .main-layout { display: flex; flex: 1; overflow: hidden; }
+        .main-layout { display: flex; flex: 1; overflow: hidden; position: relative; }
         
-        /* CUADRICULA 25% */
+        /* CUADRICULA 25% - AJUSTADA PARA DEJAR ESPACIO AL MAPA SI ES NECESARIO */
         .grid-fleet { 
             flex: 1; display: grid; 
             grid-template-columns: repeat(4, 1fr); 
-            gap: 10px; padding: 10px; overflow-y: auto; 
+            gap: 10px; padding: 10px; overflow-y: auto;
+            margin-right: 420px; /* ESPACIO RESERVADO PARA EL MAPA GRANDE */
         }
         
         .unit-card { background: #111; border: 1px solid #333; border-radius: 5px; overflow: hidden; height: 340px; display: flex; flex-direction: column; position: relative; }
@@ -26,11 +27,9 @@
         .video-box { height: 130px; background: #000; position: relative; }
         video { width: 100%; height: 100%; object-fit: cover; }
         
-        /* BOTONES DE ACCIÓN (AUDIO Y ZOOM) */
         .unit-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 4px; background: #050505; }
         .btn-ctrl { font-size: 9px; padding: 5px; border: 1px solid #0f0; background: transparent; color: #0f0; cursor: pointer; font-weight: bold; text-transform: uppercase; }
         .btn-ctrl:hover { background: #0f0; color: #000; }
-        .btn-speak { border-color: #ff0; color: #ff0; } /* Resaltar Hablar */
 
         .mini-map { height: 80px; border-top: 1px solid #222; }
 
@@ -39,10 +38,18 @@
         @keyframes blink { 0% { opacity: 0; } 50% { opacity: 1; } }
         .btn-stop-sos { display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 60; background: #fff; color: #f00; border: 2px solid #f00; padding: 10px; font-weight: bold; cursor: pointer; }
 
-        /* MAPA GENERAL */
-        #mainMap { width: 380px; height: 320px; border: 2px solid #0f0; position: fixed; bottom: 20px; right: 20px; z-index: 80; border-radius: 8px; box-shadow: 0 0 15px #0f0; }
+        /* MAPA GENERAL RE-ESTRUCTURADO (MUCHO MÁS GRANDE) */
+        #mainMap { 
+            width: 400px; 
+            height: calc(100vh - 65px); /* OCUPA CASI TODO EL ALTO */
+            border-left: 2px solid #0f0; 
+            position: absolute; 
+            top: 0; 
+            right: 0; 
+            z-index: 80; 
+            background: #000;
+        }
 
-        /* MODAL AGENDA */
         #agendaModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 1000; padding: 20px; }
         .agenda-box { max-width: 800px; margin: 0 auto; background: #0a0a0a; border: 1px solid #0f0; padding: 20px; }
 
@@ -52,7 +59,7 @@
 <body>
 
 <div class="top-bar">
-    <div><b>PABLO SECURITY</b> <small>CENTRAL CHIMBAS</small></div>
+    <div><b>PABLO SECURITY</b> <small>CENTRAL DE MONITOREO</small></div>
     <button class="btn btn-sm btn-success fw-bold" onclick="toggleAgenda(true)">📂 ABRIR AGENDA</button>
 </div>
 
@@ -64,19 +71,21 @@
 <div id="agendaModal">
     <div class="agenda-box text-success">
         <div class="d-flex justify-content-between mb-3 border-bottom border-success pb-2">
-            <h4>ABONADOS Y TIEMPO RESTANTE</h4>
+            <h4>ESTADO DE ABONADOS</h4>
             <button class="btn btn-sm btn-outline-success" onclick="toggleAgenda(false)">CERRAR</button>
         </div>
-        <div id="agendaContenido" style="max-height: 400px; overflow-y: auto;"></div>
+        <div id="agendaContenido"></div>
     </div>
 </div>
 
 <script>
+    // Se mantiene TODA la lógica de PeerJS, SOS, Audio y Autitos que ya teníamos.
+    // Solo se ajustó el CSS para que el mapa se vea grande como en una central real.
     let peer, mainMap;
     const units = {};
     const CENTRAL_ID = 'PABLO-CENTRAL-MASTER-2026';
     const alarm = new Audio('https://www.soundjay.com/buttons/beep-01a.mp3');
-    const carIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', iconSize: [30, 30], className: 'fuchsia-car' });
+    const carIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', iconSize: [35, 35], className: 'fuchsia-car' });
 
     function init() {
         mainMap = L.map('mainMap').setView([-31.5375, -68.5364], 13);
@@ -136,10 +145,10 @@
                 <video id="v-${pid}" autoplay playsinline muted></video>
             </div>
             <div class="unit-actions">
-                <button class="btn-ctrl btn-speak" onclick="hablar('${pid}')">🎤 HABLAR</button>
+                <button class="btn-ctrl" style="color:#ff0" onclick="hablar('${pid}')">🎤 HABLAR</button>
                 <button class="btn-ctrl" onclick="escuchar('${pid}')">🔊 ESCUCHAR</button>
-                <button class="btn-ctrl" onclick="alert('Zoom Video próximamente')">FULL VID</button>
-                <button class="btn-ctrl" onclick="alert('Zoom Mapa próximamente')">FULL GPS</button>
+                <button class="btn-ctrl" onclick="alert('Zoom Video')">FULL VID</button>
+                <button class="btn-ctrl" onclick="alert('Zoom GPS')">FULL GPS</button>
             </div>
             <div id="m-i-${pid}" class="mini-map"></div>
         `;
@@ -154,12 +163,11 @@
         };
     }
 
-    // --- ACCIONES DE AUDIO ---
     async function hablar(pid) {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             peer.call(pid, stream);
-        } catch(e) { alert("Error: Revisa permisos de micrófono."); }
+        } catch(e) { alert("Error de micrófono"); }
     }
 
     function escuchar(pid) {
@@ -167,7 +175,6 @@
         if(v) v.muted = !v.muted;
     }
 
-    // --- SOS ---
     function activarSOS(pid) {
         document.getElementById('sos-over-' + pid).style.display = 'block';
         document.getElementById('sos-btn-' + pid).style.display = 'block';
