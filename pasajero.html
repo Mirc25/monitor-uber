@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>MONITOREO DE VIAJE - PABLO SECURITY</title>
+    <title>VIAJE SEGURO - PABLO SECURITY</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -16,7 +16,7 @@
 </head>
 <body>
     <div id="video-container">
-        <div class="badge-seguro">🛡️ VIAJE MONITOREADO EN VIVO</div>
+        <div class="badge-seguro">🛡️ MONITOREO EN TIEMPO REAL</div>
         <video id="v-pasajero" autoplay playsinline muted></video>
     </div>
     <div id="map"></div>
@@ -27,17 +27,17 @@
     const driverName = params.get('n');
     const expire = parseInt(params.get('exp'));
 
-    // VALIDACIÓN DE TIEMPO: Si el tiempo pasó, bloquea el acceso
     if (Date.now() > expire) {
-        document.body.innerHTML = "<div style='color:white; text-align:center; padding:50px;'><h2>EL LINK DE SEGURIDAD HA EXPIRADO</h2><p>Por razones de seguridad, este enlace solo es válido durante el viaje.</p></div>";
+        document.body.innerHTML = "<div style='color:white; text-align:center; padding:50px;'><h2>LINK EXPIRADO</h2><p>Por seguridad, este enlace ya no es válido.</p></div>";
     } else {
         const map = L.map('map').setView([-31.5375, -68.5364], 16);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
         const carIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', iconSize: [40, 40] });
-        let marker = L.marker([0,0], {icon: carIcon}).addTo(map);
+        let marker = L.marker([-31.5375, -68.5364], {icon: carIcon}).addTo(map);
 
         const peer = new Peer();
         peer.on('open', () => {
+            // 1. Conexión de DATOS para el GPS
             const conn = peer.connect(driverID);
             conn.on('data', (d) => {
                 if(d.tipo === 'gps') {
@@ -45,10 +45,13 @@
                     map.panTo([d.lat, d.lng]);
                 }
             });
-            // Al conectar, pedimos el video al chofer
-            const call = peer.call(driverID, new MediaStream()); // Llamada vacía para recibir
+
+            // 2. Conexión de VIDEO: El pasajero LLAMA al chofer
+            const call = peer.call(driverID, new MediaStream()); 
             call.on('stream', (s) => {
-                document.getElementById('v-pasajero').srcObject = s;
+                const video = document.getElementById('v-pasajero');
+                video.srcObject = s;
+                video.play();
             });
         });
     }
