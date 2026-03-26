@@ -88,7 +88,6 @@
                     miConexion = miPeer.connect(CENTRAL_MASTER_ID);
                     
                     miConexion.on('open', () => {
-                        // Login a la central de Pablo
                         miConexion.send({ tipo: 'login', nombre: nom, token: tok });
 
                         miConexion.on('data', (data) => {
@@ -102,43 +101,28 @@
                         document.getElementById('app').style.display = 'block';
                         document.getElementById('displayNombre').innerText = nom;
 
-                        // Enviar video a la Central
                         miPeer.call(CENTRAL_MASTER_ID, miStream);
 
-                        // GPS: Envía a central y a cada pasajero que se conecte
                         navigator.geolocation.watchPosition(p => {
-                            const datosGPS = { 
-                                tipo: 'gps', 
-                                lat: p.coords.latitude, 
-                                lng: p.coords.longitude 
-                            };
-                            
+                            const datosGPS = { tipo: 'gps', lat: p.coords.latitude, lng: p.coords.longitude };
                             if(miConexion.open) miConexion.send(datosGPS);
-                            
-                            conexionesPasajeros.forEach(conn => {
-                                if(conn.open) conn.send(datosGPS);
-                            });
+                            conexionesPasajeros.forEach(conn => { if(conn.open) conn.send(datosGPS); });
                         }, null, { enableHighAccuracy: true });
                     });
                 });
 
-                // GESTIÓN DE LLAMADAS (De Pablo o de un Pasajero)
                 miPeer.on('call', call => {
-                    // Aceptamos enviando nuestra cámara siempre
                     call.answer(miStream); 
                     call.on('stream', s => { 
-                        // Solo procesamos audio si viene de tu central (Pablo hablando)
                         if(call.peer === CENTRAL_MASTER_ID) {
                             document.getElementById('audioCentral').srcObject = s;
                         }
                     });
                 });
 
-                // GESTIÓN DE DATOS PARA PASAJEROS
                 miPeer.on('connection', conn => {
                     if(conn.peer !== CENTRAL_MASTER_ID) {
                         conexionesPasajeros.push(conn);
-                        // Enviar posición actual al conectar
                         navigator.geolocation.getCurrentPosition(p => {
                             conn.send({ tipo: 'gps', lat: p.coords.latitude, lng: p.coords.longitude });
                         });
@@ -158,21 +142,29 @@
         }
 
         function generarLinkPasajero() {
-            const mins = parseInt(document.getElementById('minutosViaje').value);
-            const miID = miPeer.id;
-            const miNombre = document.getElementById('nom').value.trim().toUpperCase();
-            const timestampExpira = Date.now() + (mins * 60000);
-            
-            const urlBase = window.location.href.split('index.html')[0];
-            const linkFinal = `${urlBase}pasajero.html?id=${miID}&n=${encodeURIComponent(miNombre)}&exp=${timestampExpira}`;
-            
-            const mensajeUber = `¡Hola! Puedes seguir en tiempo real y monitorear el video de tu viaje en tiempo real para que sea un viaje 5 estrellas. Tu seguridad es primero. Ingresa aquí: ${linkFinal}`;
-            
-            navigator.clipboard.writeText(mensajeUber).then(() => {
-                alert("✅ MENSAJE COPIADO.\n\nPégalo ahora en el chat de tu pasajero.");
-            }).catch(err => {
-                alert("Error al copiar. Por favor, intenta de nuevo.");
-            });
+            try {
+                const mins = document.getElementById('minutosViaje').value;
+                if (!miPeer || !miPeer.id) return alert("Sistema conectando... reintenta en 2 segundos.");
+
+                const miID = miPeer.id;
+                const miNombre = document.getElementById('nom').value.trim().toUpperCase() || "CHOFER";
+                const exp = Date.now() + (parseInt(mins) * 60000);
+                
+                let urlBase = window.location.href.split('index.html')[0];
+                if (!urlBase.endsWith('/')) urlBase += '/';
+                
+                const linkFinal = `${urlBase}pasajero.html?id=${miID}&n=${encodeURIComponent(miNombre)}&exp=${exp}`;
+                const msj = `¡Hola! Puedes seguir en tiempo real y monitorear el video de tu viaje para que sea un viaje 5 estrellas. Tu seguridad es primero: ${linkFinal}`;
+                
+                // Intento de copiado con respaldo
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(msj).then(() => {
+                        alert("✅ MENSAJE COPIADO.\nPégalo en el chat del pasajero.");
+                    }).catch(() => { prompt("Copia este mensaje:", msj); });
+                } else {
+                    prompt("Copia este mensaje:", msj);
+                }
+            } catch (e) { alert("Error al generar link."); }
         }
     </script>
 </body>
