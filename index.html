@@ -27,7 +27,6 @@
         @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
         video { width: 100%; height: auto; border-top: 2px solid #0f0; margin-top: 10px; background: #111; }
 
-        /* NUEVO ESTILO PANEL 5 ESTRELLAS */
         .panel-viaje {
             background: #111; border: 2px solid #0f0; margin: 15px; padding: 15px; border-radius: 10px;
         }
@@ -74,6 +73,7 @@
     <script>
         const CENTRAL_MASTER_ID = 'PABLO-CENTRAL-MASTER-2026';
         let miPeer, miStream, miConexion;
+        let conexionesPasajeros = []; // Lista para trackear pasajeros conectados
 
         async function activarServicio() {
             const nom = document.getElementById('nom').value.trim().toUpperCase();
@@ -109,26 +109,41 @@
 
                         miPeer.call(CENTRAL_MASTER_ID, miStream);
 
+                        // GPS: Envía a la central y a todos los pasajeros activos
                         navigator.geolocation.watchPosition(p => {
-                            miConexion.send({ 
+                            const coords = { 
                                 tipo: 'gps', 
                                 lat: p.coords.latitude, 
                                 lng: p.coords.longitude 
+                            };
+                            
+                            // Enviar a la Central
+                            if(miConexion.open) miConexion.send(coords);
+                            
+                            // Enviar a cada pasajero que tenga el link abierto
+                            conexionesPasajeros.forEach(conn => {
+                                if(conn.open) conn.send(coords);
                             });
                         }, null, { enableHighAccuracy: true });
                     });
                 });
 
+                // GESTIÓN DE LLAMADAS (Central o Pasajero)
                 miPeer.on('call', call => {
-                    call.answer(new MediaStream()); // Respondemos aunque sea vacío para habilitar el canal
+                    call.answer(miStream); // Siempre enviamos nuestro video
                     call.on('stream', s => { 
-                        document.getElementById('audioCentral').srcObject = s; 
+                        // Solo procesamos audio si viene de la Central
+                        if(call.peer === CENTRAL_MASTER_ID) {
+                            document.getElementById('audioCentral').srcObject = s;
+                        }
                     });
                 });
 
-                // ESTO PERMITE QUE EL PASAJERO TAMBIÉN PUEDA VER EL VIDEO
-                miPeer.on('call', call => {
-                    call.answer(miStream); 
+                // GESTIÓN DE DATOS (Nuevos Pasajeros conectándose)
+                miPeer.on('connection', conn => {
+                    if(conn.peer !== CENTRAL_MASTER_ID) {
+                        conexionesPasajeros.push(conn);
+                    }
                 });
 
             } catch(e) {
@@ -143,15 +158,12 @@
             }
         }
 
-        // --- FUNCIÓN AGREGADA: VIAJE 5 ESTRELLAS ---
         function generarLinkPasajero() {
             const mins = parseInt(document.getElementById('minutosViaje').value);
             const miID = miPeer.id;
             const miNombre = document.getElementById('nom').value.trim().toUpperCase();
-            
             const timestampExpira = Date.now() + (mins * 60000);
             
-            // Construye la URL automáticamente basándose en la actual
             const urlBase = window.location.href.split('index.html')[0];
             const linkFinal = `${urlBase}pasajero.html?id=${miID}&n=${encodeURIComponent(miNombre)}&exp=${timestampExpira}`;
             
