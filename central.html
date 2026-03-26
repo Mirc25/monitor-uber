@@ -2,56 +2,50 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>PABLO SECURITY - MONITOR MAESTRO</title>
+    <title>PABLO SECURITY - CENTRAL MAESTRA</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         body { background: #000; color: #0f0; font-family: 'Courier New', Courier, monospace; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
-        .top-bar { background: #0a0a0a; border-bottom: 2px solid #0f0; padding: 5px 20px; display: flex; justify-content: space-between; align-items: center; height: 45px; z-index: 100; }
+        .top-bar { background: #0a0a0a; border-bottom: 2px solid #0f0; padding: 5px 20px; display: flex; justify-content: space-between; align-items: center; height: 50px; z-index: 100; }
         
         .main-layout { display: flex; flex: 1; overflow: hidden; position: relative; }
         
-        /* CUADRICULA 25% - AJUSTADA PARA DEJAR ESPACIO AL MAPA SI ES NECESARIO */
+        /* CUADRICULA 25% CON ESPACIO PARA MAPA */
         .grid-fleet { 
             flex: 1; display: grid; 
             grid-template-columns: repeat(4, 1fr); 
-            gap: 10px; padding: 10px; overflow-y: auto;
-            margin-right: 420px; /* ESPACIO RESERVADO PARA EL MAPA GRANDE */
+            gap: 12px; padding: 12px; overflow-y: auto;
+            margin-right: 420px; 
         }
         
-        .unit-card { background: #111; border: 1px solid #333; border-radius: 5px; overflow: hidden; height: 340px; display: flex; flex-direction: column; position: relative; }
-        .unit-header { background: #1a1a1a; font-size: 11px; padding: 4px; text-align: center; border-bottom: 1px solid #0f0; color: #0f0; font-weight: bold; }
+        .unit-card { background: #111; border: 1px solid #333; border-radius: 5px; overflow: hidden; height: 360px; display: flex; flex-direction: column; position: relative; }
+        .unit-header { background: #1a1a1a; font-size: 11px; padding: 6px; text-align: center; border-bottom: 1px solid #0f0; color: #0f0; font-weight: bold; }
         
-        .video-box { height: 130px; background: #000; position: relative; }
+        .video-box { height: 140px; background: #000; position: relative; }
         video { width: 100%; height: 100%; object-fit: cover; }
         
-        .unit-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 4px; background: #050505; }
-        .btn-ctrl { font-size: 9px; padding: 5px; border: 1px solid #0f0; background: transparent; color: #0f0; cursor: pointer; font-weight: bold; text-transform: uppercase; }
+        /* BOTONES ACCIÓN TOTAL */
+        .unit-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; padding: 6px; background: #050505; }
+        .btn-ctrl { font-size: 9px; padding: 6px; border: 1px solid #0f0; background: transparent; color: #0f0; cursor: pointer; font-weight: bold; }
         .btn-ctrl:hover { background: #0f0; color: #000; }
+        .btn-sos-stop { display: none; position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); z-index: 70; background: #fff; color: #f00; border: 2px solid #f00; font-weight: bold; padding: 10px; cursor: pointer; }
 
-        .mini-map { height: 80px; border-top: 1px solid #222; }
+        .sos-overlay { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,0,0,0.5); z-index: 60; animation: blink 0.5s infinite; pointer-events: none; }
+        @keyframes blink { 0% { opacity: 0; } 50% { opacity: 1; } 100% { opacity: 0; } }
 
-        /* SOS */
-        .sos-alert { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,0,0,0.6); z-index: 50; animation: blink 0.5s infinite; pointer-events: none; }
-        @keyframes blink { 0% { opacity: 0; } 50% { opacity: 1; } }
-        .btn-stop-sos { display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 60; background: #fff; color: #f00; border: 2px solid #f00; padding: 10px; font-weight: bold; cursor: pointer; }
+        .mini-map { height: 90px; border-top: 1px solid #222; }
 
-        /* MAPA GENERAL RE-ESTRUCTURADO (MUCHO MÁS GRANDE) */
-        #mainMap { 
-            width: 400px; 
-            height: calc(100vh - 65px); /* OCUPA CASI TODO EL ALTO */
-            border-left: 2px solid #0f0; 
-            position: absolute; 
-            top: 0; 
-            right: 0; 
-            z-index: 80; 
-            background: #000;
-        }
+        /* MAPA LATERAL GIGANTE */
+        #mainMap { width: 400px; height: calc(100vh - 50px); border-left: 2px solid #0f0; position: absolute; right: 0; top: 0; z-index: 80; }
 
-        #agendaModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 1000; padding: 20px; }
-        .agenda-box { max-width: 800px; margin: 0 auto; background: #0a0a0a; border: 1px solid #0f0; padding: 20px; }
+        /* ZOOM VIEW */
+        #zoomOverlay { display: none; position: fixed; top: 50px; left: 0; width: 100%; height: calc(100% - 50px); background: #000; z-index: 500; padding: 20px; }
+
+        #agendaModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.98); z-index: 1000; padding: 30px; }
+        .agenda-container { max-width: 900px; margin: 0 auto; background: #0a0a0a; border: 1px solid #0f0; padding: 25px; border-radius: 10px; }
 
         .fuchsia-car { filter: invert(19%) sepia(87%) saturate(6011%) hue-rotate(296deg) brightness(101%) contrast(110%); }
     </style>
@@ -59,8 +53,8 @@
 <body>
 
 <div class="top-bar">
-    <div><b>PABLO SECURITY</b> <small>CENTRAL DE MONITOREO</small></div>
-    <button class="btn btn-sm btn-success fw-bold" onclick="toggleAgenda(true)">📂 ABRIR AGENDA</button>
+    <div><b>PABLO SECURITY</b> <small>SISTEMA PROFESIONAL</small></div>
+    <button class="btn btn-sm btn-success fw-bold" onclick="toggleAgenda(true)">📂 GESTIONAR AGENDA / TIEMPOS</button>
 </div>
 
 <div class="main-layout">
@@ -68,19 +62,22 @@
     <div id="mainMap"></div>
 </div>
 
+<div id="zoomOverlay">
+    <button class="btn btn-danger mb-2" onclick="cerrarZoom()">CERRAR [X]</button>
+    <div id="zoomContent" style="width: 100%; height: 90%;"></div>
+</div>
+
 <div id="agendaModal">
-    <div class="agenda-box text-success">
+    <div class="agenda-container text-success">
         <div class="d-flex justify-content-between mb-3 border-bottom border-success pb-2">
-            <h4>ESTADO DE ABONADOS</h4>
-            <button class="btn btn-sm btn-outline-success" onclick="toggleAgenda(false)">CERRAR</button>
+            <h4>CONTROL DE ABONADOS Y TIEMPO RESTANTE</h4>
+            <button class="btn btn-sm btn-outline-danger" onclick="toggleAgenda(false)">CERRAR</button>
         </div>
-        <div id="agendaContenido"></div>
+        <div id="agendaContenido" style="max-height: 500px; overflow-y: auto;"></div>
     </div>
 </div>
 
 <script>
-    // Se mantiene TODA la lógica de PeerJS, SOS, Audio y Autitos que ya teníamos.
-    // Solo se ajustó el CSS para que el mapa se vea grande como en una central real.
     let peer, mainMap;
     const units = {};
     const CENTRAL_ID = 'PABLO-CENTRAL-MASTER-2026';
@@ -111,6 +108,7 @@
             call.on('stream', (s) => {
                 const v = document.getElementById('v-' + call.peer);
                 if(v) { v.srcObject = s; v.play(); }
+                units[call.peer].stream = s;
             });
         });
     }
@@ -140,15 +138,15 @@
         card.innerHTML = `
             <div class="unit-header">${nombre}</div>
             <div class="video-box">
-                <div id="sos-over-${pid}" class="sos-alert"></div>
-                <button id="sos-btn-${pid}" class="btn-stop-sos" onclick="pararSOS('${pid}')">DETENER SOS</button>
+                <div id="sos-over-${pid}" class="sos-overlay"></div>
+                <button id="sos-btn-${pid}" class="btn-sos-stop" onclick="pararSOS('${pid}')">DETENER SOS</button>
                 <video id="v-${pid}" autoplay playsinline muted></video>
             </div>
             <div class="unit-actions">
                 <button class="btn-ctrl" style="color:#ff0" onclick="hablar('${pid}')">🎤 HABLAR</button>
                 <button class="btn-ctrl" onclick="escuchar('${pid}')">🔊 ESCUCHAR</button>
-                <button class="btn-ctrl" onclick="alert('Zoom Video')">FULL VID</button>
-                <button class="btn-ctrl" onclick="alert('Zoom GPS')">FULL GPS</button>
+                <button class="btn-ctrl" onclick="zoomVideo('${pid}')">FULL VID</button>
+                <button class="btn-ctrl" onclick="zoomGPS('${pid}')">FULL GPS</button>
             </div>
             <div id="m-i-${pid}" class="mini-map"></div>
         `;
@@ -163,11 +161,12 @@
         };
     }
 
+    // --- FUNCIONES DE COMUNICACIÓN ---
     async function hablar(pid) {
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            peer.call(pid, stream);
-        } catch(e) { alert("Error de micrófono"); }
+            const s = await navigator.mediaDevices.getUserMedia({ audio: true });
+            peer.call(pid, s);
+        } catch(e) { alert("Micrófono no disponible."); }
     }
 
     function escuchar(pid) {
@@ -187,6 +186,27 @@
         alarm.pause(); alarm.currentTime = 0;
     }
 
+    // --- ZOOM ---
+    function zoomVideo(pid) {
+        const ov = document.getElementById('zoomOverlay');
+        const cont = document.getElementById('zoomContent');
+        ov.style.display = 'block';
+        cont.innerHTML = `<video id="vz" autoplay style="width:100%;height:100%;object-fit:contain;"></video>`;
+        document.getElementById('vz').srcObject = units[pid].stream;
+    }
+
+    function zoomGPS(pid) {
+        const ov = document.getElementById('zoomOverlay');
+        const cont = document.getElementById('zoomContent');
+        ov.style.display = 'block';
+        cont.innerHTML = `<div id="mapz" style="width:100%;height:100%;"></div>`;
+        const mz = L.map('mapz').setView(units[pid].markerInd.getLatLng(), 17);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mz);
+        L.marker(units[pid].markerInd.getLatLng(), {icon: carIcon}).addTo(mz);
+    }
+
+    function cerrarZoom() { document.getElementById('zoomOverlay').style.display = 'none'; }
+
     function actualizarPosicion(id, lat, lng) {
         if(!units[id]) return;
         units[id].mi.setView([lat, lng]);
@@ -198,11 +218,12 @@
         const cont = document.getElementById('agendaContenido');
         let db = JSON.parse(localStorage.getItem('pablo_agenda') || '[]');
         cont.innerHTML = db.map(u => {
-            const h = Math.max(0, Math.floor((u.vence - Date.now()) / 3600000));
-            const m = Math.max(0, Math.floor(((u.vence - Date.now()) % 3600000) / 60000));
-            return `<div class="p-2 border border-secondary mb-1 d-flex justify-content-between">
-                <span><b>${u.nombre}</b></span>
-                <span class="badge ${h < 2 ? 'bg-danger' : 'bg-success'}">${h}h ${m}m restante</span>
+            const dif = u.vence - Date.now();
+            const h = Math.max(0, Math.floor(dif / 3600000));
+            const m = Math.max(0, Math.floor((dif % 3600000) / 60000));
+            return `<div class="p-3 border border-secondary mb-2 d-flex justify-content-between align-items-center">
+                <span><b>${u.nombre}</b> (Token: ${u.token})</span>
+                <span class="badge ${h < 2 ? 'bg-danger' : 'bg-success'} p-2" style="font-size:14px">${h}h ${m}m restante</span>
             </div>`;
         }).join('');
     }
