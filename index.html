@@ -2,227 +2,124 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>PABLO SECURITY - CONSOLA MAESTRA</title>
+    <title>PABLO SECURITY - ACCESO MÓVIL</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        body { background: #000; color: #0f0; font-family: 'Courier New', Courier, monospace; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
-        
-        /* BARRA SUPERIOR */
-        .top-bar { background: #0a0a0a; border-bottom: 2px solid #0f0; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; height: 60px; z-index: 10; }
-        .btn-agenda-trigger { background: #0f0; color: #000; font-weight: bold; padding: 8px 20px; border: none; border-radius: 4px; cursor: pointer; text-transform: uppercase; }
-
-        .main-layout { display: flex; flex: 1; overflow: hidden; position: relative; background: #050505; }
-        .grid-fleet { flex: 1; display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 15px; padding: 15px; overflow-y: auto; }
-        
-        /* MAPA FLOTANTE */
-        #mainMap { width: 350px; height: 250px; border: 1px solid #0f0; position: fixed; bottom: 20px; right: 20px; z-index: 5; border-radius: 10px; opacity: 0.9; transition: 0.3s; }
-        #mainMap:hover { width: 600px; height: 450px; opacity: 1; }
-
-        /* MODAL AGENDA */
-        #agendaModal { 
-            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-            background: rgba(0,0,0,0.98); z-index: 1000; padding: 30px; overflow-y: auto;
+        body { background: #000; color: #0f0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; margin: 0; display: flex; flex-direction: column; justify-content: center; height: 100vh; }
+        #app { display: none; }
+        .login-box { padding: 20px; }
+        h2 { text-shadow: 0 0 10px #0f0; margin-bottom: 5px; }
+        p { font-size: 0.8em; opacity: 0.7; margin-bottom: 25px; }
+        input { 
+            width: 85%; padding: 15px; margin: 10px 0; border-radius: 8px; 
+            border: 1px solid #0f0; background: #111; color: #0f0; font-size: 18px; text-align: center;
         }
-        .agenda-container { max-width: 1100px; margin: 0 auto; background: #0a0a0a; border: 2px solid #0f0; border-radius: 12px; padding: 25px; position: relative; }
-        .header-agenda { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #0f0; padding-bottom: 15px; margin-bottom: 20px; }
-        
-        .btn-minimize { background: #333; color: #0f0; border: 1px solid #0f0; padding: 5px 15px; border-radius: 4px; font-weight: bold; cursor: pointer; }
-
-        /* BUSCADOR */
-        .search-box { background: #111; border: 1px solid #0f0; color: #0f0; padding: 10px; border-radius: 5px; width: 100%; margin-bottom: 20px; font-size: 1.1em; }
-
-        /* GRID ABONADOS */
-        .user-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 15px; }
-        .user-card { background: #111; border: 1px solid #222; padding: 15px; border-radius: 8px; border-left: 4px solid #0f0; }
-        
-        .unit-card { background: #000; border: 2px solid #333; border-radius: 8px; overflow: hidden; }
-        .unit-header { background: #1a1a1a; color: #0f0; padding: 8px; text-align: center; font-weight: bold; border-bottom: 1px solid #0f0; }
-        .fuchsia-car { filter: invert(19%) sepia(87%) saturate(6011%) hue-rotate(296deg) brightness(101%) contrast(110%); }
+        button { 
+            width: 85%; padding: 18px; background: #008000; color: white; 
+            border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 16px; margin-top: 10px;
+        }
+        #sos { 
+            background: #f00; width: 90%; height: 100px; font-size: 30px; 
+            color: #fff; border: none; border-radius: 15px; font-weight: bold; margin-top: 20px;
+        }
+        #status { font-size: 14px; color: #0f0; margin-top: 20px; animation: blink 1s infinite; }
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
+        video { width: 100%; height: auto; border-top: 2px solid #0f0; margin-top: 10px; border-radius: 0 0 10px 10px; }
     </style>
 </head>
 <body>
 
-<div class="top-bar">
-    <div><b>PABLO SECURITY</b> <span style="font-size: 0.7em; opacity: 0.6;">| MONITOR CENTRAL</span></div>
-    <button class="btn-agenda-trigger" onclick="toggleAgenda(true)">📂 AGENDA</button>
-</div>
-
-<div class="main-layout">
-    <div class="grid-fleet" id="monitorGrid"></div>
-    <div id="mainMap"></div>
-</div>
-
-<div id="agendaModal">
-    <div class="agenda-container">
-        <div class="header-agenda">
-            <h2 class="m-0 text-success">ADMINISTRACIÓN Y ALTAS</h2>
-            <button class="btn-minimize" onclick="toggleAgenda(false)">_ MINIMIZAR</button>
-        </div>
-
-        <div class="row g-3 p-3 bg-dark rounded-3 mb-4">
-            <div class="col-md-5">
-                <input type="text" id="regNombre" placeholder="NOMBRE / MÓVIL" class="form-control bg-black text-success border-success">
-            </div>
-            <div class="col-md-3">
-                <select id="regTiempo" class="form-select bg-black text-success border-success">
-                    <option value="12">12 HORAS</option>
-                    <option value="24">24 HORAS</option>
-                    <option value="720">30 DÍAS</option>
-                </select>
-            </div>
-            <div class="col-md-4">
-                <button class="btn btn-success w-100 fw-bold" onclick="crearAbonado()">+ GENERAR ABONADO</button>
-            </div>
-        </div>
-
-        <input type="text" id="busquedaAbonado" class="search-box" placeholder="🔎 BUSCAR POR NOMBRE O MÓVIL..." onkeyup="renderAgenda()">
-
-        <div class="user-grid" id="agendaContenido"></div>
+    <div id="login" class="login-box">
+        <h2>PABLO SECURITY</h2>
+        <p>CONEXIÓN DE UNIDAD AL MONITOR</p>
+        <input type="text" id="nom" placeholder="ID UNIDAD (Ej: MOVIL 01)">
+        <input type="text" id="tok" placeholder="TOKEN DE ACCESO">
+        <button onclick="activarServicio()">CONECTAR A CENTRAL</button>
     </div>
-</div>
 
-<script>
-    let peer, mainMap;
-    const units = {};
-    const CENTRAL_ID = 'PABLO-CENTRAL-MASTER-2026';
-    const carIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', iconSize: [36, 36], className: 'fuchsia-car' });
+    <div id="app">
+        <h3 id="displayNombre" style="margin: 0;"></h3>
+        <div id="status">● TRANSMITIENDO EN VIVO</div>
+        <video id="vLocal" autoplay muted playsinline></video>
+        <button id="sos" onclick="enviarSOS()">B O T Ó N - S O S</button>
+        <audio id="audioCentral" autoplay></audio>
+    </div>
 
-    function init() {
-        mainMap = L.map('mainMap').setView([-31.5375, -68.5364], 13);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mainMap);
-        conectarCentral();
-        renderAgenda();
-    }
+    <script>
+        const CENTRAL_MASTER_ID = 'PABLO-CENTRAL-MASTER-2026';
+        let miPeer, miStream, miConexion;
 
-    function toggleAgenda(show) { document.getElementById('agendaModal').style.display = show ? 'block' : 'none'; }
+        async function activarServicio() {
+            const nom = document.getElementById('nom').value.trim().toUpperCase();
+            const tok = document.getElementById('tok').value.trim();
+            
+            if(!nom || !tok) return alert("Ingresá nombre y token");
 
-    function crearAbonado() {
-        const nombre = document.getElementById('regNombre').value.trim().toUpperCase();
-        const horas = parseInt(document.getElementById('regTiempo').value);
-        if(!nombre) return;
-        let db = JSON.parse(localStorage.getItem('pablo_agenda') || '[]');
-        if(db.some(u => u.nombre === nombre)) return alert("Ya existe.");
+            try {
+                // 1. Pedir Cámara y Micrófono
+                miStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: "user" }, 
+                    audio: true 
+                });
+                document.getElementById('vLocal').srcObject = miStream;
 
-        const nuevo = {
-            nombre: nombre,
-            token: Math.floor(1000 + Math.random() * 8999).toString(),
-            vence: Date.now() + (horas * 3600000),
-            online: false
-        };
-        db.push(nuevo);
-        localStorage.setItem('pablo_agenda', JSON.stringify(db));
-        renderAgenda();
-        alert(`ALTA: ${nombre} | TOKEN: ${nuevo.token}`);
-        document.getElementById('regNombre').value = "";
-    }
+                // 2. Crear ID para el celular y conectar a Peer
+                miPeer = new Peer('ID-' + Math.floor(Math.random()*99999));
 
-    function renderAgenda() {
-        const cont = document.getElementById('agendaContenido');
-        const filtro = document.getElementById('busquedaAbonado').value.toUpperCase();
-        let db = JSON.parse(localStorage.getItem('pablo_agenda') || '[]');
-        cont.innerHTML = "";
+                miPeer.on('open', (id) => {
+                    miConexion = miPeer.connect(CENTRAL_MASTER_ID);
+                    
+                    miConexion.on('open', () => {
+                        // 3. Enviar datos de login a la central de Pablo
+                        miConexion.send({ tipo: 'login', nombre: nom, token: tok });
 
-        // Filtrar según el buscador
-        const filtrados = db.filter(u => u.nombre.includes(filtro));
+                        // Escuchar si la central nos rebota
+                        miConexion.on('data', (data) => {
+                            if(data.tipo === 'error') {
+                                alert("CENTRAL DICE: " + data.msg);
+                                location.reload();
+                            }
+                        });
 
-        filtrados.forEach((u, i) => {
-            const h = Math.max(0, Math.round((u.vence - Date.now()) / 3600000));
-            const card = document.createElement('div');
-            card.className = "user-card";
-            card.innerHTML = `
-                <div class="d-flex justify-content-between border-bottom border-secondary mb-2 pb-1">
-                    <b class="text-info">${u.nombre}</b>
-                    <span class="badge ${u.online ? 'bg-success' : 'bg-secondary'}">${u.online ? 'ON' : 'OFF'}</span>
-                </div>
-                <div class="small">TOKEN: <span class="text-white">${u.token}</span></div>
-                <div class="small">SALDO: <span>${h} Horas</span></div>
-                <div class="d-flex gap-2 mt-3">
-                    <button class="btn btn-sm btn-outline-info w-100" onclick="extenderTiempo('${u.nombre}')">SUMAR TIEMPO</button>
-                    <button class="btn btn-sm btn-outline-danger" onclick="borrarUser('${u.nombre}')">X</button>
-                </div>
-            `;
-            cont.appendChild(card);
-        });
-    }
+                        // Cambiar vista
+                        document.getElementById('login').style.display = 'none';
+                        document.getElementById('app').style.display = 'block';
+                        document.getElementById('displayNombre').innerText = nom;
 
-    function extenderTiempo(nombre) {
-        let db = JSON.parse(localStorage.getItem('pablo_agenda') || '[]');
-        const horas = prompt("¿Horas a sumar para " + nombre + "?", "24");
-        if(horas) {
-            const idx = db.findIndex(u => u.nombre === nombre);
-            db[idx].vence += (parseInt(horas) * 3600000);
-            localStorage.setItem('pablo_agenda', JSON.stringify(db));
-            renderAgenda();
+                        // 4. Iniciar Llamada de Video
+                        miPeer.call(CENTRAL_MASTER_ID, miStream);
+
+                        // 5. Iniciar GPS Automático
+                        navigator.geolocation.watchPosition(p => {
+                            miConexion.send({ 
+                                tipo: 'gps', 
+                                lat: p.coords.latitude, 
+                                lng: p.coords.longitude 
+                            });
+                        }, null, { enableHighAccuracy: true });
+                    });
+                });
+
+                // Recibir audio de la central si Pablo habla
+                miPeer.on('call', call => {
+                    call.answer();
+                    call.on('stream', s => { 
+                        document.getElementById('audioCentral').srcObject = s; 
+                    });
+                });
+
+            } catch(e) {
+                alert("Error: Activa los permisos de cámara/micrófono");
+            }
         }
-    }
 
-    function borrarUser(nombre) {
-        if(confirm("¿Eliminar abonado?")) {
-            let db = JSON.parse(localStorage.getItem('pablo_agenda') || '[]');
-            db = db.filter(u => u.nombre !== nombre);
-            localStorage.setItem('pablo_agenda', JSON.stringify(db));
-            renderAgenda();
+        function enviarSOS() {
+            if(miConexion && miConexion.open) {
+                miConexion.send({ tipo: 'sos' });
+                alert("¡ALERTA SOS ENVIADA!");
+            }
         }
-    }
-
-    function conectarCentral() {
-        peer = new Peer(CENTRAL_ID);
-        peer.on('connection', (conn) => {
-            conn.on('data', (data) => {
-                if(data.tipo === 'login') {
-                    let db = JSON.parse(localStorage.getItem('pablo_agenda') || '[]');
-                    let user = db.find(u => u.nombre === data.nombre.toUpperCase() && u.token === data.token);
-                    if(user && Date.now() < user.vence) {
-                        user.online = true;
-                        localStorage.setItem('pablo_agenda', JSON.stringify(db));
-                        renderAgenda();
-                        crearVentanaMonitor(conn.peer, user.nombre);
-                    } else {
-                        conn.send({ tipo: 'error', msg: 'ACCESO DENEGADO' });
-                    }
-                }
-                if(data.tipo === 'gps') actualizarPosicion(conn.peer, data.lat, data.lng);
-            });
-        });
-
-        peer.on('call', (call) => {
-            call.answer();
-            call.on('stream', (s) => {
-                const v = document.getElementById('v-' + call.peer);
-                if(v) { v.srcObject = s; v.play(); }
-            });
-        });
-    }
-
-    function crearVentanaMonitor(pid, nombre) {
-        let ex = document.querySelector(`[data-u="${nombre}"]`);
-        if(ex) { ex.id = 'card-' + pid; ex.querySelector('video').id = 'v-' + pid; return; }
-        const g = document.getElementById('monitorGrid');
-        const c = document.createElement('div');
-        c.className = 'unit-card'; c.id = 'card-' + pid;
-        c.setAttribute('data-u', nombre);
-        c.innerHTML = `
-            <div class="unit-header">${nombre}</div>
-            <video id="v-${pid}" autoplay playsinline muted style="width:100%;height:220px;object-fit:cover;"></video>
-            <div id="m-i-${pid}" style="height:150px;"></div>
-        `;
-        g.appendChild(c);
-        const mi = L.map('m-i-' + pid, { zoomControl: false, attributionControl: false }).setView([0,0], 15);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mi);
-        units[pid] = { mi, markerInd: L.marker([0,0]).addTo(mi), markerGen: L.marker([0,0], {icon: carIcon}).addTo(mainMap).bindPopup(nombre) };
-    }
-
-    function actualizarPosicion(id, lat, lng) {
-        if(!units[id]) return;
-        units[id].mi.setView([lat, lng]);
-        units[id].markerInd.setLatLng([lat, lng]);
-        units[id].markerGen.setLatLng([lat, lng]);
-    }
-
-    window.onload = init;
-</script>
+    </script>
 </body>
 </html>
