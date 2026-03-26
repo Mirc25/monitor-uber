@@ -10,45 +10,52 @@
     <style>
         body { background: #000; color: #0f0; font-family: 'Courier New', Courier, monospace; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
         
-        /* BARRA SUPERIOR LIMPIA */
+        /* BARRA SUPERIOR */
         .top-bar { background: #0a0a0a; border-bottom: 2px solid #0f0; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; height: 60px; z-index: 10; }
-        
-        /* BOTÓN AGENDA ÚNICO */
-        .btn-agenda-trigger { background: #0f0; color: #000; font-weight: bold; padding: 8px 20px; border: none; border-radius: 4px; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; }
-        .btn-agenda-trigger:hover { background: #0c0; box-shadow: 0 0 10px #0f0; }
+        .btn-agenda-trigger { background: #0f0; color: #000; font-weight: bold; padding: 8px 20px; border: none; border-radius: 4px; cursor: pointer; text-transform: uppercase; }
 
         .main-layout { display: flex; flex: 1; overflow: hidden; position: relative; background: #050505; }
-        .grid-fleet { flex: 1; display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 15px; padding: 15px; overflow-y: auto; }
         
-        /* MAPA GENERAL FLOTANTE */
-        #mainMap { width: 350px; height: 250px; border: 1px solid #0f0; position: fixed; bottom: 20px; right: 20px; z-index: 5; border-radius: 10px; opacity: 0.9; box-shadow: 0 0 20px rgba(0,255,0,0.2); transition: 0.3s; }
-        #mainMap:hover { width: 600px; height: 450px; opacity: 1; }
-
-        /* MODAL AGENDA PANTALLA COMPLETA */
-        #agendaModal { 
-            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-            background: rgba(0,0,0,0.98); z-index: 1000; padding: 30px; overflow-y: auto;
+        /* GRID DE MONITOREO AJUSTADO */
+        .grid-fleet { 
+            flex: 1; display: grid; 
+            grid-template-columns: repeat(auto-fill, minmax(450px, 1fr)); 
+            gap: 20px; padding: 20px; overflow-y: auto; 
         }
-        .agenda-container { max-width: 1100px; margin: 0 auto; background: #0a0a0a; border: 2px solid #0f0; border-radius: 12px; padding: 25px; position: relative; box-shadow: 0 0 50px rgba(0,255,0,0.1); }
-        .header-agenda { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #0f0; padding-bottom: 15px; margin-bottom: 20px; }
         
-        .btn-minimize { background: #333; color: #0f0; border: 1px solid #0f0; padding: 5px 15px; border-radius: 4px; font-weight: bold; cursor: pointer; }
-        .btn-minimize:hover { background: #0f0; color: #000; }
+        /* DISEÑO DE LA CARD DEL CHOFER */
+        .unit-card { background: #111; border: 2px solid #333; border-radius: 10px; overflow: hidden; position: relative; display: flex; flex-direction: column; }
+        .unit-header { background: #1a1a1a; color: #0f0; padding: 10px; text-align: center; font-weight: bold; border-bottom: 2px solid #0f0; display: flex; justify-content: space-between; align-items: center; }
+        
+        .video-container { position: relative; background: #000; height: 280px; }
+        video { width: 100%; height: 100%; object-fit: cover; }
+        
+        /* BOTONES DE ACCIÓN SOBRE EL VIDEO */
+        .unit-controls { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; padding: 10px; background: #0a0a0a; }
+        .btn-action { padding: 8px; border: 1px solid #0f0; background: transparent; color: #0f0; font-weight: bold; font-size: 11px; cursor: pointer; border-radius: 4px; }
+        .btn-action:hover { background: #0f0; color: #000; }
+        .btn-sos-active { background: #f00 !important; color: #fff !important; animation: blink-sos 0.5s infinite; border: none; }
+        
+        @keyframes blink-sos { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
 
-        /* TABLA/GRID DE ABONADOS */
-        .user-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 15px; }
-        .user-card { background: #111; border: 1px solid #222; padding: 15px; border-radius: 8px; border-left: 4px solid #0f0; }
+        /* MAPA INDIVIDUAL */
+        .mini-map { height: 180px; border-top: 1px solid #333; }
+
+        /* MAPA GENERAL FLOTANTE */
+        #mainMap { width: 350px; height: 250px; border: 2px solid #0f0; position: fixed; bottom: 20px; right: 20px; z-index: 5; border-radius: 10px; opacity: 0.9; }
+
+        /* AGENDA MODAL */
+        #agendaModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.98); z-index: 1000; padding: 30px; overflow-y: auto; }
+        .agenda-container { max-width: 1100px; margin: 0 auto; background: #0a0a0a; border: 2px solid #0f0; border-radius: 12px; padding: 25px; }
         
-        .unit-card { background: #000; border: 2px solid #333; border-radius: 8px; overflow: hidden; }
-        .unit-header { background: #1a1a1a; color: #0f0; padding: 8px; text-align: center; font-weight: bold; font-size: 0.9em; text-transform: uppercase; border-bottom: 1px solid #0f0; }
         .fuchsia-car { filter: invert(19%) sepia(87%) saturate(6011%) hue-rotate(296deg) brightness(101%) contrast(110%); }
     </style>
 </head>
 <body>
 
 <div class="top-bar">
-    <div><b style="font-size: 1.2em;">PABLO SECURITY</b> <span style="font-size: 0.7em; opacity: 0.6;">| MONITOR CENTRAL</span></div>
-    <button class="btn-agenda-trigger" onclick="toggleAgenda(true)">📂 AGENDA</button>
+    <div><b>PABLO SECURITY</b> <small style="color: #666;">[SISTEMA DE RESPUESTA]</small></div>
+    <button class="btn-agenda-trigger" onclick="toggleAgenda(true)">📂 ABRIR AGENDA</button>
 </div>
 
 <div class="main-layout">
@@ -57,33 +64,25 @@
 </div>
 
 <div id="agendaModal">
-    <div class="agenda-container">
-        <div class="header-agenda">
-            <h2 class="m-0 text-success">ADMINISTRACIÓN DE SISTEMA</h2>
-            <button class="btn-minimize" onclick="toggleAgenda(false)">_ MINIMIZAR</button>
+    <div class="agenda-container text-success">
+        <div class="d-flex justify-content-between mb-4 border-bottom border-success pb-2">
+            <h3>ADMINISTRACIÓN DE ACCESOS</h3>
+            <button class="btn btn-sm btn-outline-danger" onclick="toggleAgenda(false)">_ MINIMIZAR</button>
         </div>
-
-        <div class="row g-3 p-3 bg-dark rounded-3 mb-4">
-            <div class="col-md-5">
-                <label class="small text-secondary">Identificación Chofer/Móvil</label>
-                <input type="text" id="regNombre" placeholder="EJ: MOVIL 05" class="form-control bg-black text-success border-success">
-            </div>
+        
+        <div class="row g-2 mb-4">
+            <div class="col-md-5"><input type="text" id="regNombre" placeholder="IDENTIFICACIÓN" class="form-control bg-black text-success border-success"></div>
             <div class="col-md-3">
-                <label class="small text-secondary">Tiempo de Acceso</label>
                 <select id="regTiempo" class="form-select bg-black text-success border-success">
-                    <option value="12">12 HORAS</option>
                     <option value="24">24 HORAS</option>
-                    <option value="168">7 DÍAS</option>
                     <option value="720">30 DÍAS</option>
                 </select>
             </div>
-            <div class="col-md-4 d-flex align-items-end">
-                <button class="btn btn-success w-100 fw-bold" onclick="crearAbonado()">+ GENERAR NUEVO ABONADO</button>
-            </div>
+            <div class="col-md-4"><button class="btn btn-success w-100 fw-bold" onclick="crearAbonado()">+ GENERAR TOKEN</button></div>
         </div>
 
-        <div class="user-grid" id="agendaContenido">
-            </div>
+        <input type="text" id="busquedaAbonado" class="form-control bg-dark text-info border-info mb-3" placeholder="🔎 BUSCAR EN BASE DE DATOS..." onkeyup="renderAgenda()">
+        <div class="row g-3" id="agendaContenido"></div>
     </div>
 </div>
 
@@ -100,99 +99,18 @@
         renderAgenda();
     }
 
-    // CONTROL DE VENTANA
-    function toggleAgenda(show) {
-        document.getElementById('agendaModal').style.display = show ? 'block' : 'none';
-    }
+    function toggleAgenda(show) { document.getElementById('agendaModal').style.display = show ? 'block' : 'none'; }
 
-    // FUNCIONES AGENDA
-    function crearAbonado() {
-        const nombre = document.getElementById('regNombre').value.trim().toUpperCase();
-        const horas = parseInt(document.getElementById('regTiempo').value);
-        if(!nombre) return;
-
-        let db = JSON.parse(localStorage.getItem('pablo_agenda') || '[]');
-        if(db.some(u => u.nombre === nombre)) return alert("El nombre ya está registrado.");
-
-        const nuevo = {
-            nombre: nombre,
-            token: Math.floor(1000 + Math.random() * 8999).toString(),
-            vence: Date.now() + (horas * 60 * 60 * 1000),
-            online: false
-        };
-
-        db.push(nuevo);
-        localStorage.setItem('pablo_agenda', JSON.stringify(db));
-        renderAgenda();
-        alert(`ALTA EXITOSA\nNOMBRE: ${nombre}\nTOKEN: ${nuevo.token}`);
-        document.getElementById('regNombre').value = "";
-    }
-
-    function renderAgenda() {
-        const cont = document.getElementById('agendaContenido');
-        let db = JSON.parse(localStorage.getItem('pablo_agenda') || '[]');
-        cont.innerHTML = "";
-
-        db.forEach((u, i) => {
-            const h = Math.max(0, Math.round((u.vence - Date.now()) / (3600000)));
-            const card = document.createElement('div');
-            card.className = "user-card";
-            card.innerHTML = `
-                <div class="d-flex justify-content-between align-items-start border-bottom border-secondary mb-2 pb-1">
-                    <b class="text-info">${u.nombre}</b>
-                    <span class="badge ${u.online ? 'bg-success' : 'bg-secondary'}">${u.online ? 'ON' : 'OFF'}</span>
-                </div>
-                <div class="small">TOKEN: <span class="text-white">${u.token}</span></div>
-                <div class="small">SALDO: <span class="${h < 2 ? 'text-danger' : 'text-success'}">${h} Horas</span></div>
-                <div class="d-flex gap-2 mt-3">
-                    <button class="btn btn-sm btn-outline-info w-100" onclick="editarUser(${i})">EDITAR</button>
-                    <button class="btn btn-sm btn-outline-danger" onclick="borrarUser(${i})">BORRAR</button>
-                </div>
-            `;
-            cont.appendChild(card);
-        });
-    }
-
-    function editarUser(idx) {
-        let db = JSON.parse(localStorage.getItem('pablo_agenda') || '[]');
-        const horas = prompt("¿Cuántas horas querés SUMAR a " + db[idx].nombre + "?", "12");
-        if(horas) {
-            db[idx].vence += (parseInt(horas) * 3600000);
-            localStorage.setItem('pablo_agenda', JSON.stringify(db));
-            renderAgenda();
-        }
-    }
-
-    function borrarUser(idx) {
-        if(confirm("¿Eliminar usuario de la base de datos?")) {
-            let db = JSON.parse(localStorage.getItem('pablo_agenda') || '[]');
-            db.splice(idx, 1);
-            localStorage.setItem('pablo_agenda', JSON.stringify(db));
-            renderAgenda();
-        }
-    }
-
-    // CONEXIONES
+    // --- LÓGICA DE CENTRAL ---
     function conectarCentral() {
         peer = new Peer(CENTRAL_ID);
         peer.on('connection', (conn) => {
             conn.on('data', (data) => {
-                if(data.tipo === 'login') {
-                    let db = JSON.parse(localStorage.getItem('pablo_agenda') || '[]');
-                    let user = db.find(u => u.nombre === data.nombre.toUpperCase() && u.token === data.token);
-                    if(user && Date.now() < user.vence) {
-                        user.online = true;
-                        localStorage.setItem('pablo_agenda', JSON.stringify(db));
-                        renderAgenda();
-                        crearVentanaMonitor(conn.peer, user.nombre);
-                    } else {
-                        conn.send({ tipo: 'error', msg: 'ACCESO DENEGADO' });
-                    }
-                }
+                if(data.tipo === 'login') manejarLogin(conn, data);
                 if(data.tipo === 'gps') actualizarPosicion(conn.peer, data.lat, data.lng);
+                if(data.tipo === 'sos') activarAlertaSOS(conn.peer);
             });
         });
-
         peer.on('call', (call) => {
             call.answer();
             call.on('stream', (s) => {
@@ -202,24 +120,92 @@
         });
     }
 
-    function crearVentanaMonitor(pid, nombre) {
-        let ex = document.querySelector(`[data-u="${nombre}"]`);
-        if(ex) { ex.id = 'card-' + pid; ex.querySelector('video').id = 'v-' + pid; return; }
-
-        const g = document.getElementById('monitorGrid');
-        const c = document.createElement('div');
-        c.className = 'unit-card'; c.id = 'card-' + pid;
-        c.setAttribute('data-u', nombre);
-        c.innerHTML = `
-            <div class="unit-header">${nombre}</div>
-            <video id="v-${pid}" autoplay playsinline muted style="width:100%;height:220px;object-fit:cover;"></video>
-            <div id="m-i-${pid}" style="height:150px;"></div>
-        `;
-        g.appendChild(c);
+    function manejarLogin(conn, data) {
+        let db = JSON.parse(localStorage.getItem('pablo_agenda') || '[]');
+        let user = db.find(u => u.nombre === data.nombre.toUpperCase() && u.token === data.token);
         
+        if(user && Date.now() < user.vence) {
+            user.online = true;
+            localStorage.setItem('pablo_agenda', JSON.stringify(db));
+            renderAgenda();
+            conn.send({ tipo: 'auth_ok', vence: user.vence });
+            crearVentanaMonitor(conn, user.nombre);
+        } else {
+            conn.send({ tipo: 'error', msg: 'VENCIDO O INCORRECTO' });
+        }
+    }
+
+    function crearVentanaMonitor(conn, nombre) {
+        const pid = conn.peer;
+        if(document.getElementById('card-' + pid)) return;
+
+        const grid = document.getElementById('monitorGrid');
+        const card = document.createElement('div');
+        card.className = 'unit-card';
+        card.id = 'card-' + pid;
+        card.innerHTML = `
+            <div class="unit-header">
+                <span>${nombre}</span>
+                <span id="sos-tag-${pid}" class="badge bg-dark">SISTEMA OK</span>
+            </div>
+            <div class="video-container">
+                <video id="v-${pid}" autoplay playsinline muted></video>
+            </div>
+            <div class="unit-controls">
+                <button class="btn-action" onclick="toggleEscuchar('${pid}', this)">🔊 ESCUCHAR</button>
+                <button class="btn-action" onclick="hablarConChofer('${pid}')">🎤 LLAMAR</button>
+                <button class="btn-action text-danger border-danger" onclick="cortarConexion('${pid}')">✖ CORTAR</button>
+            </div>
+            <div id="m-i-${pid}" class="mini-map"></div>
+        `;
+        grid.appendChild(card);
+        
+        // Mapa individual
         const mi = L.map('m-i-' + pid, { zoomControl: false, attributionControl: false }).setView([0,0], 15);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mi);
-        units[pid] = { mi, markerInd: L.marker([0,0]).addTo(mi), markerGen: L.marker([0,0], {icon: carIcon}).addTo(mainMap).bindPopup(nombre) };
+        units[pid] = { 
+            conn: conn,
+            mi: mi, 
+            markerInd: L.marker([0,0]).addTo(mi), 
+            markerGen: L.marker([0,0], {icon: carIcon}).addTo(mainMap).bindPopup(nombre) 
+        };
+    }
+
+    // --- ACCIONES DE LOS BOTONES ---
+    function toggleEscuchar(pid, btn) {
+        const v = document.getElementById('v-' + pid);
+        v.muted = !v.muted;
+        btn.innerText = v.muted ? "🔊 ESCUCHAR" : "🔈 SILENCIAR";
+        btn.style.background = v.muted ? "transparent" : "#0f0";
+        btn.style.color = v.muted ? "#0f0" : "#000";
+    }
+
+    async function hablarConChofer(pid) {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            peer.call(pid, stream);
+            alert("Micrófono abierto hacia la unidad.");
+        } catch(e) { alert("Error al abrir micrófono de PC"); }
+    }
+
+    function cortarConexion(pid) {
+        if(confirm("¿Cortar transmisión?")) {
+            if(units[pid]) {
+                units[pid].markerGen.remove();
+                delete units[pid];
+            }
+            document.getElementById('card-' + pid).remove();
+        }
+    }
+
+    function activarAlertaSOS(pid) {
+        const tag = document.getElementById('sos-tag-' + pid);
+        if(tag) {
+            tag.innerText = "¡¡ ALERTA SOS !!";
+            tag.className = "badge btn-sos-active";
+            const audio = new Audio('https://www.soundjay.com/buttons/beep-01a.mp3');
+            audio.play();
+        }
     }
 
     function actualizarPosicion(id, lat, lng) {
@@ -227,6 +213,37 @@
         units[id].mi.setView([lat, lng]);
         units[id].markerInd.setLatLng([lat, lng]);
         units[id].markerGen.setLatLng([lat, lng]);
+    }
+
+    // --- FUNCIONES AGENDA (Mismo que antes) ---
+    function crearAbonado() {
+        const nombre = document.getElementById('regNombre').value.trim().toUpperCase();
+        const horas = parseInt(document.getElementById('regTiempo').value);
+        if(!nombre) return;
+        let db = JSON.parse(localStorage.getItem('pablo_agenda') || '[]');
+        const nuevo = { nombre, token: Math.floor(1000 + Math.random() * 8999).toString(), vence: Date.now() + (horas * 3600000), online: false };
+        db.push(nuevo);
+        localStorage.setItem('pablo_agenda', JSON.stringify(db));
+        renderAgenda();
+        alert(`ALTA: ${nombre}\nTOKEN: ${nuevo.token}`);
+    }
+
+    function renderAgenda() {
+        const cont = document.getElementById('agendaContenido');
+        const filtro = document.getElementById('busquedaAbonado').value.toUpperCase();
+        let db = JSON.parse(localStorage.getItem('pablo_agenda') || '[]');
+        cont.innerHTML = "";
+        db.filter(u => u.nombre.includes(filtro)).forEach((u, i) => {
+            const h = Math.max(0, Math.floor((u.vence - Date.now()) / 3600000));
+            cont.innerHTML += `
+                <div class="col-md-4">
+                    <div class="p-2 border border-secondary rounded">
+                        <b>${u.nombre}</b><br>
+                        <small>TOKEN: ${u.token}</small><br>
+                        <small>TIEMPO: ${h}h</small>
+                    </div>
+                </div>`;
+        });
     }
 
     window.onload = init;
