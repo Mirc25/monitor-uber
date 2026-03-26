@@ -11,41 +11,43 @@
         body { background: #000; color: #0f0; font-family: 'Courier New', Courier, monospace; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
         
         /* BARRA SUPERIOR */
-        .top-bar { background: #0a0a0a; border-bottom: 2px solid #0f0; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; height: 70px; z-index: 10; }
-        
-        /* BOTÓN DE AGENDA PRINCIPAL */
-        .btn-agenda-main { background: #0f0; color: #000; font-weight: bold; padding: 10px 25px; border: none; border-radius: 5px; cursor: pointer; animation: pulse 2s infinite; }
-        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(0, 255, 0, 0.7); } 70% { box-shadow: 0 0 0 15px rgba(0, 255, 0, 0); } 100% { box-shadow: 0 0 0 0 rgba(0, 255, 0, 0); } }
+        .top-bar { background: #0a0a0a; border-bottom: 2px solid #0f0; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; height: 60px; z-index: 10; }
+        .btn-agenda-trigger { background: #0f0; color: #000; font-weight: bold; padding: 8px 20px; border: none; border-radius: 4px; cursor: pointer; text-transform: uppercase; }
 
-        .main-layout { display: flex; flex: 1; overflow: hidden; position: relative; }
-        .grid-fleet { flex: 1; display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 15px; padding: 15px; overflow-y: auto; background: #050505; }
+        .main-layout { display: flex; flex: 1; overflow: hidden; position: relative; background: #050505; }
+        .grid-fleet { flex: 1; display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 15px; padding: 15px; overflow-y: auto; }
         
-        /* MAPA GENERAL PEQUEÑO SIEMPRE VISIBLE */
-        #mainMap { width: 300px; height: 200px; border: 1px solid #0f0; position: fixed; bottom: 20px; right: 20px; z-index: 5; border-radius: 10px; opacity: 0.8; }
-        #mainMap:hover { opacity: 1; width: 500px; height: 400px; transition: 0.3s; }
+        /* MAPA FLOTANTE */
+        #mainMap { width: 350px; height: 250px; border: 1px solid #0f0; position: fixed; bottom: 20px; right: 20px; z-index: 5; border-radius: 10px; opacity: 0.9; transition: 0.3s; }
+        #mainMap:hover { width: 600px; height: 450px; opacity: 1; }
 
-        /* VENTANA DE AGENDA (PANTALLA COMPLETA) */
+        /* MODAL AGENDA */
         #agendaModal { 
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-            background: rgba(0,0,0,0.95); z-index: 1000; padding: 40px; overflow-y: auto;
+            background: rgba(0,0,0,0.98); z-index: 1000; padding: 30px; overflow-y: auto;
         }
-        .agenda-content { max-width: 1000px; margin: 0 auto; border: 2px solid #0f0; padding: 30px; border-radius: 15px; background: #0a0a0a; position: relative; }
-        .btn-close-agenda { position: absolute; top: 20px; right: 20px; background: #f00; color: #fff; border: none; padding: 10px 20px; font-weight: bold; cursor: pointer; }
+        .agenda-container { max-width: 1100px; margin: 0 auto; background: #0a0a0a; border: 2px solid #0f0; border-radius: 12px; padding: 25px; position: relative; }
+        .header-agenda { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #0f0; padding-bottom: 15px; margin-bottom: 20px; }
+        
+        .btn-minimize { background: #333; color: #0f0; border: 1px solid #0f0; padding: 5px 15px; border-radius: 4px; font-weight: bold; cursor: pointer; }
 
-        /* CARDS DE USUARIOS EN LA AGENDA */
-        .user-list-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px; margin-top: 20px; }
-        .user-card-db { background: #111; border: 1px solid #0f0; padding: 15px; border-radius: 10px; }
+        /* BUSCADOR */
+        .search-box { background: #111; border: 1px solid #0f0; color: #0f0; padding: 10px; border-radius: 5px; width: 100%; margin-bottom: 20px; font-size: 1.1em; }
+
+        /* GRID ABONADOS */
+        .user-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 15px; }
+        .user-card { background: #111; border: 1px solid #222; padding: 15px; border-radius: 8px; border-left: 4px solid #0f0; }
         
         .unit-card { background: #000; border: 2px solid #333; border-radius: 8px; overflow: hidden; }
-        .unit-header { background: #1a1a1a; color: #0f0; padding: 8px; text-align: center; font-weight: bold; border-bottom: 2px solid #0f0; }
+        .unit-header { background: #1a1a1a; color: #0f0; padding: 8px; text-align: center; font-weight: bold; border-bottom: 1px solid #0f0; }
         .fuchsia-car { filter: invert(19%) sepia(87%) saturate(6011%) hue-rotate(296deg) brightness(101%) contrast(110%); }
     </style>
 </head>
 <body>
 
 <div class="top-bar">
-    <div><h3 class="m-0">PABLO SECURITY</h3><small>CONTROL DE FLOTA V.4.0</small></div>
-    <button class="btn-agenda-main" onclick="abrirAgenda()">📂 ABRIR AGENDA DE USUARIOS</button>
+    <div><b>PABLO SECURITY</b> <span style="font-size: 0.7em; opacity: 0.6;">| MONITOR CENTRAL</span></div>
+    <button class="btn-agenda-trigger" onclick="toggleAgenda(true)">📂 AGENDA</button>
 </div>
 
 <div class="main-layout">
@@ -54,13 +56,15 @@
 </div>
 
 <div id="agendaModal">
-    <div class="agenda-content">
-        <button class="btn-close-agenda" onclick="cerrarAgenda()">[ X ] MINIMIZAR / CERRAR</button>
-        <h2 class="text-success border-bottom pb-2">ADMINISTRACIÓN DE ABONADOS</h2>
-        
-        <div class="row g-3 mt-3 align-items-center">
+    <div class="agenda-container">
+        <div class="header-agenda">
+            <h2 class="m-0 text-success">ADMINISTRACIÓN Y ALTAS</h2>
+            <button class="btn-minimize" onclick="toggleAgenda(false)">_ MINIMIZAR</button>
+        </div>
+
+        <div class="row g-3 p-3 bg-dark rounded-3 mb-4">
             <div class="col-md-5">
-                <input type="text" id="regNombre" placeholder="NOMBRE O MÓVIL" class="form-control bg-black text-success border-success">
+                <input type="text" id="regNombre" placeholder="NOMBRE / MÓVIL" class="form-control bg-black text-success border-success">
             </div>
             <div class="col-md-3">
                 <select id="regTiempo" class="form-select bg-black text-success border-success">
@@ -70,14 +74,13 @@
                 </select>
             </div>
             <div class="col-md-4">
-                <button class="btn btn-success w-100 fw-bold" onclick="crearAbonado()">GENERAR ALTA Y TOKEN</button>
+                <button class="btn btn-success w-100 fw-bold" onclick="crearAbonado()">+ GENERAR ABONADO</button>
             </div>
         </div>
 
-        <hr style="border-color: #0f0;">
-        
-        <div class="user-list-grid" id="agendaContenido">
-            </div>
+        <input type="text" id="busquedaAbonado" class="search-box" placeholder="🔎 BUSCAR POR NOMBRE O MÓVIL..." onkeyup="renderAgenda()">
+
+        <div class="user-grid" id="agendaContenido"></div>
     </div>
 </div>
 
@@ -94,77 +97,77 @@
         renderAgenda();
     }
 
-    // INTERFAZ AGENDA
-    function abrirAgenda() { document.getElementById('agendaModal').style.display = 'block'; }
-    function cerrarAgenda() { document.getElementById('agendaModal').style.display = 'none'; }
+    function toggleAgenda(show) { document.getElementById('agendaModal').style.display = show ? 'block' : 'none'; }
 
-    // GESTIÓN DE DATOS
     function crearAbonado() {
         const nombre = document.getElementById('regNombre').value.trim().toUpperCase();
         const horas = parseInt(document.getElementById('regTiempo').value);
-        if(!nombre) return alert("Falta el nombre.");
-
+        if(!nombre) return;
         let db = JSON.parse(localStorage.getItem('pablo_agenda') || '[]');
-        if(db.find(u => u.nombre === nombre)) return alert("El nombre ya existe.");
+        if(db.some(u => u.nombre === nombre)) return alert("Ya existe.");
 
         const nuevo = {
             nombre: nombre,
             token: Math.floor(1000 + Math.random() * 8999).toString(),
-            vence: Date.now() + (horas * 60 * 60 * 1000),
+            vence: Date.now() + (horas * 3600000),
             online: false
         };
-
         db.push(nuevo);
         localStorage.setItem('pablo_agenda', JSON.stringify(db));
         renderAgenda();
-        alert(`REGISTRADO: ${nombre}\nTOKEN: ${nuevo.token}`);
+        alert(`ALTA: ${nombre} | TOKEN: ${nuevo.token}`);
+        document.getElementById('regNombre').value = "";
     }
 
     function renderAgenda() {
-        const contenedor = document.getElementById('agendaContenido');
+        const cont = document.getElementById('agendaContenido');
+        const filtro = document.getElementById('busquedaAbonado').value.toUpperCase();
         let db = JSON.parse(localStorage.getItem('pablo_agenda') || '[]');
-        contenedor.innerHTML = "";
+        cont.innerHTML = "";
 
-        db.forEach((user, index) => {
-            const horasRestantes = Math.max(0, Math.round((user.vence - Date.now()) / (1000 * 60 * 60)));
+        // Filtrar según el buscador
+        const filtrados = db.filter(u => u.nombre.includes(filtro));
+
+        filtrados.forEach((u, i) => {
+            const h = Math.max(0, Math.round((u.vence - Date.now()) / 3600000));
             const card = document.createElement('div');
-            card.className = "user-card-db";
+            card.className = "user-card";
             card.innerHTML = `
-                <div class="d-flex justify-content-between mb-2">
-                    <b class="text-warning">${user.nombre}</b>
-                    <span class="badge ${user.online ? 'bg-success' : 'bg-dark'}">${user.online ? 'ACTIVO' : 'OFFLINE'}</span>
+                <div class="d-flex justify-content-between border-bottom border-secondary mb-2 pb-1">
+                    <b class="text-info">${u.nombre}</b>
+                    <span class="badge ${u.online ? 'bg-success' : 'bg-secondary'}">${u.online ? 'ON' : 'OFF'}</span>
                 </div>
-                <div>TOKEN: <span class="text-info font-monospace">${user.token}</span></div>
-                <div>RESTA: ${horasRestantes}hs</div>
-                <div class="mt-3 d-flex gap-2">
-                    <button class="btn btn-sm btn-outline-success w-100" onclick="editarUser(${index})">EDITAR/HORAS</button>
-                    <button class="btn btn-sm btn-outline-danger" onclick="borrarUser(${index})">X</button>
+                <div class="small">TOKEN: <span class="text-white">${u.token}</span></div>
+                <div class="small">SALDO: <span>${h} Horas</span></div>
+                <div class="d-flex gap-2 mt-3">
+                    <button class="btn btn-sm btn-outline-info w-100" onclick="extenderTiempo('${u.nombre}')">SUMAR TIEMPO</button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="borrarUser('${u.nombre}')">X</button>
                 </div>
             `;
-            contenedor.appendChild(card);
+            cont.appendChild(card);
         });
     }
 
-    function editarUser(index) {
+    function extenderTiempo(nombre) {
         let db = JSON.parse(localStorage.getItem('pablo_agenda') || '[]');
-        const nuevoNombre = prompt("Nuevo nombre:", db[index].nombre);
-        const masHoras = prompt("Sumar horas (ej: 12):", "0");
-        if(nuevoNombre) db[index].nombre = nuevoNombre.toUpperCase();
-        if(masHoras) db[index].vence += (parseInt(masHoras) * 60 * 60 * 1000);
-        localStorage.setItem('pablo_agenda', JSON.stringify(db));
-        renderAgenda();
-    }
-
-    function borrarUser(index) {
-        if(confirm("¿Eliminar abonado?")) {
-            let db = JSON.parse(localStorage.getItem('pablo_agenda') || '[]');
-            db.splice(index, 1);
+        const horas = prompt("¿Horas a sumar para " + nombre + "?", "24");
+        if(horas) {
+            const idx = db.findIndex(u => u.nombre === nombre);
+            db[idx].vence += (parseInt(horas) * 3600000);
             localStorage.setItem('pablo_agenda', JSON.stringify(db));
             renderAgenda();
         }
     }
 
-    // CONEXIÓN PEER
+    function borrarUser(nombre) {
+        if(confirm("¿Eliminar abonado?")) {
+            let db = JSON.parse(localStorage.getItem('pablo_agenda') || '[]');
+            db = db.filter(u => u.nombre !== nombre);
+            localStorage.setItem('pablo_agenda', JSON.stringify(db));
+            renderAgenda();
+        }
+    }
+
     function conectarCentral() {
         peer = new Peer(CENTRAL_ID);
         peer.on('connection', (conn) => {
@@ -178,7 +181,7 @@
                         renderAgenda();
                         crearVentanaMonitor(conn.peer, user.nombre);
                     } else {
-                        conn.send({ tipo: 'error', msg: 'DATOS INVÁLIDOS O VENCIDOS' });
+                        conn.send({ tipo: 'error', msg: 'ACCESO DENEGADO' });
                     }
                 }
                 if(data.tipo === 'gps') actualizarPosicion(conn.peer, data.lat, data.lng);
@@ -194,33 +197,27 @@
         });
     }
 
-    function crearVentanaMonitor(peerID, nombre) {
-        let existente = document.querySelector(`[data-chofer="${nombre}"]`);
-        if(existente) {
-            existente.id = 'card-' + peerID;
-            existente.querySelector('video').id = 'v-' + peerID;
-            return;
-        }
-
-        const grid = document.getElementById('monitorGrid');
-        const card = document.createElement('div');
-        card.className = 'unit-card'; card.id = 'card-' + peerID;
-        card.setAttribute('data-chofer', nombre);
-        card.innerHTML = `
+    function crearVentanaMonitor(pid, nombre) {
+        let ex = document.querySelector(`[data-u="${nombre}"]`);
+        if(ex) { ex.id = 'card-' + pid; ex.querySelector('video').id = 'v-' + pid; return; }
+        const g = document.getElementById('monitorGrid');
+        const c = document.createElement('div');
+        c.className = 'unit-card'; c.id = 'card-' + pid;
+        c.setAttribute('data-u', nombre);
+        c.innerHTML = `
             <div class="unit-header">${nombre}</div>
-            <video id="v-${peerID}" autoplay playsinline muted style="width:100%;height:220px;object-fit:cover;"></video>
-            <div id="map-ind-${peerID}" style="height:180px;"></div>
+            <video id="v-${pid}" autoplay playsinline muted style="width:100%;height:220px;object-fit:cover;"></video>
+            <div id="m-i-${pid}" style="height:150px;"></div>
         `;
-        grid.appendChild(card);
-        
-        const mInd = L.map('map-ind-' + peerID, { zoomControl: false, attributionControl: false }).setView([0,0], 15);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mInd);
-        units[peerID] = { mInd, markerInd: L.marker([0,0]).addTo(mInd), markerGen: L.marker([0,0], {icon: carIcon}).addTo(mainMap).bindPopup(nombre) };
+        g.appendChild(c);
+        const mi = L.map('m-i-' + pid, { zoomControl: false, attributionControl: false }).setView([0,0], 15);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mi);
+        units[pid] = { mi, markerInd: L.marker([0,0]).addTo(mi), markerGen: L.marker([0,0], {icon: carIcon}).addTo(mainMap).bindPopup(nombre) };
     }
 
     function actualizarPosicion(id, lat, lng) {
         if(!units[id]) return;
-        units[id].mInd.setView([lat, lng]);
+        units[id].mi.setView([lat, lng]);
         units[id].markerInd.setLatLng([lat, lng]);
         units[id].markerGen.setLatLng([lat, lng]);
     }
