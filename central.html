@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>PABLO SECURITY - MONITOR MAESTRO V3</title>
+    <title>PABLO SECURITY - MONITOR MAESTRO</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -14,40 +14,38 @@
 
         .main-layout { display: flex; flex: 1; overflow: hidden; position: relative; }
         
-        /* CUADRICULA FIJA 25% (4 COLUMNAS) */
+        /* CUADRICULA FIJA AL 25% (4 COLUMNAS) */
         .grid-fleet { 
             flex: 1; display: grid; 
             grid-template-columns: repeat(4, 1fr); 
             gap: 10px; padding: 10px; overflow-y: auto; align-content: start;
         }
         
-        .unit-card { background: #111; border: 1px solid #333; border-radius: 5px; overflow: hidden; height: 290px; position: relative; display: flex; flex-direction: column; }
+        .unit-card { background: #111; border: 1px solid #333; border-radius: 5px; overflow: hidden; height: 280px; position: relative; display: flex; flex-direction: column; }
         .unit-header { background: #1a1a1a; font-size: 11px; padding: 5px; text-align: center; border-bottom: 1px solid #0f0; color: #0f0; font-weight: bold; }
         
         .video-box { height: 140px; background: #000; position: relative; }
         video { width: 100%; height: 100%; object-fit: cover; }
         
-        /* ALERTA SOS */
+        /* ALERTAS SOS */
         .sos-overlay { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,0,0,0.5); z-index: 10; animation: blink 0.5s infinite; pointer-events: none; }
         @keyframes blink { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
         .btn-stop-sos { display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 20; background: #fff; color: #f00; border: none; font-weight: bold; padding: 8px; border-radius: 4px; cursor: pointer; font-size: 11px; }
 
-        .info-bar { background: #000; padding: 4px; font-size: 10px; color: #aaa; text-align: center; border-top: 1px solid #222; }
-        .mini-map { height: 80px; border-top: 1px solid #222; filter: grayscale(1); }
-        
+        .mini-map { height: 90px; border-top: 1px solid #222; filter: grayscale(1); }
         #mainMap { width: 280px; height: 200px; border: 1px solid #0f0; position: fixed; bottom: 15px; right: 15px; z-index: 30; border-radius: 8px; opacity: 0.8; }
 
         /* MODAL AGENDA */
         #agendaModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.98); z-index: 1000; padding: 20px; }
         .agenda-container { max-width: 1000px; margin: 0 auto; background: #0a0a0a; border: 1px solid #0f0; padding: 25px; border-radius: 10px; }
-        .user-row { background: #111; border-left: 4px solid #0f0; padding: 10px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+        .user-row { background: #111; border-left: 4px solid #0f0; padding: 10px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; color: #0f0; }
     </style>
 </head>
 <body>
 
 <div class="top-bar">
-    <div><b>PABLO SECURITY</b> <small>CENTRAL</small></div>
-    <button class="btn-agenda" onclick="toggleAgenda(true)">📂 GESTIONAR ABONADOS</button>
+    <div><b>PABLO SECURITY</b> <small>SISTEMA DE MONITOREO</small></div>
+    <button class="btn-agenda" onclick="toggleAgenda(true)">📂 GESTIONAR AGENDA</button>
 </div>
 
 <div class="main-layout">
@@ -56,17 +54,16 @@
 </div>
 
 <div id="agendaModal">
-    <div class="agenda-container text-success">
-        <div class="d-flex justify-content-between mb-3 border-bottom border-success pb-2">
-            <h4>AGENDA DE SERVICIOS Y TIEMPOS</h4>
+    <div class="agenda-container">
+        <div class="d-flex justify-content-between mb-3 border-bottom border-success pb-2 text-success">
+            <h4>AGENDA: CONTROL DE TIEMPOS Y TOKENS</h4>
             <button class="btn btn-sm btn-outline-danger" onclick="toggleAgenda(false)">_ CERRAR</button>
         </div>
         
         <div class="row g-2 mb-4 bg-dark p-3 rounded">
-            <div class="col-md-5"><input type="text" id="regNombre" placeholder="NOMBRE MÓVIL" class="form-control bg-black text-success border-success"></div>
+            <div class="col-md-5"><input type="text" id="regNombre" placeholder="ID MÓVIL" class="form-control bg-black text-success border-success"></div>
             <div class="col-md-3">
                 <select id="regTiempo" class="form-select bg-black text-success border-success">
-                    <option value="12">12 HORAS</option>
                     <option value="24">24 HORAS</option>
                     <option value="168">7 DÍAS</option>
                     <option value="720">30 DÍAS</option>
@@ -75,7 +72,7 @@
             <div class="col-md-4"><button class="btn btn-success w-100 fw-bold" onclick="crearAbonado()">+ GENERAR ALTA</button></div>
         </div>
 
-        <input type="text" id="busquedaAbonado" class="form-control bg-dark text-info mb-3" placeholder="🔎 BUSCAR CHOFER O MÓVIL..." onkeyup="renderAgenda()">
+        <input type="text" id="busquedaAbonado" class="form-control bg-dark text-info mb-3" placeholder="🔎 BUSCAR CONDUCTOR..." onkeyup="renderAgenda()">
         <div id="agendaContenido" style="max-height: 450px; overflow-y: auto; padding-right: 10px;"></div>
     </div>
 </div>
@@ -91,7 +88,7 @@
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mainMap);
         conectarCentral();
         renderAgenda();
-        setInterval(renderAgenda, 60000); // Actualiza los tiempos de la agenda cada minuto
+        setInterval(renderAgenda, 60000); // Mantiene el tiempo actualizado en la agenda cada minuto
     }
 
     function toggleAgenda(show) { document.getElementById('agendaModal').style.display = show ? 'block' : 'none'; }
@@ -120,22 +117,19 @@
         
         if(user && Date.now() < user.vence) {
             conn.send({ tipo: 'auth_ok', vence: user.vence });
-            crearOActualizarCelda(conn.peer, user.nombre, user.vence);
+            crearOActualizarCelda(conn.peer, user.nombre);
         } else {
-            conn.send({ tipo: 'error', msg: 'ACCESO VENCIDO O INCORRECTO' });
+            conn.send({ tipo: 'error', msg: 'ACCESO VENCIDO' });
         }
     }
 
-    function crearOActualizarCelda(pid, nombre, vence) {
+    function crearOActualizarCelda(pid, nombre) {
         let ex = document.querySelector(`[data-u="${nombre}"]`);
         if(ex) {
             const oldPid = ex.id.replace('card-', '');
             if(units[oldPid]) units[oldPid].markerGen.remove();
             ex.remove();
         }
-
-        const dif = vence - Date.now();
-        const horasRest = Math.floor(dif / 3600000);
 
         const grid = document.getElementById('monitorGrid');
         const card = document.createElement('div');
@@ -146,10 +140,9 @@
             <div class="unit-header">${nombre}</div>
             <div class="video-box">
                 <div id="sos-over-${pid}" class="sos-overlay"></div>
-                <button id="sos-btn-${pid}" class="btn-stop-sos" onclick="detenerSOS('${pid}')">DETENER SOS</button>
+                <button id="sos-btn-${pid}" class="btn-stop-sos" onclick="detenerSOS('${pid}')">PARAR SOS</button>
                 <video id="v-${pid}" autoplay playsinline muted></video>
             </div>
-            <div class="info-bar">RESTANTE: ${horasRest} HORAS</div>
             <div id="m-i-${pid}" class="mini-map"></div>
         `;
         grid.prepend(card);
@@ -184,7 +177,6 @@
         units[id].markerGen.setLatLng([lat, lng]);
     }
 
-    // --- AGENDA CON TIEMPO RESTANTE ---
     function crearAbonado() {
         const nombre = document.getElementById('regNombre').value.trim().toUpperCase();
         const horas = parseInt(document.getElementById('regTiempo').value);
@@ -214,12 +206,12 @@
             cont.innerHTML += `
                 <div class="user-row">
                     <div>
-                        <b class="text-info">${u.nombre}</b><br>
+                        <b>${u.nombre}</b><br>
                         <small>TOKEN: ${u.token}</small>
                     </div>
                     <div class="text-end">
                         <span class="badge ${h < 2 ? 'bg-danger' : 'bg-success'}">${h}h ${m}m restante</span>
-                        <button class="btn btn-sm btn-outline-danger ms-2" onclick="borrarAbonado('${u.nombre}')">ELIMINAR</button>
+                        <button class="btn btn-sm btn-outline-danger ms-2" onclick="borrarAbonado('${u.nombre}')">X</button>
                     </div>
                 </div>`;
         });
