@@ -21,21 +21,15 @@
         }
         #sos { 
             background: #f00; width: 90%; height: 80px; font-size: 25px; 
-            color: #fff; border: none; border-radius: 15px; font-weight: bold; margin-top: 15px;
+            color: #fff; border: none; border-radius: 15px; font-weight: bold; margin-top: 15px; box-shadow: 0 0 20px rgba(255,0,0,0.5);
         }
         #status { font-size: 14px; color: #0f0; margin-top: 10px; animation: blink 1s infinite; }
         @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
         video { width: 100%; height: auto; border-top: 2px solid #0f0; margin-top: 10px; background: #111; }
 
-        .panel-viaje {
-            background: #111; border: 2px solid #0f0; margin: 15px; padding: 15px; border-radius: 10px;
-        }
-        .sel-viaje {
-            width: 100%; padding: 12px; background: #000; color: #0f0; border: 1px solid #0f0; font-weight: bold; margin-bottom: 10px; border-radius: 5px;
-        }
-        .btn-viaje {
-            background: #0f0 !important; color: #000 !important; width: 100%; padding: 15px; border-radius: 5px; font-size: 14px;
-        }
+        .panel-viaje { background: #111; border: 2px solid #0f0; margin: 15px; padding: 15px; border-radius: 10px; }
+        .sel-viaje { width: 100%; padding: 12px; background: #000; color: #0f0; border: 1px solid #0f0; font-weight: bold; margin-bottom: 10px; border-radius: 5px; }
+        .btn-viaje { background: #0f0 !important; color: #000 !important; width: 100%; padding: 15px; border-radius: 5px; font-size: 14px; border: none; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -73,7 +67,7 @@
     <script>
         const CENTRAL_MASTER_ID = 'PABLO-CENTRAL-MASTER-2026';
         let miPeer, miStream, miConexion;
-        let conexionesPasajeros = []; // Lista para trackear pasajeros conectados
+        let conexionesPasajeros = []; 
 
         async function activarServicio() {
             const nom = document.getElementById('nom').value.trim().toUpperCase();
@@ -94,6 +88,7 @@
                     miConexion = miPeer.connect(CENTRAL_MASTER_ID);
                     
                     miConexion.on('open', () => {
+                        // Login a la central de Pablo
                         miConexion.send({ tipo: 'login', nombre: nom, token: tok });
 
                         miConexion.on('data', (data) => {
@@ -107,42 +102,46 @@
                         document.getElementById('app').style.display = 'block';
                         document.getElementById('displayNombre').innerText = nom;
 
+                        // Enviar video a la Central
                         miPeer.call(CENTRAL_MASTER_ID, miStream);
 
-                        // GPS: Envía a la central y a todos los pasajeros activos
+                        // GPS: Envía a central y a cada pasajero que se conecte
                         navigator.geolocation.watchPosition(p => {
-                            const coords = { 
+                            const datosGPS = { 
                                 tipo: 'gps', 
                                 lat: p.coords.latitude, 
                                 lng: p.coords.longitude 
                             };
                             
-                            // Enviar a la Central
-                            if(miConexion.open) miConexion.send(coords);
+                            if(miConexion.open) miConexion.send(datosGPS);
                             
-                            // Enviar a cada pasajero que tenga el link abierto
                             conexionesPasajeros.forEach(conn => {
-                                if(conn.open) conn.send(coords);
+                                if(conn.open) conn.send(datosGPS);
                             });
                         }, null, { enableHighAccuracy: true });
                     });
                 });
 
-                // GESTIÓN DE LLAMADAS (Central o Pasajero)
+                // GESTIÓN DE LLAMADAS (De Pablo o de un Pasajero)
                 miPeer.on('call', call => {
-                    call.answer(miStream); // Siempre enviamos nuestro video
+                    // Aceptamos enviando nuestra cámara siempre
+                    call.answer(miStream); 
                     call.on('stream', s => { 
-                        // Solo procesamos audio si viene de la Central
+                        // Solo procesamos audio si viene de tu central (Pablo hablando)
                         if(call.peer === CENTRAL_MASTER_ID) {
                             document.getElementById('audioCentral').srcObject = s;
                         }
                     });
                 });
 
-                // GESTIÓN DE DATOS (Nuevos Pasajeros conectándose)
+                // GESTIÓN DE DATOS PARA PASAJEROS
                 miPeer.on('connection', conn => {
                     if(conn.peer !== CENTRAL_MASTER_ID) {
                         conexionesPasajeros.push(conn);
+                        // Enviar posición actual al conectar
+                        navigator.geolocation.getCurrentPosition(p => {
+                            conn.send({ tipo: 'gps', lat: p.coords.latitude, lng: p.coords.longitude });
+                        });
                     }
                 });
 
