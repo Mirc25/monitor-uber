@@ -31,8 +31,8 @@
     <div id="login">
         <h2>PABLO SECURITY</h2>
         <p>CONTROL DE ACCESO</p>
-        <input type="text" id="cod" placeholder="Código de la Central">
-        <input type="text" id="nom" placeholder="Tu Nombre o Móvil">
+        <input type="text" id="nom" placeholder="Tu Nombre o Móvil (Ej: MOVIL 01)">
+        <input type="text" id="tok" placeholder="Token de Acceso (4 dígitos)">
         <button onclick="activarServicio()">ACTIVAR SERVICIO</button>
     </div>
 
@@ -46,89 +46,76 @@
     <button id="sos">BOTÓN S.O.S</button>
 
     <script>
-        // LÓGICA DE PERSISTENCIA 24 HORAS
-        window.onload = function() {
-            const datosGuardados = localStorage.getItem('pablo_auth_v1');
-            if (datosGuardados) {
-                const auth = JSON.parse(datosGuardados);
-                const ahora = new Date().getTime();
-                const unDia = 24 * 60 * 60 * 1000;
+        const CENTRAL_MASTER_ID = 'PABLO-CENTRAL-MASTER-2026';
+        let miPeer, miStream;
 
-                if (ahora - auth.timestamp < unDia) {
-                    document.getElementById('cod').value = auth.codigo;
-                    document.getElementById('nom').value = auth.nombre;
-                    activarServicio(true);
-                } else {
-                    localStorage.removeItem('pablo_auth_v1');
-                }
-            }
-        };
-
-        async function activarServicio(esAutoLogin = false) {
-            const cod = document.getElementById('cod').value;
-            const nom = document.getElementById('nom').value;
-            if(!cod || !nom) return alert("Por favor ingresa los datos");
+        async function activarServicio() {
+            const nom = document.getElementById('nom').value.trim().toUpperCase();
+            const tok = document.getElementById('tok').value.trim();
+            
+            if(!nom || !tok) return alert("Ingresa tu Nombre y el Token");
 
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { 
-                        facingMode: "user", 
-                        width: { ideal: 1280 }, 
-                        height: { ideal: 720 }, 
-                        aspectRatio: 1.777777778 
-                    }, 
+                // Pedir permisos de cámara y audio
+                miStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: "user" }, 
                     audio: true 
                 });
                 
-                document.getElementById('hiddenV').srcObject = stream;
-                
-                // ID FIJO PARA EVITAR DUPLICADOS EN LA CENTRAL
-                const idLimpio = nom.replace(/[^a-zA-Z0-9]/g, '_').toUpperCase();
-                const miIDfijo = idLimpio + '-' + cod;
-                const peer = new Peer(miIDfijo);
+                document.getElementById('hiddenV').srcObject = miStream;
 
-                peer.on('open', (id) => {
-                    const centralID = 'PABLO-CENTRAL-' + cod;
-                    const conn = peer.connect(centralID);
+                // Crear ID único para este chofer (basado en su nombre para que la PC lo reconozca)
+                const idLimpio = nom.replace(/[^a-zA-Z0-9]/g, '_');
+                miPeer = new Peer('CHOFER-' + idLimpio + '-' + Math.floor(Math.random()*999));
+
+                miPeer.on('open', (id) => {
+                    const conn = miPeer.connect(CENTRAL_MASTER_ID);
                     
                     conn.on('open', () => {
-                        if (!esAutoLogin) {
-                            const sesion = { codigo: cod, nombre: nom, timestamp: new Date().getTime() };
-                            localStorage.setItem('pablo_auth_v1', JSON.stringify(sesion));
-                        }
+                        // Enviar credenciales a la central
+                        conn.send({ tipo: 'login', nombre: nom, token: tok });
 
+                        // Si la central nos manda un error (ej: token vencido)
+                        conn.on('data', (data) => {
+                            if(data.tipo === 'error') {
+                                alert(data.msg);
+                                location.reload();
+                            }
+                        });
+
+                        // Cambiar interfaz
                         document.getElementById('login').style.display = 'none';
                         document.getElementById('app').style.display = 'block';
                         document.getElementById('sos').style.display = 'block';
-                        document.getElementById('driver').innerText = nom.toUpperCase();
-                        
-                        conn.send({ tipo: 'login', nombre: nom });
-                        peer.call(centralID, stream);
+                        document.getElementById('driver').innerText = nom;
 
+                        // Enviar Video
+                        miPeer.call(CENTRAL_MASTER_ID, miStream);
+
+                        // Enviar GPS cada 5 segundos
                         navigator.geolocation.watchPosition(p => {
-                            conn.send({ tipo: 'gps', lat: p.coords.latitude, lng: p.coords.longitude });
+                            conn.send({ 
+                                tipo: 'gps', 
+                                lat: p.coords.latitude, 
+                                lng: p.coords.longitude 
+                            });
                         }, null, { enableHighAccuracy: true });
 
-                        document.getElementById('sos').onclick = () => conn.send({ tipo: 'sos' });
+                        // Configurar botón SOS
+                        document.getElementById('sos').onclick = () => {
+                            conn.send({ tipo: 'sos', msg: '¡ALERTA SOS!' });
+                            alert("¡SOS ENVIADO A CENTRAL!");
+                        };
                     });
                 });
 
-                peer.on('call', call => {
-                    call.answer();
-                    call.on('stream', s => { 
-                        document.getElementById('audioCentral').srcObject = s; 
-                    });
+                miPeer.on('error', (err) => {
+                    console.error(err);
+                    alert("Error de conexión: " + err.type);
                 });
 
-                peer.on('error', (err) => {
-                    console.error("Error en Peer:", err);
-                    if(err.type === 'unavailable-id' && !esAutoLogin) {
-                        alert("Este nombre ya está en uso. Intenta con otro.");
-                    }
-                });
-
-            } catch(e) { 
-                if(!esAutoLogin) alert("Error: Habilita los permisos de cámara"); 
+            } catch(e) {
+                alert("Error: Debes permitir el acceso a la cámara y micrófono.");
             }
         }
     </script>
