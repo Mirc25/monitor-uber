@@ -19,13 +19,9 @@
 <body>
     <div class="container-fluid p-4">
         <h1 class="text-center mb-4">CENTRAL DE MONITOREO - PABLO SECURITY</h1>
-        
         <div id="mapa-central"></div>
-
-        <div class="row" id="grid-unidades">
-            </div>
+        <div class="row" id="grid-unidades"></div>
     </div>
-
     <script>
         const CENTRAL_PEER_ID = 'PABLO-CENTRAL-MASTER-2026';
         const peer = new Peer(CENTRAL_PEER_ID);
@@ -36,21 +32,11 @@
         peer.on('connection', (conn) => {
             conn.on('data', (data) => {
                 const idUnidad = conn.peer;
-                
-                if (data.tipo === 'login') {
-                    crearCardUnidad(data.nombre, idUnidad);
-                }
-                
-                if (data.tipo === 'gps') {
-                    actualizarGPS(idUnidad, data.lat, data.lng);
-                }
-
-                if (data.tipo === 'sos') {
-                    marcarSOS(idUnidad);
-                }
+                if (data.tipo === 'login') crearCardUnidad(data.nombre, idUnidad);
+                if (data.tipo === 'gps') actualizarGPS(idUnidad, data.lat, data.lng);
+                if (data.tipo === 'sos') marcarSOS(idUnidad);
             });
         });
-
         peer.on('call', (call) => {
             call.answer();
             call.on('stream', (stream) => {
@@ -61,33 +47,17 @@
                 }
             });
         });
-
         function crearCardUnidad(nombre, peerId) {
             if (document.getElementById('card-' + peerId)) return;
-            
             const col = document.createElement('div');
-            col.className = 'col-md-3';
-            col.id = 'card-' + peerId;
-            col.innerHTML = `
-                <div class="video-card">
-                    <h6>${nombre}</h6>
-                    <video id="video-${peerId}" autoplay muted playsinline></video>
-                </div>
-            `;
+            col.className = 'col-md-3'; col.id = 'card-' + peerId;
+            col.innerHTML = `<div class="video-card"><h6>${nombre}</h6><video id="video-${peerId}" autoplay muted playsinline></video></div>`;
             document.getElementById('grid-unidades').appendChild(col);
-            
-            unidades[peerId] = {
-                nombre: nombre,
-                marker: L.marker([0, 0]).addTo(map).bindPopup(nombre)
-            };
+            unidades[peerId] = { nombre: nombre, marker: L.marker([0, 0]).addTo(map).bindPopup(nombre) };
         }
-
         function actualizarGPS(peerId, lat, lng) {
-            if (unidades[peerId]) {
-                unidades[peerId].marker.setLatLng([lat, lng]);
-            }
+            if (unidades[peerId]) unidades[peerId].marker.setLatLng([lat, lng]);
         }
-
         function marcarSOS(peerId) {
             const card = document.getElementById('card-' + peerId);
             if (card) card.classList.add('sos-alert');
@@ -95,4 +65,4 @@
         }
     </script>
 </body>
-</html>s
+</html>
