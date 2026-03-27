@@ -3,76 +3,45 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PABLO SECURITY - CONDUCTOR</title>
+    <title>CONDUCTOR - PABLO SECURITY</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <style>
-        body { background: #000; color: #0f0; font-family: sans-serif; text-align: center; margin: 0; padding: 20px; }
-        video { width: 100%; border: 2px solid #0f0; border-radius: 10px; background: #111; height: 40vh; object-fit: cover; margin-bottom: 20px; }
-        input { width: 80%; padding: 15px; background: #111; border: 1px solid #0f0; color: #0f0; margin-bottom: 15px; font-size: 18px; }
-        .btn { background: #0f0; color: #000; padding: 20px; width: 100%; border: none; font-weight: bold; border-radius: 10px; font-size: 18px; cursor: pointer; }
-    </style>
 </head>
-<body>
-    <div id="setup">
-        <h2>PABLO SECURITY</h2>
-        <input type="text" id="idUnidad" placeholder="ID UNIDAD (EJ: MOVIL1)">
-        <button class="btn" onclick="iniciar()">ACTIVAR UNIDAD</button>
-    </div>
-
-    <div id="panel" style="display:none;">
-        <video id="vLocal" autoplay muted playsinline></video>
-        <p style="color: yellow;">ESTADO: TRANSMITIENDO CÁMARA Y GPS</p>
-        <button class="btn" onclick="copiar()">COPIAR LINK PASAJERO</button>
-    </div>
+<body style="background:#000; color:#0f0; text-align:center;">
+    <h2>SISTEMA ACTIVO</h2>
+    <input type="text" id="idUnidad" placeholder="ID UNIDAD" style="padding:10px;">
+    <button onclick="iniciar()" style="padding:10px; background:#0f0;">CONECTAR</button>
+    <br><br>
+    <video id="vLocal" autoplay muted playsinline style="width:80%; border:2px solid #0f0;"></video>
 
     <script>
-        let peer, miStream, connCentral;
-        const CENTRAL_ID = 'PABLO-CENTRAL-MASTER-2026';
-
+        let miStream;
         async function iniciar() {
             const nom = document.getElementById('idUnidad').value.trim().toUpperCase();
-            if(!nom) return alert("Pone el nombre del movil");
+            if(!nom) return alert("Pone un nombre");
 
-            try {
-                // CAPTURAMOS LA CÁMARA ANTES DE NADA
-                miStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-                document.getElementById('vLocal').srcObject = miStream;
-                document.getElementById('setup').style.display = 'none';
-                document.getElementById('panel').style.display = 'block';
+            // 1. Abrir cámara primero
+            miStream = await navigator.mediaDevices.getUserMedia({video:true, audio:true});
+            document.getElementById('vLocal').srcObject = miStream;
 
-                // ID SIN PREFIJOS RAROS (Igual al nombre)
-                peer = new Peer(nom, {
-                    config: { 'iceServers': [{ url: 'stun:stun.l.google.com:19302' }] }
-                });
-
-                peer.on('open', (id) => {
-                    // Avisamos a la central que estamos vivos
-                    connCentral = peer.connect(CENTRAL_ID);
-                    connCentral.on('open', () => {
-                        connCentral.send({ tipo: 'login', nombre: nom });
-                        
-                        // Mandamos el GPS apenas conecta
-                        navigator.geolocation.watchPosition(p => {
-                            if(connCentral.open) connCentral.send({ tipo: 'gps', lat: p.coords.latitude, lng: p.coords.longitude });
-                        }, null, { enableHighAccuracy: true });
+            // 2. Conectar Peer con el nombre de la unidad
+            const peer = new Peer(nom);
+            
+            peer.on('open', (id) => {
+                const conn = peer.connect('PABLO-CENTRAL-MASTER-2026');
+                conn.on('open', () => {
+                    conn.send({tipo: 'login', nombre: nom}); // Solo avisa que entró
+                    
+                    // Enviar GPS
+                    navigator.geolocation.watchPosition(p => {
+                        conn.send({tipo:'gps', lat:p.coords.latitude, lng:p.coords.longitude});
                     });
                 });
+            });
 
-                // ESTO ES LO QUE ARREGLA TU CÁMARA: El chofer responde cuando la central lo llama
-                peer.on('call', (call) => {
-                    console.log("Central o Pasajero pidiendo video...");
-                    call.answer(miStream);
-                });
-
-            } catch (e) { alert("Error: ¡Debes aceptar el permiso de cámara!"); }
-        }
-
-        function copiar() {
-            const nom = document.getElementById('idUnidad').value.toUpperCase();
-            const link = window.location.href.replace('index.html', 'pasajero.html') + '?id=' + nom;
-            const el = document.createElement('textarea');
-            el.value = link; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el);
-            alert("Link para el pasajero copiado.");
+            // 3. ATENDER LLAMADAS (Esto es lo que faltaba)
+            peer.on('call', call => {
+                call.answer(miStream); // Envía el video a quien lo pida (Central o Pasajero)
+            });
         }
     </script>
 </body>
