@@ -6,70 +6,45 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        body { background: #000; color: #0f0; font-family: sans-serif; margin: 0; text-align: center; overflow: hidden; }
-        #vContainer { width: 100vw; height: 100vh; background: #000; display:none; position: relative; }
+        body { background: #000; color: #0f0; font-family: sans-serif; margin: 0; text-align: center; }
+        #vContainer { width: 100vw; height: 80vh; background: #111; display:none; border-bottom: 2px solid #0f0; }
         video { width: 100%; height: 100%; object-fit: contain; }
-        .overlay-status { position: absolute; top: 10px; left: 10px; color: red; font-weight: bold; text-shadow: 1px 1px #000; font-size: 14px; }
-        .btn-inicio { background: #0f0; color: #000; padding: 25px; border: none; font-weight: bold; font-size: 20px; border-radius: 15px; margin-top: 40vh; width: 80%; box-shadow: 0 0 20px #0f0; }
-        #btnPlayVideo { display:none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); padding: 15px 30px; background: rgba(0,255,0,0.7); color: black; border: none; border-radius: 50px; font-weight: bold; z-index: 100; }
+        .btn-ver { background: #0f0; color: #000; padding: 20px; border: none; font-weight: bold; width: 85%; border-radius: 15px; margin-top: 40vh; font-size: 18px; }
     </style>
 </head>
 <body>
-
-    <div id="pantallaPrevia">
-        <button class="btn-inicio" onclick="iniciarConexion()">CONECTAR CON MÓVIL</button>
-        <p style="margin-top: 20px; color: #555;">Verificando seguridad del link...</p>
+    <div id="inicio">
+        <button class="btn-ver" onclick="conectar()">ACCEDER A CÁMARA EN VIVO</button>
     </div>
 
-    <div id="vContainer">
-        <div class="overlay-status">🔴 EN VIVO</div>
-        <video id="vPasajero" autoplay playsinline muted></video>
-        <button id="btnPlayVideo" onclick="forzarPlay()">VER VIDEO</button>
+    <div id="monitor" style="display:none;">
+        <div id="vContainer" style="display:block;">
+            <video id="vPasajero" autoplay playsinline muted></video>
+        </div>
+        <h3 id="txtStatus" style="color:red; margin-top:15px;">🔴 CONECTANDO...</h3>
+        <button onclick="document.getElementById('vPasajero').muted=false" style="background:#222; color:#0f0; border:1px solid #0f0; padding:10px; border-radius:5px;">Activar Sonido</button>
     </div>
 
     <script>
-        const params = new URLSearchParams(window.location.search);
-        const choferID = params.get('id');
-        const exp = params.get('exp');
-        let callActiva;
+        const p = new URLSearchParams(window.location.search);
+        const cid = p.get('id');
+        const exp = p.get('exp');
 
-        function iniciarConexion() {
-            if(Date.now() > exp) return alert("EL LINK EXPIRÓ. Pida uno nuevo.");
-            
-            document.getElementById('pantallaPrevia').style.display = 'none';
-            document.getElementById('vContainer').style.display = 'block';
+        function conectar() {
+            if(Date.now() > exp) return alert("LINK EXPIRADO.");
+            document.getElementById('inicio').style.display = 'none';
+            document.getElementById('monitor').style.display = 'block';
 
             const peer = new Peer();
             peer.on('open', () => {
-                llamarAlChofer(peer);
-            });
-        }
-
-        function llamarAlChofer(p) {
-            console.log("Llamando a:", choferID);
-            const call = p.call(choferID, null);
-            
-            call.on('stream', (stream) => {
-                const video = document.getElementById('vPasajero');
-                video.srcObject = stream;
-                
-                // Intentamos play. Si falla, mostramos el botón de "VER VIDEO"
-                video.play().catch(() => {
-                    document.getElementById('btnPlayVideo').style.display = 'block';
+                const call = peer.call(cid, null);
+                call.on('stream', (stream) => {
+                    const video = document.getElementById('vPasajero');
+                    video.srcObject = stream;
+                    document.getElementById('txtStatus').innerText = "🔴 EN VIVO";
+                    video.play();
                 });
             });
-
-            // Si se corta, reintenta
-            call.on('close', () => {
-                setTimeout(() => llamarAlChofer(p), 3000);
-            });
-        }
-
-        function forzarPlay() {
-            const video = document.getElementById('vPasajero');
-            video.muted = true; // Forzamos mute para que el navegador deje verlo
-            video.play();
-            document.getElementById('btnPlayVideo').style.display = 'none';
         }
     </script>
 </body>
