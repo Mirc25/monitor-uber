@@ -3,104 +3,57 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PABLO SECURITY - REPRODUCTOR</title>
+    <title>MONITOREO - PABLO SECURITY</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        body { background: #000; color: #0f0; font-family: sans-serif; margin: 0; text-align: center; }
-        .contenedor-youtube { width: 100vw; height: 100vh; display: flex; flex-direction: column; }
-        
-        /* Estilo Reproductor de Video */
-        #pantalla-video { 
-            width: 100%; height: 50%; background: #111; 
-            position: relative; display: flex; justify-content: center; align-items: center;
-            border-bottom: 2px solid #0f0;
-        }
-        video { width: 100%; height: 100%; object-fit: cover; display: none; }
-        
-        /* Botón Play estilo YouTube */
-        #btn-play-central {
-            width: 80px; height: 80px; background: rgba(0, 255, 0, 0.8);
-            border-radius: 50%; border: none; cursor: pointer;
-            display: flex; justify-content: center; align-items: center;
-            box-shadow: 0 0 20px #0f0; z-index: 10;
-        }
-        #btn-play-central::after {
-            content: ""; width: 0; height: 0; 
-            border-top: 15px solid transparent; border-bottom: 15px solid transparent;
-            border-left: 25px solid black; margin-left: 5px;
-        }
-
-        #mapa { width: 100%; height: 50%; background: #050505; }
-        .status-viaje { position: absolute; top: 10px; left: 10px; color: red; font-weight: bold; font-size: 12px; z-index: 5; display: none; }
+        body { background: #000; color: #0f0; margin: 0; text-align: center; }
+        #videoPasajero { width: 100%; height: 300px; background: #111; object-fit: cover; }
+        #mapa { width: 100%; height: 350px; border-top: 1px solid #0f0; }
+        .btn-play { background: #0f0; padding: 20px; width: 80%; border-radius: 10px; font-weight: bold; margin-top: 40vh; }
     </style>
 </head>
 <body>
+    <div id="inicio">
+        <button class="btn-play" onclick="conectar()">VER MONITOREO EN VIVO</button>
+    </div>
 
-    <div class="contenedor-youtube">
-        <div id="pantalla-video">
-            <div id="status-vivo" class="status-viaje">🔴 EN VIVO</div>
-            
-            <button id="btn-play-central" onclick="iniciarStreaming()"></button>
-            
-            <video id="video-pasajero" playsinline></video>
-            <div id="msg-carga" style="color: #555; position: absolute; bottom: 20px;">Haz clic para iniciar monitoreo</div>
-        </div>
-
+    <div id="monitor" style="display:none;">
+        <video id="v" autoplay playsinline muted></video>
         <div id="mapa"></div>
     </div>
 
     <script>
         const idChofer = new URLSearchParams(window.location.search).get('id');
-        let peer, map, marker;
+        let map, marker;
 
-        // 1. Inicializar Mapa (Carga igual que la central pero vacío al inicio)
-        map = L.map('mapa', {zoomControl:false}).setView([-31.5375, -68.5364], 15);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-        marker = L.marker([0,0]).addTo(map);
+        function conectar() {
+            document.getElementById('inicio').style.display = 'none';
+            document.getElementById('monitor').style.display = 'block';
 
-        function iniciarStreaming() {
-            if(!idChofer) return alert("Error: ID de unidad no encontrado.");
+            map = L.map('mapa').setView([0,0], 15);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+            marker = L.marker([0,0]).addTo(map);
 
-            // Ocultar botón y mostrar video/status
-            document.getElementById('btn-play-central').style.display = 'none';
-            document.getElementById('msg-carga').innerText = "Conectando con la unidad...";
-            const videoElement = document.getElementById('video-pasajero');
-            videoElement.style.display = 'block';
-
-            // Iniciar PeerJS solo al hacer clic
-            peer = new Peer({
-                config: { 'iceServers': [{ url: 'stun:stun.l.google.com:19302' }] }
-            });
-
+            const peer = new Peer();
             peer.on('open', () => {
-                // Llamar al chofer
                 const call = peer.call(idChofer, null);
-                
-                call.on('stream', (streamRemoto) => {
-                    document.getElementById('status-vivo').style.display = 'block';
-                    document.getElementById('msg-carga').style.display = 'none';
-                    videoElement.srcObject = streamRemoto;
-                    
-                    // PROMESA DE PLAY (YouTube Style)
-                    videoElement.play().catch(e => console.log("Error al reproducir:", e));
+                call.on('stream', (s) => {
+                    const video = document.getElementById('v');
+                    video.srcObject = s;
+                    video.play();
                 });
 
-                // Conexión para GPS
+                // Para el mapa, el chofer tiene que mandar datos
                 const conn = peer.connect(idChofer);
-                conn.on('data', (data) => {
-                    if(data.tipo === 'gps') {
-                        const pos = [data.lat, data.lng];
-                        map.setView(pos);
-                        marker.setLatLng(pos);
+                conn.on('data', (d) => {
+                    if(d.tipo === 'gps') {
+                        const p = [d.lat, d.lng];
+                        map.setView(p);
+                        marker.setLatLng(p);
                     }
                 });
-            });
-
-            peer.on('error', (err) => {
-                document.getElementById('msg-carga').innerText = "Unidad fuera de línea o link vencido.";
-                document.getElementById('btn-play-central').style.display = 'flex';
             });
         }
     </script>
