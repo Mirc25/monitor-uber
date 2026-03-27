@@ -3,45 +3,62 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VIAJE SEGURO - PASAJERO</title>
+    <title>PASAJERO - PABLO SECURITY</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        body { background: #000; color: #0f0; font-family: sans-serif; text-align: center; margin: 0; }
-        video { width: 100vw; height: 70vh; background: #111; object-fit: cover; }
-        .btn { background: #0f0; color: #000; padding: 25px; border: none; font-weight: bold; border-radius: 15px; margin-top: 50px; width: 80%; font-size: 20px; }
+        body { background: #000; color: #0f0; font-family: sans-serif; margin: 0; text-align: center; }
+        .card { width: 95%; margin: 10px auto; border: 1px solid #0f0; background: #0a0a0a; border-radius: 10px; overflow: hidden; }
+        video { width: 100%; height: 250px; background: #000; object-fit: cover; border-bottom: 1px solid #0f0; }
+        #miniMap { height: 250px; width: 100%; background: #111; }
+        .btn-ver { background: #0f0; color: #000; padding: 20px; border: none; font-weight: bold; border-radius: 10px; margin-top: 40vh; width: 80%; }
     </style>
 </head>
 <body>
+
     <div id="inicio">
-        <button class="btn" onclick="conectar()">ENTRAR AL MONITOREO</button>
+        <button class="btn-ver" onclick="conectar()">VER VIAJE EN TIEMPO REAL</button>
     </div>
 
-    <div id="pantalla" style="display:none;">
-        <video id="videoRemoto" autoplay playsinline muted></video>
-        <h3 id="st" style="color:red;">🔴 CONECTANDO...</h3>
-        <button onclick="document.getElementById('videoRemoto').muted=false" style="color:#0f0; background:none; border:1px solid #0f0; padding:10px;">ACTIVAR AUDIO</button>
+    <div id="monitor" style="display:none;">
+        <div class="card">
+            <div style="padding:10px; font-weight:bold;">🔴 MONITOREO EN VIVO</div>
+            <video id="vPasajero" autoplay playsinline muted></video>
+            <div id="miniMap"></div>
+            <div style="padding:10px; font-size:12px; color:#555;">PABLO SECURITY 2026</div>
+        </div>
     </div>
 
     <script>
-        const args = new URLSearchParams(window.location.search);
-        const idC = args.get('id');
+        const idChofer = new URLSearchParams(window.location.search).get('id');
+        let map, marker;
 
         function conectar() {
+            if(!idChofer) return alert("Link inválido.");
             document.getElementById('inicio').style.display = 'none';
-            document.getElementById('pantalla').style.display = 'block';
+            document.getElementById('monitor').style.display = 'block';
 
-            const peerP = new Peer({
-                config: { 'iceServers': [{ url: 'stun:stun.l.google.com:19302' }] }
-            });
+            // Iniciar Mapa
+            map = L.map('miniMap', {zoomControl:false}).setView([0,0], 16);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+            marker = L.marker([0,0]).addTo(map);
 
+            const peerP = new Peer();
             peerP.on('open', () => {
-                const call = peerP.call(idC, null);
+                // LLAMADA DE VIDEO
+                const call = peerP.call(idChofer, null);
                 call.on('stream', (s) => {
-                    document.getElementById('st').innerText = "🔴 EN VIVO";
-                    const v = document.getElementById('videoRemoto');
+                    const v = document.getElementById('vPasajero');
                     v.srcObject = s;
                     v.play();
                 });
+
+                // CONEXIÓN DE DATOS (PARA EL GPS)
+                const conn = peerP.connect(idChofer);
+                // Como el chofer envía a la central, el pasajero recibe el GPS del chofer
+                // Nota: Para que el pasajero vea el GPS, el chofer debe reenviarlo o el pasajero usar el ID del chofer.
+                // Para simplificar, si el video ya engancha, el GPS es el siguiente paso.
             });
         }
     </script>
