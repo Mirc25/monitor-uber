@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>VIAJE SEGURO - PABLO SECURITY</title>
+    <title>MONITOREO - PABLO SECURITY</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -10,99 +10,60 @@
     <style>
         body { margin:0; background:#000; color:#0f0; font-family: sans-serif; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
         #video-container { height: 45%; background: #111; position: relative; border-bottom: 2px solid #0f0; display: flex; align-items: center; justify-content: center; }
-        
-        /* Video mudo y con playsinline para mobile */
         video { width: 100%; height: 100%; object-fit: cover; background: #000; }
-        
         #map { flex: 1; z-index: 1; }
-        .badge-seguro { position: absolute; top: 10px; left: 10px; z-index: 100; background: rgba(0,255,0,0.9); color: #000; padding: 5px 12px; border-radius: 20px; font-weight: bold; font-size: 11px; }
-        
-        /* Botón superpuesto para desbloquear video en mobile */
-        #bloqueo-video { position: absolute; z-index: 101; width: 100%; height: 100%; background: rgba(0,0,0,0.7); color: #0f0; display: flex; align-items: center; justify-content: center; font-weight: bold; cursor: pointer; text-align: center; padding: 20px; box-sizing: border-box; }
+        .badge { position: absolute; top: 10px; left: 10px; z-index: 100; background: #0f0; color: #000; padding: 5px 12px; border-radius: 20px; font-weight: bold; font-size: 11px; }
+        #overlay { position: absolute; z-index: 101; width: 100%; height: 100%; background: rgba(0,0,0,0.8); color: #0f0; display: flex; align-items: center; justify-content: center; text-align: center; cursor: pointer; font-weight: bold; }
     </style>
 </head>
 <body>
     <div id="video-container">
-        <div class="badge-seguro">🛡️ MONITOREO EN VIVO</div>
-        
-        <div id="bloqueo-video" onclick="desbloquearVideo()">► TAP PARA INICIAR VIDEO</div>
-        
-        <video id="v-pasajero" autoplay muted playsinline></video>
+        <div class="badge">🛡️ VIVO</div>
+        <div id="overlay" onclick="iniciar()">► TOCAR PARA VER VIAJE</div>
+        <video id="v" autoplay muted playsinline></video>
     </div>
     <div id="map"></div>
 
 <script>
     const params = new URLSearchParams(window.location.search);
     const driverID = params.get('id');
-    const driverName = params.get('n');
     const expire = parseInt(params.get('exp'));
 
-    let videoElement = document.getElementById('v-pasajero');
-    let cartelBloqueo = document.getElementById('bloqueo-video');
-
-    // Función que activa el video tras el TAP del usuario
-    function desbloquearVideo() {
-        videoElement.play().then(() => {
-            cartelBloqueo.style.display = 'none'; // Ocultamos el cartel si arrancó
-        }).catch(e => {
-            console.log("Error al reproducir:", e);
-            cartelBloqueo.innerText = "ERROR - REINTENTA TAP";
-        });
-    }
-
-    // VALIDACIÓN DE TIEMPO
-    if (!expire || Date.now() > expire) {
-        document.body.innerHTML = "<div style='color:white; text-align:center; padding:50px; background:#000; height:100vh;'><h2>LINK EXPIRADO</h2><p>Por seguridad, el tiempo de monitoreo de este viaje ha terminado.</p></div>";
+    if (Date.now() > expire) {
+        document.body.innerHTML = "<h2 style='color:white;text-align:center;padding:50px;'>VIAJE FINALIZADO</h2>";
     } else {
-        // Inicializar Mapa
-        const map = L.map('map', { zoomControl: false }).setView([-31.5375, -68.5364], 16);
+        const map = L.map('map', {zoomControl:false}).setView([-31.5375, -68.5364], 16);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
         const carIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', iconSize: [40, 40] });
         let marker = L.marker([-31.5375, -68.5364], {icon: carIcon}).addTo(map);
 
-        // Conexión PeerJS
         const peer = new Peer();
-        peer.on('open', () => {
-            console.log("Pasajero conectado con ID:", peer.id);
-            
-            // 1. Conexión de DATOS para el GPS
+        
+        function conectar() {
+            console.log("Intentando conectar con chofer...");
             const conn = peer.connect(driverID);
+            
             conn.on('open', () => {
-                console.log("Conectado a datos del chofer");
-            });
-            conn.on('data', (d) => {
-                if(d.tipo === 'gps') {
-                    const pos = [d.lat, d.lng];
-                    marker.setLatLng(pos);
-                    map.panTo(pos); // Forzamos a que el mapa siga al auto
-                }
-            });
-
-            // 2. Conexión de VIDEO: El pasajero LLAMA al chofer
-            // Forzamos un stream vacío para iniciar la negociación
-            const call = peer.call(driverID, new MediaStream()); 
-            call.on('stream', (s) => {
-                console.log("Recibiendo stream de video");
-                videoElement.srcObject = s;
-                
-                // Intentamos play automático (a veces funciona si ya interactuó antes)
-                videoElement.play().then(() => {
-                    cartelBloqueo.style.display = 'none';
-                }).catch(() => {
-                    console.log("Esperando TAP del usuario para video");
+                conn.on('data', (d) => {
+                    if(d.tipo === 'gps') {
+                        marker.setLatLng([d.lat, d.lng]);
+                        map.panTo([d.lat, d.lng]);
+                    }
                 });
             });
-            
-            call.on('error', (err) => {
-                console.log("Error en la llamada:", err);
-                cartelBloqueo.innerText = "ERROR DE VIDEO - REINTENTA ABIENDO EL LINK";
+
+            const call = peer.call(driverID, new MediaStream());
+            call.on('stream', (s) => {
+                document.getElementById('v').srcObject = s;
+                document.getElementById('overlay').style.display = 'none';
             });
-        });
-        
-        peer.on('error', (err) => {
-            console.log("Error PeerJS Pasajero:", err);
-            cartelBloqueo.innerText = "ERROR DE CONEXIÓN - REINTENTA ABIENDO EL LINK";
-        });
+
+            // Si no conecta en 5 segundos, reintentar
+            setTimeout(() => { if(!conn.open) conectar(); }, 5000);
+        }
+
+        peer.on('open', conectar);
+        function iniciar() { document.getElementById('v').play(); }
     }
 </script>
 </body>
