@@ -3,57 +3,36 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PABLO SECURITY - PASAJERO</title>
+    <title>PASAJERO - PABLO SECURITY</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        body { background: #000; color: #0f0; margin: 0; text-align: center; font-family: sans-serif; }
-        #v { width: 100%; height: 35vh; background: #111; object-fit: cover; display: none; }
-        #map { width: 100%; height: 65vh; display: none; }
-        .btn-play { background: #0f0; padding: 25px; width: 80%; border-radius: 15px; font-weight: bold; margin-top: 40vh; cursor: pointer; font-size: 20px; }
+        body { background: #000; margin: 0; color: #0f0; text-align: center; }
+        #v { width: 100%; height: 40vh; background: #111; display: none; }
+        #map { width: 100%; height: 60vh; display: none; }
+        .play { margin-top: 40vh; padding: 20px; background: #0f0; border-radius: 10px; font-weight: bold; }
     </style>
 </head>
 <body>
-    <div id="inicio">
-        <button class="btn-play" onclick="conectar()">VER VIAJE EN VIVO</button>
-    </div>
-
+    <button id="btn" class="play" onclick="ver()">VER MONITOREO</button>
     <video id="v" autoplay playsinline muted></video>
     <div id="map"></div>
-
     <script>
-        const idChofer = new URLSearchParams(window.location.search).get('id');
-        let map, marker;
-
-        function conectar() {
-            if(!idChofer) return alert("Error de ID");
-            document.getElementById('inicio').style.display = 'none';
+        const id = new URLSearchParams(window.location.search).get('id');
+        function ver() {
+            document.getElementById('btn').style.display = 'none';
             document.getElementById('v').style.display = 'block';
             document.getElementById('map').style.display = 'block';
-
-            map = L.map('map').setView([0,0], 16);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-            marker = L.marker([0,0]).addTo(map);
-
-            const peer = new Peer();
-            peer.on('open', () => {
-                // PEDIR EL VIDEO AL CHOFER
-                const call = peer.call(idChofer, null);
-                call.on('stream', (s) => {
-                    const video = document.getElementById('v');
-                    video.srcObject = s;
-                    video.onloadedmetadata = () => video.play();
-                });
-
-                // PEDIR EL GPS
-                const conn = peer.connect(idChofer);
-                conn.on('data', (d) => {
-                    if(d.tipo === 'gps') {
-                        map.setView([d.lat, d.lng]);
-                        marker.setLatLng([d.lat, d.lng]);
-                    }
-                });
+            const m = L.map('map').setView([0,0], 15);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(m);
+            const mark = L.marker([0,0]).addTo(m);
+            const p = new Peer();
+            p.on('open', () => {
+                const call = p.call(id, null);
+                call.on('stream', s => { document.getElementById('v').srcObject = s; });
+                const c = p.connect(id);
+                c.on('data', d => { if(d.tipo==='gps'){ m.setView([d.lat, d.lng]); mark.setLatLng([d.lat, d.lng]); }});
             });
         }
     </script>
