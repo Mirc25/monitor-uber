@@ -59,44 +59,30 @@
                 });
                 document.getElementById('vLocal').srcObject = miStream;
 
-                // CONFIGURACIÓN CON SERVIDORES DE GOOGLE (Crucial para 4G)
                 miPeer = new Peer('ID-' + Math.floor(Math.random()*99999), {
-                    config: {'iceServers': [
-                        { url: 'stun:stun.l.google.com:19302' },
-                        { url: 'stun:stun1.l.google.com:19302' }
-                    ]}
+                    config: {'iceServers': [{ url: 'stun:stun.l.google.com:19302' }]}
                 });
                 
                 miPeer.on('open', (id) => {
                     miConexion = miPeer.connect(CENTRAL_ID);
                     miConexion.on('open', () => {
+                        // Enviamos login para que la central valide y cree la celda
                         miConexion.send({ tipo: 'login', nombre: nom, token: tok });
+                        
+                        // IMPORTANTE: Llamamos a la central con nuestro video
                         miPeer.call(CENTRAL_ID, miStream);
+                        
                         document.getElementById('login').style.display = 'none';
                         document.getElementById('app').style.display = 'flex';
                         
                         navigator.geolocation.watchPosition(p => {
                             const gps = { tipo: 'gps', lat: p.coords.latitude, lng: p.coords.longitude };
                             if(miConexion.open) miConexion.send(gps);
-                            pasajeros.forEach(c => { if(c.open) c.send(gps); });
                         }, null, { enableHighAccuracy: true });
                     });
                 });
 
-                miPeer.on('call', call => {
-                    call.answer(miStream);
-                    console.log("Video enviado.");
-                });
-
-                miPeer.on('connection', conn => {
-                    if(conn.peer !== CENTRAL_ID) {
-                        pasajeros.push(conn);
-                        navigator.geolocation.getCurrentPosition(p => {
-                            conn.send({ tipo: 'gps', lat: p.coords.latitude, lng: p.coords.longitude });
-                        });
-                    }
-                });
-
+                miPeer.on('call', call => { call.answer(miStream); });
             } catch(e) { alert("Error de cámara."); }
         }
 
