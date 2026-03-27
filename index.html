@@ -3,27 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CONDUCTOR - PABLO SECURITY</title>
+    <title>PABLO SECURITY - CHOFER</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        body { background: #000; color: #0f0; font-family: sans-serif; text-align: center; }
-        video { width: 90%; border: 2px solid #0f0; margin-top: 10px; background: #111; }
-        .btn { background: #0f0; color: #000; padding: 15px; border: none; font-weight: bold; width: 80%; margin: 10px; border-radius: 10px; }
-        #btnSOS { background: red; color: white; height: 80px; font-size: 20px; }
+        body { background: #000; color: #0f0; font-family: sans-serif; text-align: center; margin: 0; padding: 20px; }
+        video { width: 100%; border: 2px solid #0f0; border-radius: 10px; background: #111; margin: 10px 0; }
+        input { width: 80%; padding: 15px; background: #111; border: 1px solid #0f0; color: #0f0; margin-bottom: 10px; }
+        .btn { background: #0f0; color: #000; padding: 20px; border: none; font-weight: bold; width: 90%; border-radius: 10px; cursor: pointer; font-size: 16px; }
+        #sos { background: red; color: white; margin-top: 20px; height: 80px; font-size: 20px; }
     </style>
 </head>
 <body>
-    <h2>PABLO SECURITY</h2>
+    <h2>SISTEMA CHOFER</h2>
     <div id="setup">
-        <input type="text" id="unidad" placeholder="NOMBRE UNIDAD" style="padding:10px; width:70%; margin-bottom:10px;"><br>
-        <button class="btn" onclick="iniciarServicio()">1. INICIAR CÁMARA</button>
+        <input type="text" id="idUnidad" placeholder="EJ: MOVIL 01">
+        <button class="btn" onclick="iniciarServicio()">CONECTAR Y ABRIR CÁMARA</button>
     </div>
-    
-    <div id="control" style="display:none;">
+
+    <div id="app" style="display:none;">
         <video id="localVideo" autoplay muted playsinline></video>
-        <button class="btn" onclick="copiarLink()">2. COPIAR LINK PASAJERO</button>
-        <button class="btn" style="background:#444; color:#fff;" onclick="window.location.reload()">3. TERMINAR / NUEVO LINK</button>
-        <button id="btnSOS" class="btn" onclick="enviarSOS()">B O T Ó N - S O S</button>
+        <button class="btn" onclick="copiarLink()">COPIAR LINK PASAJERO</button>
+        <button id="sos" class="btn" onclick="enviarSOS()">B O T Ó N - S O S</button>
     </div>
 
     <script>
@@ -31,48 +31,58 @@
         const CENTRAL_ID = 'PABLO-CENTRAL-MASTER-2026';
 
         async function iniciarServicio() {
-            const nombre = document.getElementById('unidad').value.toUpperCase();
-            if(!nombre) return alert("Pone el nombre de la unidad");
+            const nom = document.getElementById('idUnidad').value.toUpperCase();
+            if(!nom) return alert("Pone nombre a la unidad");
 
             try {
-                // Forzamos la captura de video
                 miStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: true });
                 document.getElementById('localVideo').srcObject = miStream;
                 document.getElementById('setup').style.display = 'none';
-                document.getElementById('control').style.display = 'block';
+                document.getElementById('app').style.display = 'block';
 
-                // ID Único para esta sesión
-                const sessionID = 'PABLO-' + nombre + '-' + Math.floor(Math.random()*999);
-                peer = new Peer(sessionID);
+                // CONFIGURACIÓN DE SERVIDORES DE GOOGLE (Esto es lo que faltaba para que conecte en 4G)
+                peer = new Peer('PABLO-' + nom.replace(/\s+/g, '-') + '-' + Math.floor(Math.random()*999), {
+                    config: {
+                        'iceServers': [
+                            { url: 'stun:stun.l.google.com:19302' },
+                            { url: 'stun:stun1.l.google.com:19302' }
+                        ]
+                    }
+                });
 
                 peer.on('open', (id) => {
-                    console.log("Conectado con ID:", id);
-                    // Conectar a la central
-                    connCentral = peer.connect(CENTRAL_ID);
+                    console.log("ID ACTIVO:", id);
+                    conectarCentral(nom);
                 });
 
-                // ESTO ES LO QUE ESTABA FALLANDO: Responder siempre con el stream
                 peer.on('call', (call) => {
-                    call.answer(miStream);
+                    call.answer(miStream); // Responde al pasajero
                 });
 
-            } catch (err) {
-                alert("Error al acceder a la cámara: " + err);
-            }
+            } catch (e) { alert("ERROR CÁMARA: " + e); }
+        }
+
+        function conectarCentral(nom) {
+            connCentral = peer.connect(CENTRAL_ID);
+            connCentral.on('open', () => {
+                connCentral.send({ tipo: 'login', nombre: nom });
+                peer.call(CENTRAL_ID, miStream);
+                
+                // GPS TRABAJANDO
+                navigator.geolocation.watchPosition(pos => {
+                    if(connCentral.open) connCentral.send({ tipo: 'gps', lat: pos.coords.latitude, lng: pos.coords.longitude });
+                }, null, { enableHighAccuracy: true });
+            });
         }
 
         function copiarLink() {
-            const expira = Date.now() + (30 * 60000); // 30 min por defecto
-            const url = window.location.href.replace('index.html', 'pasajero.html');
-            const link = `${url}?id=${peer.id}&exp=${expira}`;
-            
+            const exp = Date.now() + (30 * 60000);
+            const link = window.location.href.replace('index.html', 'pasajero.html') + `?id=${peer.id}&exp=${exp}`;
             navigator.clipboard.writeText(link);
-            alert("Link copiado. Pasalo por WhatsApp.");
+            alert("LINK COPIADO. Pegalo en WhatsApp.");
         }
 
-        function enviarSOS() {
-            if(connCentral) connCentral.send({ tipo: 'sos' });
-        }
+        function enviarSOS() { if(connCentral) connCentral.send({ tipo: 'sos' }); }
     </script>
 </body>
 </html>
