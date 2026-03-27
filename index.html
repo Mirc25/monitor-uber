@@ -2,100 +2,76 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>PABLO SECURITY - CONDUCTOR</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CONDUCTOR - PABLO SECURITY</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        body { background: #000; color: #0f0; font-family: sans-serif; text-align: center; margin: 0; }
-        #app { display: none; flex-direction: column; min-height: 100vh; }
-        input, select { width: 85%; padding: 15px; margin: 10px; border-radius: 8px; border: 1px solid #0f0; background: #111; color: #0f0; text-align: center; font-size: 16px; }
-        button { width: 85%; padding: 18px; background: #008000; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; margin: 5px; }
-        video { width: 100%; background: #111; border-bottom: 2px solid #0f0; max-height: 35vh; object-fit: cover; }
-        .panel { background: #111; border: 1px solid #0f0; margin: 10px; padding: 15px; border-radius: 10px; }
-        #sos { background: #f00; height: 80px; font-size: 25px; margin: auto 10px 20px 10px; box-shadow: 0 0 20px red; }
+        body { background: #000; color: #0f0; font-family: sans-serif; text-align: center; }
+        video { width: 90%; border: 2px solid #0f0; margin-top: 10px; background: #111; }
+        .btn { background: #0f0; color: #000; padding: 15px; border: none; font-weight: bold; width: 80%; margin: 10px; border-radius: 10px; }
+        #btnSOS { background: red; color: white; height: 80px; font-size: 20px; }
     </style>
 </head>
 <body>
-    <div id="login" style="padding: 20px; margin-top: 50px;">
-        <h2>PABLO SECURITY</h2>
-        <input type="text" id="nom" placeholder="ID UNIDAD (Ej: MOVIL 01)">
-        <button onclick="activar()">INICIAR SERVICIO</button>
+    <h2>PABLO SECURITY</h2>
+    <div id="setup">
+        <input type="text" id="unidad" placeholder="NOMBRE UNIDAD" style="padding:10px; width:70%; margin-bottom:10px;"><br>
+        <button class="btn" onclick="iniciarServicio()">1. INICIAR CÁMARA</button>
     </div>
-
-    <div id="app">
-        <video id="vLocal" autoplay muted playsinline></video>
-        <div class="panel">
-            <select id="tiempo">
-                <option value="15">LINK: 15 MINUTOS</option>
-                <option value="30">LINK: 30 MINUTOS</option>
-                <option value="60">LINK: 1 HORA</option>
-            </select>
-            <button style="background:#0f0; color:#000;" onclick="generarLink()">COPIAR LINK PASAJERO</button>
-            <button style="background:#444;" onclick="terminarViaje()">TERMINAR / NUEVO LINK</button>
-        </div>
-        <button id="sos" onclick="enviarSOS()">B O T Ó N - S O S</button>
+    
+    <div id="control" style="display:none;">
+        <video id="localVideo" autoplay muted playsinline></video>
+        <button class="btn" onclick="copiarLink()">2. COPIAR LINK PASAJERO</button>
+        <button class="btn" style="background:#444; color:#fff;" onclick="window.location.reload()">3. TERMINAR / NUEVO LINK</button>
+        <button id="btnSOS" class="btn" onclick="enviarSOS()">B O T Ó N - S O S</button>
     </div>
 
     <script>
+        let peer, miStream, connCentral;
         const CENTRAL_ID = 'PABLO-CENTRAL-MASTER-2026';
-        let miPeer, miStream, miConexionCentral;
 
-        async function activar() {
-            const nom = document.getElementById('nom').value.toUpperCase().trim();
-            if(!nom) return alert("Ingresa ID de Unidad");
+        async function iniciarServicio() {
+            const nombre = document.getElementById('unidad').value.toUpperCase();
+            if(!nombre) return alert("Pone el nombre de la unidad");
+
             try {
-                miStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-                document.getElementById('vLocal').srcObject = miStream;
-                conectarNuevoPeer(nom);
-                document.getElementById('login').style.display = 'none';
-                document.getElementById('app').style.display = 'flex';
-            } catch(e) { alert("Error: Activa Cámara y Micrófono."); }
-        }
+                // Forzamos la captura de video
+                miStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: true });
+                document.getElementById('localVideo').srcObject = miStream;
+                document.getElementById('setup').style.display = 'none';
+                document.getElementById('control').style.display = 'block';
 
-        function conectarNuevoPeer(nom) {
-            if(miPeer) miPeer.destroy();
-            const sid = 'PABLO-' + nom.replace(/\s+/g, '-') + '-' + Math.floor(Math.random()*999);
-            miPeer = new Peer(sid);
-            
-            miPeer.on('open', (id) => {
-                conectarCentral(nom);
-            });
+                // ID Único para esta sesión
+                const sessionID = 'PABLO-' + nombre + '-' + Math.floor(Math.random()*999);
+                peer = new Peer(sessionID);
 
-            miPeer.on('call', (call) => {
-                call.answer(miStream); // El chofer SIEMPRE responde con su cámara
-            });
-        }
-
-        function conectarCentral(nombre) {
-            miConexionCentral = miPeer.connect(CENTRAL_ID);
-            miConexionCentral.on('open', () => {
-                miConexionCentral.send({ tipo: 'login', nombre: nombre });
-                miPeer.call(CENTRAL_ID, miStream);
-                navigator.geolocation.watchPosition(p => {
-                    if(miConexionCentral.open) miConexionCentral.send({ tipo: 'gps', lat: p.coords.latitude, lng: p.coords.longitude });
+                peer.on('open', (id) => {
+                    console.log("Conectado con ID:", id);
+                    // Conectar a la central
+                    connCentral = peer.connect(CENTRAL_ID);
                 });
-            });
-        }
 
-        function generarLink() {
-            const min = document.getElementById('tiempo').value;
-            const exp = Date.now() + (min * 60000);
-            const urlBase = window.location.href.split('index.html')[0];
-            const link = `${urlBase}pasajero.html?id=${miPeer.id}&exp=${exp}`;
-            
-            navigator.clipboard.writeText(link).then(() => alert("Link copiado. Expira en " + min + " min."));
-        }
+                // ESTO ES LO QUE ESTABA FALLANDO: Responder siempre con el stream
+                peer.on('call', (call) => {
+                    call.answer(miStream);
+                });
 
-        function terminarViaje() {
-            if(confirm("Se invalidará el link actual. ¿Continuar?")) {
-                const nom = document.getElementById('nom').value;
-                conectarNuevoPeer(nom);
-                alert("Link anterior desactivado.");
+            } catch (err) {
+                alert("Error al acceder a la cámara: " + err);
             }
         }
 
+        function copiarLink() {
+            const expira = Date.now() + (30 * 60000); // 30 min por defecto
+            const url = window.location.href.replace('index.html', 'pasajero.html');
+            const link = `${url}?id=${peer.id}&exp=${expira}`;
+            
+            navigator.clipboard.writeText(link);
+            alert("Link copiado. Pasalo por WhatsApp.");
+        }
+
         function enviarSOS() {
-            if(miConexionCentral && miConexionCentral.open) miConexionCentral.send({ tipo: 'sos' });
+            if(connCentral) connCentral.send({ tipo: 'sos' });
         }
     </script>
 </body>
