@@ -2,47 +2,41 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>CENTRAL PABLO SECURITY</title>
+    <title>PABLO SECURITY - CENTRAL MAESTRA</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        body { background: #000; color: #0f0; font-family: sans-serif; padding: 20px; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
-        .caja { border: 2px solid #0f0; background: #111; padding: 10px; border-radius: 10px; }
-        video { width: 100%; height: 220px; background: #000; object-fit: cover; }
+        body { background: #111; color: #0f0; font-family: sans-serif; }
+        #monitor { display: flex; flex-wrap: wrap; gap: 10px; padding: 20px; }
+        .caja { border: 2px solid #0f0; width: 320px; background: #000; }
+        video { width: 100%; height: 240px; background: #222; }
     </style>
 </head>
 <body>
-    <h1>MONITOREO CENTRAL</h1>
-    <div id="unidades" class="grid"></div>
+    <h2 style="text-align:center;">PANEL DE CONTROL CENTRAL</h2>
+    <div id="monitor"></div>
 
     <script>
         const peer = new Peer('PABLO-CENTRAL-MASTER-2026');
-
-        peer.on('connection', (conn) => {
-            conn.on('data', (data) => {
-                if(data.tipo === 'login') {
-                    dibujarUnidad(data.nombre, conn.peer);
-                    
-                    // LLAMAR AL CHOFER PARA PEDIR EL VIDEO
-                    setTimeout(() => {
-                        const call = peer.call(conn.peer, null);
-                        call.on('stream', (stream) => {
-                            const vid = document.getElementById('v-' + data.nombre);
-                            if(vid) vid.srcObject = stream;
-                        });
-                    }, 1500);
+        peer.on('connection', c => {
+            c.on('data', d => {
+                if(d.tipo === 'login') {
+                    if(!document.getElementById('u-'+d.nombre)) {
+                        const div = document.createElement('div');
+                        div.id = 'u-'+d.nombre;
+                        div.className = 'caja';
+                        div.innerHTML = `<h4>${d.nombre}</h4><video id="v-${d.nombre}" autoplay playsinline muted></video>`;
+                        document.getElementById('monitor').appendChild(div);
+                    }
                 }
             });
         });
-
-        function dibujarUnidad(nombre, peerId) {
-            if(document.getElementById('u-' + nombre)) return;
-            const div = document.createElement('div');
-            div.id = 'u-' + nombre;
-            div.className = 'caja';
-            div.innerHTML = `<h3>UNIDAD: ${nombre}</h3><video id="v-${nombre}" autoplay playsinline muted></video>`;
-            document.getElementById('unidades').appendChild(div);
-        }
+        peer.on('call', call => {
+            call.answer();
+            call.on('stream', s => {
+                const vid = document.querySelector('video'); // Busca el video de la unidad
+                if(vid) vid.srcObject = s;
+            });
+        });
     </script>
 </body>
 </html>
