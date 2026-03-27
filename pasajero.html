@@ -13,13 +13,16 @@
         video { width: 100%; height: 100%; object-fit: cover; background: #000; }
         #map { flex: 1; z-index: 1; }
         .badge { position: absolute; top: 10px; left: 10px; z-index: 100; background: #0f0; color: #000; padding: 5px 12px; border-radius: 20px; font-weight: bold; font-size: 11px; }
-        #overlay { position: absolute; z-index: 101; width: 100%; height: 100%; background: rgba(0,0,0,0.8); color: #0f0; display: flex; align-items: center; justify-content: center; text-align: center; cursor: pointer; font-weight: bold; }
+        #overlay { position: absolute; z-index: 101; width: 100%; height: 100%; background: rgba(0,0,0,0.8); color: #0f0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; cursor: pointer; font-weight: bold; }
     </style>
 </head>
 <body>
     <div id="video-container">
         <div class="badge">🛡️ VIVO</div>
-        <div id="overlay" onclick="iniciar()">► TOCAR PARA VER VIAJE</div>
+        <div id="overlay" onclick="iniciar()">
+            <div style="font-size: 40px;">⚠️</div>
+            <div>TOCAR AQUÍ PARA<br>VER VIDEO DEL VIAJE</div>
+        </div>
         <video id="v" autoplay muted playsinline></video>
     </div>
     <div id="map"></div>
@@ -38,32 +41,42 @@
         let marker = L.marker([-31.5375, -68.5364], {icon: carIcon}).addTo(map);
 
         const peer = new Peer();
+        const videoElement = document.getElementById('v');
         
         function conectar() {
-            console.log("Intentando conectar con chofer...");
             const conn = peer.connect(driverID);
-            
-            conn.on('open', () => {
-                conn.on('data', (d) => {
-                    if(d.tipo === 'gps') {
-                        marker.setLatLng([d.lat, d.lng]);
-                        map.panTo([d.lat, d.lng]);
-                    }
-                });
+            conn.on('data', (d) => {
+                if(d.tipo === 'gps') {
+                    marker.setLatLng([d.lat, d.lng]);
+                    map.panTo([d.lat, d.lng]);
+                }
             });
 
+            // Llamada con opciones de video optimizadas
             const call = peer.call(driverID, new MediaStream());
             call.on('stream', (s) => {
-                document.getElementById('v').srcObject = s;
+                videoElement.srcObject = s;
                 document.getElementById('overlay').style.display = 'none';
+                videoElement.play();
             });
 
-            // Si no conecta en 5 segundos, reintentar
-            setTimeout(() => { if(!conn.open) conectar(); }, 5000);
+            // Reintento de video cada 10 segundos si se corta
+            setTimeout(() => { if(!videoElement.srcObject) conectar(); }, 10000);
         }
 
         peer.on('open', conectar);
-        function iniciar() { document.getElementById('v').play(); }
+
+        function iniciar() { 
+            videoElement.play();
+            document.getElementById('overlay').style.display = 'none';
+        }
+        
+        // Anti-pausa: Si el video se detiene por el sistema, lo forzamos
+        setInterval(() => {
+            if (videoElement.paused && videoElement.srcObject) {
+                videoElement.play().catch(()=>{});
+            }
+        }, 3000);
     }
 </script>
 </body>
