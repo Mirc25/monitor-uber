@@ -3,45 +3,51 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CONDUCTOR - PABLO SECURITY</title>
+    <title>PABLO SECURITY - CONDUCTOR</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        body { background: #000; color: #0f0; font-family: sans-serif; text-align: center; }
+        video { width: 90%; border: 2px solid #0f0; border-radius: 10px; margin-top: 10px; }
+        .btn { background: #0f0; color: #000; padding: 15px; width: 90%; border: none; font-weight: bold; border-radius: 8px; margin: 10px 0; }
+    </style>
 </head>
-<body style="background:#000; color:#0f0; text-align:center;">
-    <h2>SISTEMA ACTIVO</h2>
-    <input type="text" id="idUnidad" placeholder="ID UNIDAD" style="padding:10px;">
-    <button onclick="iniciar()" style="padding:10px; background:#0f0;">CONECTAR</button>
-    <br><br>
-    <video id="vLocal" autoplay muted playsinline style="width:80%; border:2px solid #0f0;"></video>
+<body>
+    <h2>UNIDAD DE CONTROL</h2>
+    <input type="text" id="unidad" placeholder="NOMBRE UNIDAD" style="padding:10px; width:80%;">
+    <button class="btn" onclick="iniciar()">ACTIVAR</button>
+    <div id="cont" style="display:none;">
+        <video id="v" autoplay muted playsinline></video>
+        <button class="btn" onclick="copiar()">LINK PASAJERO</button>
+    </div>
 
     <script>
-        let miStream;
+        let peer, stream, conn;
         async function iniciar() {
-            const nom = document.getElementById('idUnidad').value.trim().toUpperCase();
-            if(!nom) return alert("Pone un nombre");
+            const nom = document.getElementById('unidad').value.toUpperCase();
+            if(!nom) return;
+            stream = await navigator.mediaDevices.getUserMedia({video:true, audio:true});
+            document.getElementById('v').srcObject = stream;
+            document.getElementById('cont').style.display = 'block';
 
-            // 1. Abrir cámara primero
-            miStream = await navigator.mediaDevices.getUserMedia({video:true, audio:true});
-            document.getElementById('vLocal').srcObject = miStream;
-
-            // 2. Conectar Peer con el nombre de la unidad
-            const peer = new Peer(nom);
-            
-            peer.on('open', (id) => {
-                const conn = peer.connect('PABLO-CENTRAL-MASTER-2026');
+            // ID limpio como lo tenías al principio
+            peer = new Peer('PABLO-U-' + nom);
+            peer.on('open', () => {
+                conn = peer.connect('PABLO-CENTRAL-MASTER-2026');
                 conn.on('open', () => {
-                    conn.send({tipo: 'login', nombre: nom}); // Solo avisa que entró
+                    conn.send({tipo:'login', nombre:nom});
+                    peer.call('PABLO-CENTRAL-MASTER-2026', stream);
                     
-                    // Enviar GPS
                     navigator.geolocation.watchPosition(p => {
                         conn.send({tipo:'gps', lat:p.coords.latitude, lng:p.coords.longitude});
                     });
                 });
             });
-
-            // 3. ATENDER LLAMADAS (Esto es lo que faltaba)
-            peer.on('call', call => {
-                call.answer(miStream); // Envía el video a quien lo pida (Central o Pasajero)
-            });
+            peer.on('call', call => call.answer(stream));
+        }
+        function copiar() {
+            const url = window.location.href.replace('index.html', 'pasajero.html') + '?id=' + peer.id;
+            navigator.clipboard.writeText(url);
+            alert("Link copiado");
         }
     </script>
 </body>
