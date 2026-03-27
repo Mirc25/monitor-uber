@@ -11,7 +11,7 @@
         input { width: 80%; padding: 15px; margin: 10px; border-radius: 8px; border: 1px solid #0f0; background: #111; color: #0f0; text-align: center; font-size: 16px; }
         button { width: 85%; padding: 18px; background: #008000; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 16px; }
         #sos { background: #f00; height: 80px; font-size: 25px; margin: auto 10px 20px 10px; box-shadow: 0 0 20px red; }
-        video { width: 100%; background: #111; border-bottom: 2px solid #0f0; }
+        video { width: 100%; background: #111; border-bottom: 2px solid #0f0; max-height: 30vh; object-fit: cover; }
         .panel { background: #111; border: 1px solid #0f0; margin: 10px; padding: 15px; border-radius: 10px; }
         select { width: 100%; padding: 10px; background: #000; color: #0f0; border: 1px solid #0f0; margin-bottom: 10px; }
     </style>
@@ -20,14 +20,14 @@
 
     <div id="login" style="padding: 20px;">
         <h2>PABLO SECURITY</h2>
-        <input type="text" id="nom" placeholder="ID UNIDAD (Ej: MOVIL 01)">
+        <input type="text" id="nom" placeholder="ID UNIDAD">
         <input type="text" id="tok" placeholder="TOKEN">
-        <button onclick="activar()">CONECTAR</button>
+        <button onclick="activar()">CONECTAR UNIDAD</button>
     </div>
 
     <div id="app">
         <video id="vLocal" autoplay muted playsinline></video>
-        <div id="status" style="font-size:12px; margin:5px;">● TRANSMITIENDO</div>
+        <div id="status" style="font-size:12px; margin:5px;">● UNIDAD ACTIVA - TRANSMITIENDO</div>
         
         <div class="panel">
             <h4 style="margin:0 0 10px 0;">⭐ VIAJE 5 ESTRELLAS</h4>
@@ -53,7 +53,11 @@
             if(!nom || !tok) return alert("Faltan datos");
 
             try {
-                miStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:"user"}, audio:true});
+                // Configuramos la cámara con baja resolución para que suba rápido al 4G
+                miStream = await navigator.mediaDevices.getUserMedia({
+                    video: { width: 640, height: 480, facingMode: "user" },
+                    audio: true
+                });
                 document.getElementById('vLocal').srcObject = miStream;
 
                 miPeer = new Peer('ID-' + Math.floor(Math.random()*99999));
@@ -74,24 +78,22 @@
                     });
                 });
 
+                // Responder llamadas con prioridad
                 miPeer.on('call', call => {
-                    call.answer(miStream); // Siempre mandamos video
-                    call.on('stream', s => {
-                        if(call.peer === CENTRAL_ID) document.getElementById('audioCentral').srcObject = s;
-                    });
+                    call.answer(miStream);
+                    console.log("Enviando video a pasajero...");
                 });
 
                 miPeer.on('connection', conn => {
                     if(conn.peer !== CENTRAL_ID) {
                         pasajeros.push(conn);
-                        // Mandar GPS actual apenas se conecta el pasajero
                         navigator.geolocation.getCurrentPosition(p => {
                             conn.send({ tipo: 'gps', lat: p.coords.latitude, lng: p.coords.longitude });
                         });
                     }
                 });
 
-            } catch(e) { alert("Permiso de cámara denegado"); }
+            } catch(e) { alert("Error: Revisa permisos de cámara."); }
         }
 
         function enviarSOS() {
@@ -103,9 +105,9 @@
 
         function compartir() {
             const link = `${window.location.href.split('index.html')[0]}pasajero.html?id=${miPeer.id}&exp=${Date.now()+(document.getElementById('mins').value*60000)}`;
-            const msj = `Tu viaje 5 estrellas en vivo aquí: ${link}`;
+            const msj = `Tu viaje 5 estrellas en vivo. Toca el video para verlo: ${link}`;
             if(navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(msj).then(() => alert("Link copiado"));
+                navigator.clipboard.writeText(msj).then(() => alert("¡Link Copiado!"));
             } else { prompt("Copia este mensaje:", msj); }
         }
     </script>
