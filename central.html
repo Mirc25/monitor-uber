@@ -37,7 +37,7 @@
         /* MAPA LATERAL GIGANTE */
         #mainMap { width: 400px; height: calc(100vh - 50px); border-left: 2px solid #0f0; position: absolute; right: 0; top: 0; z-index: 80; }
 
-        /* MODAL AGENDA - RECUPERADO */
+        /* MODAL AGENDA */
         #agendaModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.98); z-index: 1000; padding: 30px; }
         .agenda-container { max-width: 900px; margin: 0 auto; background: #0a0a0a; border: 1px solid #0f0; padding: 25px; border-radius: 10px; }
         .token-tag { background: #0f0; color: #000; font-weight: bold; padding: 2px 6px; border-radius: 3px; font-size: 14px; }
@@ -171,14 +171,20 @@
         };
     }
 
-    // --- LOGICA DE AGERNDA Y TOKENS ---
+    function activarSOS(pid) {
+        const over = document.getElementById('sos-over-' + pid);
+        if(over) over.style.display = 'block';
+        alarm.play();
+        alert("¡ALERTA SOS!");
+    }
+
     function crearAbonado() {
         const nombre = document.getElementById('regNombre').value.trim().toUpperCase();
         const horas = parseInt(document.getElementById('regTiempo').value);
         if(!nombre) return alert("Poné un nombre");
 
         let db = JSON.parse(localStorage.getItem('pablo_agenda') || '[]');
-        const token = Math.floor(1000 + Math.random() * 8900).toString(); // TOKEN 4 CIFRAS
+        const token = Math.floor(1000 + Math.random() * 8900).toString(); 
         
         db.push({ 
             nombre, 
@@ -197,13 +203,29 @@
         cont.innerHTML = db.map((u, index) => {
             const h = Math.max(0, Math.floor((u.vence - Date.now()) / 3600000));
             const m = Math.max(0, Math.floor(((u.vence - Date.now()) % 3600000) / 60000));
+            
+            // Lógica de Link Temporal
+            const choferPid = 'PABLO-U-' + u.nombre.replace(/\s+/g, '-');
+            const linkUrl = `${window.location.origin}${window.location.pathname.replace('central.html', 'pasajero.html')}?id=${choferPid}&t=${u.token}&v=${u.vence}`;
+
             return `<div class="p-3 border border-secondary mb-2 d-flex justify-content-between align-items-center bg-black">
-                <span><b>${u.nombre}</b></span>
-                <span>TOKEN: <span class="token-tag">${u.token}</span></span>
-                <span class="badge ${h < 2 ? 'bg-danger' : 'bg-success'}">${h}h ${m}m restante</span>
-                <button class="btn btn-sm btn-danger" onclick="borrarAbonado(${index})">X</button>
+                <div class="d-flex flex-column">
+                    <span><b>${u.nombre}</b></span>
+                    <small>TOKEN: <span class="token-tag">${u.token}</span></small>
+                </div>
+                <div class="text-center">
+                    <span class="badge ${h < 2 ? 'bg-danger' : 'bg-success'}">${h}h ${m}m restante</span>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-sm btn-outline-warning fw-bold" onclick="copiarLinkTemporal('${linkUrl}')">🔗 LINK</button>
+                    <button class="btn btn-sm btn-danger" onclick="borrarAbonado(${index})">X</button>
+                </div>
             </div>`;
         }).join('');
+    }
+
+    function copiarLinkTemporal(url) {
+        navigator.clipboard.writeText(url).then(() => alert("Link de pasajero copiado."));
     }
 
     function borrarAbonado(i) {
