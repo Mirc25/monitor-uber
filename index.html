@@ -19,63 +19,112 @@
 <body>
     <div class="container text-center">
         <h2 class="mb-4">PABLO SECURITY</h2>
+        
         <div id="setup">
-            <input type="text" id="unidadId" class="form-control bg-dark text-success border-success mb-3" placeholder="ID DE UNIDAD (Ej: MOVIL-01)">
-            <button class="btn btn-pablo w-100 py-3" onclick="iniciarServicio()">ACTIVAR UNIDAD</button>
+            <div class="mb-3">
+                <label class="small">ID DE UNIDAD / NOMBRE</label>
+                <input type="text" id="unidadId" class="form-control bg-dark text-success border-success" placeholder="Ej: MOVIL-01">
+            </div>
+            <div class="mb-3">
+                <label class="small">TOKEN DE ACCESO (4 DÍGITOS)</label>
+                <input type="password" id="tokenAcceso" class="form-control bg-dark text-success border-success text-center" placeholder="****" maxlength="4">
+            </div>
+            <button class="btn btn-pablo w-100 py-3" onclick="validarYActivar()">ACTIVAR UNIDAD</button>
         </div>
+
         <div id="monitor-activo" style="display:none;">
             <div class="mb-2">
                 <span id="dot" class="status-dot"></span>
-                <span id="statusText">CONECTANDO...</span>
+                <span id="statusText">CONECTANDO A CENTRAL...</span>
             </div>
             <video id="localVideo" autoplay muted playsinline></video>
             <div class="mt-3">
                 <button class="btn btn-outline-success btn-sm w-100 mb-2" onclick="copiarLink()">COPIAR LINK PASAJERO</button>
-                <button class="btn btn-danger w-100 py-2" onclick="enviarSOS()">B O T Ó N - S O S</button>
+                <button class="btn btn-danger w-100 py-2 fw-bold" onclick="enviarSOS()">B O T Ó N - S O S</button>
             </div>
         </div>
     </div>
+
     <script>
         let peer, miStream, connCentral;
         const CENTRAL_PEER_ID = 'PABLO-CENTRAL-MASTER-2026';
-        async function iniciarServicio() {
-            const idUnidad = document.getElementById('unidadId').value.trim().toUpperCase();
-            if (!idUnidad) return alert("Ingrese el ID de la unidad.");
+
+        async function validarYActivar() {
+            const nom = document.getElementById('unidadId').value.trim().toUpperCase();
+            const tok = document.getElementById('tokenAcceso').value.trim();
+
+            if (!nom || !tok) return alert("Completá Nombre y Token.");
+
             try {
+                // Pedimos permisos primero
                 miStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
                 document.getElementById('localVideo').srcObject = miStream;
                 document.getElementById('setup').style.display = 'none';
                 document.getElementById('monitor-activo').style.display = 'block';
-                peer = new Peer('PABLO-U-' + idUnidad.replace(/\s+/g, '-'));
+
+                // El ID de este peer es PABLO-U-NOMBRE
+                peer = new Peer('PABLO-U-' + nom.replace(/\s+/g, '-'));
+
                 peer.on('open', (id) => {
-                    document.getElementById('dot').className = 'status-dot status-on';
-                    document.getElementById('statusText').innerText = 'TRANSMITIENDO: ' + id;
-                    conectarConCentral(idUnidad);
+                    conectarConCentral(nom, tok);
                 });
+
                 peer.on('call', (call) => call.answer(miStream));
-            } catch (err) { alert("Error de cámara."); }
+
+                peer.on('error', (err) => {
+                    alert("Error de conexión: " + err.type);
+                    location.reload();
+                });
+
+            } catch (err) {
+                alert("Error: No se pudo acceder a la cámara.");
+            }
         }
-        function conectarConCentral(nombre) {
+
+        function conectarConCentral(nombre, token) {
             connCentral = peer.connect(CENTRAL_PEER_ID);
+            
             connCentral.on('open', () => {
-                connCentral.send({ tipo: 'login', nombre: nombre });
+                // Enviamos login con el token para que la central nos valide
+                connCentral.send({ tipo: 'login', nombre: nombre, token: token });
+                
+                // Llamamos para mandar el video
                 peer.call(CENTRAL_PEER_ID, miStream);
+
+                document.getElementById('dot').className = 'status-dot status-on';
+                document.getElementById('statusText').innerText = 'EN LÍNEA: ' + nombre;
+
+                // Empezamos a mandar GPS
                 navigator.geolocation.watchPosition((pos) => {
                     if (connCentral.open) {
-                        connCentral.send({ tipo: 'gps', lat: pos.coords.latitude, lng: pos.coords.longitude });
+                        connCentral.send({
+                            tipo: 'gps',
+                            lat: pos.coords.latitude,
+                            lng: pos.coords.longitude
+                        });
                     }
                 }, null, { enableHighAccuracy: true });
             });
+
+            connCentral.on('data', (data) => {
+                if(data.tipo === 'error') {
+                    alert(data.msg);
+                    location.reload();
+                }
+            });
         }
+
         function enviarSOS() {
             if (connCentral && connCentral.open) {
                 connCentral.send({ tipo: 'sos' });
-                alert("¡ALERTA SOS ENVIADA!");
+                alert("¡ALERTA SOS ENVIADA A CENTRAL!");
             }
         }
+
         function copiarLink() {
-            const link = window.location.href.split('index.html')[0] + 'pasajero.html?id=' + peer.id;
-            navigator.clipboard.writeText(link).then(() => alert("Link copiado"));
+            const urlBase = window.location.href.split('index.html')[0];
+            const link = urlBase + 'pasajero.html?id=' + peer.id;
+            navigator.clipboard.writeText(link).then(() => alert("Link copiado para el pasajero"));
         }
     </script>
 </body>
