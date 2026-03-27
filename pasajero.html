@@ -3,62 +3,70 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PASAJERO - PABLO SECURITY</title>
+    <title>PABLO SECURITY - PASAJERO</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         body { background: #000; color: #0f0; font-family: sans-serif; margin: 0; text-align: center; }
-        .card { width: 95%; margin: 10px auto; border: 1px solid #0f0; background: #0a0a0a; border-radius: 10px; overflow: hidden; }
-        video { width: 100%; height: 250px; background: #000; object-fit: cover; border-bottom: 1px solid #0f0; }
-        #miniMap { height: 250px; width: 100%; background: #111; }
-        .btn-ver { background: #0f0; color: #000; padding: 20px; border: none; font-weight: bold; border-radius: 10px; margin-top: 40vh; width: 80%; }
+        .monitor-box { width: 95%; margin: 10px auto; border: 2px solid #0f0; border-radius: 10px; overflow: hidden; background: #050505; }
+        video { width: 100%; height: 300px; background: #000; object-fit: cover; display: block; }
+        #mapaPasajero { height: 300px; width: 100%; border-top: 2px solid #0f0; }
+        .btn-play { background: #0f0; color: #000; padding: 20px; width: 80%; border-radius: 10px; font-weight: bold; margin-top: 40vh; cursor: pointer; border: none; }
     </style>
 </head>
 <body>
 
     <div id="inicio">
-        <button class="btn-ver" onclick="conectar()">VER VIAJE EN TIEMPO REAL</button>
+        <button class="btn-play" onclick="conectarAlViaje()">INGRESAR AL MONITOREO</button>
     </div>
 
-    <div id="monitor" style="display:none;">
-        <div class="card">
-            <div style="padding:10px; font-weight:bold;">🔴 MONITOREO EN VIVO</div>
-            <video id="vPasajero" autoplay playsinline muted></video>
-            <div id="miniMap"></div>
-            <div style="padding:10px; font-size:12px; color:#555;">PABLO SECURITY 2026</div>
+    <div id="app" style="display:none;">
+        <div class="monitor-box">
+            <div style="padding:10px; font-size:14px;">🔴 MONITOREO EN VIVO</div>
+            <video id="videoPasajero" autoplay playsinline muted></video>
+            <div id="mapaPasajero"></div>
+            <div style="padding:10px; font-size:10px; color:#444;">PABLO SECURITY 2026</div>
         </div>
     </div>
 
     <script>
-        const idChofer = new URLSearchParams(window.location.search).get('id');
-        let map, marker;
+        const urlParams = new URLSearchParams(window.location.search);
+        const choferID = urlParams.get('id');
+        let map, marker, peerP;
 
-        function conectar() {
-            if(!idChofer) return alert("Link inválido.");
+        function conectarAlViaje() {
+            if(!choferID) return alert("Link inválido");
             document.getElementById('inicio').style.display = 'none';
-            document.getElementById('monitor').style.display = 'block';
+            document.getElementById('app').style.display = 'block';
 
-            // Iniciar Mapa
-            map = L.map('miniMap', {zoomControl:false}).setView([0,0], 16);
+            // Inicializar Mapa
+            map = L.map('mapaPasajero', {zoomControl:false}).setView([0,0], 17);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
             marker = L.marker([0,0]).addTo(map);
 
-            const peerP = new Peer();
+            peerP = new Peer(null, {
+                config: { 'iceServers': [{ url: 'stun:stun.l.google.com:19302' }] }
+            });
+
             peerP.on('open', () => {
-                // LLAMADA DE VIDEO
-                const call = peerP.call(idChofer, null);
-                call.on('stream', (s) => {
-                    const v = document.getElementById('vPasajero');
-                    v.srcObject = s;
+                // 1. Pedir Video
+                const call = peerP.call(choferID, null);
+                call.on('stream', (stream) => {
+                    const v = document.getElementById('videoPasajero');
+                    v.srcObject = stream;
                     v.play();
                 });
 
-                // CONEXIÓN DE DATOS (PARA EL GPS)
-                const conn = peerP.connect(idChofer);
-                // Como el chofer envía a la central, el pasajero recibe el GPS del chofer
-                // Nota: Para que el pasajero vea el GPS, el chofer debe reenviarlo o el pasajero usar el ID del chofer.
-                // Para simplificar, si el video ya engancha, el GPS es el siguiente paso.
+                // 2. Pedir GPS (Conexión de datos)
+                const conn = peerP.connect(choferID);
+                conn.on('data', (data) => {
+                    if(data.tipo === 'gps') {
+                        const pos = [data.lat, data.lng];
+                        map.setView(pos);
+                        marker.setLatLng(pos);
+                    }
+                });
             });
         }
     </script>
