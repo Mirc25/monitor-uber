@@ -14,17 +14,15 @@
         .btn-pablo:hover { background-color: #0c0; }
         .status-dot { height: 10px; width: 10px; background-color: #f00; border-radius: 50%; display: inline-block; margin-right: 5px; }
         .status-on { background-color: #0f0; }
-    </script>
+    </style>
 </head>
 <body>
     <div class="container text-center">
         <h2 class="mb-4">PABLO SECURITY</h2>
-        
         <div id="setup">
             <input type="text" id="unidadId" class="form-control bg-dark text-success border-success mb-3" placeholder="ID DE UNIDAD (Ej: MOVIL-01)">
             <button class="btn btn-pablo w-100 py-3" onclick="iniciarServicio()">ACTIVAR UNIDAD</button>
         </div>
-
         <div id="monitor-activo" style="display:none;">
             <div class="mb-2">
                 <span id="dot" class="status-dot"></span>
@@ -37,70 +35,44 @@
             </div>
         </div>
     </div>
-
     <script>
         let peer, miStream, connCentral;
         const CENTRAL_PEER_ID = 'PABLO-CENTRAL-MASTER-2026';
-
         async function iniciarServicio() {
             const idUnidad = document.getElementById('unidadId').value.trim().toUpperCase();
             if (!idUnidad) return alert("Por favor, ingrese el ID de la unidad.");
-
             try {
                 miStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
                 document.getElementById('localVideo').srcObject = miStream;
                 document.getElementById('setup').style.display = 'none';
                 document.getElementById('monitor-activo').style.display = 'block';
-
                 peer = new Peer('PABLO-U-' + idUnidad.replace(/\s+/g, '-'));
-
                 peer.on('open', (id) => {
                     document.getElementById('dot').className = 'status-dot status-on';
                     document.getElementById('statusText').innerText = 'TRANSMITIENDO: ' + id;
                     conectarConCentral(idUnidad);
                 });
-
-                peer.on('call', (call) => {
-                    call.answer(miStream);
-                });
-
-                peer.on('error', (err) => {
-                    console.error('PeerJS Error:', err);
-                    alert("Error de conexión: " + err.type);
-                });
-
-            } catch (err) {
-                console.error('Error acceso multimedia:', err);
-                alert("Error: No se pudo acceder a la cámara o micrófono.");
-            }
+                peer.on('call', (call) => call.answer(miStream));
+            } catch (err) { alert("Error: No se pudo acceder a la cámara o micrófono."); }
         }
-
         function conectarConCentral(nombre) {
             connCentral = peer.connect(CENTRAL_PEER_ID);
-            
             connCentral.on('open', () => {
                 connCentral.send({ tipo: 'login', nombre: nombre });
                 peer.call(CENTRAL_PEER_ID, miStream);
-
                 navigator.geolocation.watchPosition((pos) => {
                     if (connCentral.open) {
-                        connCentral.send({
-                            tipo: 'gps',
-                            lat: pos.coords.latitude,
-                            lng: pos.coords.longitude
-                        });
+                        connCentral.send({ tipo: 'gps', lat: pos.coords.latitude, lng: pos.coords.longitude });
                     }
-                }, (err) => console.error(err), { enableHighAccuracy: true });
+                }, null, { enableHighAccuracy: true });
             });
         }
-
         function enviarSOS() {
             if (connCentral && connCentral.open) {
                 connCentral.send({ tipo: 'sos' });
                 alert("¡ALERTA SOS ENVIADA!");
             }
         }
-
         function copiarLink() {
             const urlBase = window.location.href.split('index.html')[0];
             const link = urlBase + 'pasajero.html?id=' + peer.id;
