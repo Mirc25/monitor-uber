@@ -2,48 +2,97 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>CENTRAL PABLO SECURITY</title>
+    <title>PABLO SECURITY - CENTRAL MAESTRA</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        body { background: #111; color: #0f0; font-family: sans-serif; }
-        #monitor { display: flex; flex-wrap: wrap; gap: 15px; padding: 20px; }
-        .unidad { border: 2px solid #0f0; width: 320px; background: #000; padding: 10px; border-radius: 10px; }
-        video { width: 100%; height: 240px; background: #222; border-radius: 5px; }
+        body { background-color: #000; color: #0f0; font-family: 'Courier New', monospace; }
+        #mapa-central { height: 400px; border: 2px solid #0f0; border-radius: 10px; margin-bottom: 20px; }
+        .video-card { border: 1px solid #0f0; background: #111; padding: 10px; margin-bottom: 10px; border-radius: 8px; }
+        video { width: 100%; height: 180px; background: #222; object-fit: cover; }
+        .sos-alert { background-color: #f00 !important; animation: blinker 1s linear infinite; }
+        @keyframes blinker { 50% { opacity: 0; } }
     </style>
 </head>
 <body>
-    <h1 style="text-align:center;">PANEL CENTRAL MAESTRO</h1>
-    <div id="monitor"></div>
+    <div class="container-fluid p-4">
+        <h1 class="text-center mb-4">CENTRAL DE MONITOREO - PABLO SECURITY</h1>
+        
+        <div id="mapa-central"></div>
+
+        <div class="row" id="grid-unidades">
+            </div>
+    </div>
 
     <script>
-        // Tu ID fijo de central
-        const peer = new Peer('PABLO-CENTRAL-MASTER-2026');
+        const CENTRAL_PEER_ID = 'PABLO-CENTRAL-MASTER-2026';
+        const peer = new Peer(CENTRAL_PEER_ID);
+        const unidades = {};
+        let map = L.map('mapa-central').setView([-34.6037, -58.3816], 12);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-        peer.on('connection', (c) => {
-            c.on('data', (d) => {
-                if(d.tipo === 'login') {
-                    // Si la unidad no existe en el panel, la crea
-                    if(!document.getElementById('u-' + d.nombre)) {
-                        const div = document.createElement('div');
-                        div.id = 'u-' + d.nombre;
-                        div.className = 'unidad';
-                        div.innerHTML = `<h4>MÓVIL: ${d.nombre}</h4><video id="v-${d.nombre}" autoplay playsinline muted></video>`;
-                        document.getElementById('monitor').appendChild(div);
-                    }
+        peer.on('connection', (conn) => {
+            conn.on('data', (data) => {
+                const idUnidad = conn.peer;
+                
+                if (data.tipo === 'login') {
+                    crearCardUnidad(data.nombre, idUnidad);
+                }
+                
+                if (data.tipo === 'gps') {
+                    actualizarGPS(idUnidad, data.lat, data.lng);
+                }
+
+                if (data.tipo === 'sos') {
+                    marcarSOS(idUnidad);
                 }
             });
         });
 
-        // Escucha la llamada de video del chofer
         peer.on('call', (call) => {
-            call.answer(); // Atiende sin mandar video propio
-            call.on('stream', (s) => {
-                // Identifica qué unidad llama para poner el video en su cuadro
-                const nombre = call.peer.replace('PABLO-U-', '');
-                const vid = document.getElementById('v-' + nombre);
-                if(vid) vid.srcObject = s;
+            call.answer();
+            call.on('stream', (stream) => {
+                const videoElement = document.getElementById('video-' + call.peer);
+                if (videoElement) {
+                    videoElement.srcObject = stream;
+                    videoElement.play();
+                }
             });
         });
+
+        function crearCardUnidad(nombre, peerId) {
+            if (document.getElementById('card-' + peerId)) return;
+            
+            const col = document.createElement('div');
+            col.className = 'col-md-3';
+            col.id = 'card-' + peerId;
+            col.innerHTML = `
+                <div class="video-card">
+                    <h6>${nombre}</h6>
+                    <video id="video-${peerId}" autoplay muted playsinline></video>
+                </div>
+            `;
+            document.getElementById('grid-unidades').appendChild(col);
+            
+            unidades[peerId] = {
+                nombre: nombre,
+                marker: L.marker([0, 0]).addTo(map).bindPopup(nombre)
+            };
+        }
+
+        function actualizarGPS(peerId, lat, lng) {
+            if (unidades[peerId]) {
+                unidades[peerId].marker.setLatLng([lat, lng]);
+            }
+        }
+
+        function marcarSOS(peerId) {
+            const card = document.getElementById('card-' + peerId);
+            if (card) card.classList.add('sos-alert');
+            alert("¡ALERTA SOS RECIBIDA DE LA UNIDAD!");
+        }
     </script>
 </body>
-</html>
+</html>s
