@@ -8,19 +8,21 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        body { background: #000; color: #0f0; margin: 0; font-family: sans-serif; text-align: center; }
-        #vid { width: 100%; height: 35vh; background: #111; object-fit: cover; display: none; }
-        #map { width: 100%; height: 65vh; display: none; }
-        .play-btn { background: #0f0; padding: 25px; width: 80%; border-radius: 15px; font-weight: bold; font-size: 20px; margin-top: 40vh; cursor: pointer; }
+        body { background: #000; color: #0f0; margin: 0; text-align: center; font-family: sans-serif; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
+        #v { width: 100%; height: 40vh; background: #111; object-fit: cover; border-bottom: 2px solid #0f0; }
+        #map { flex: 1; width: 100%; }
+        .btn-ver { background: #0f0; color: #000; padding: 25px; width: 80%; border-radius: 15px; font-weight: bold; margin-top: 40vh; border: none; font-size: 20px; }
     </style>
 </head>
 <body>
-    <div id="init">
-        <button class="play-btn" onclick="conectar()">ACCEDER AL MONITOREO</button>
+    <div id="inicio">
+        <button class="btn-ver" onclick="conectar()">ACCEDER AL MONITOREO</button>
     </div>
 
-    <video id="vid" autoplay playsinline muted></video>
-    <div id="map"></div>
+    <div id="pantalla" style="display:none; height: 100%;">
+        <video id="v" autoplay playsinline muted></video>
+        <div id="map"></div>
+    </div>
 
     <script>
         const idChofer = new URLSearchParams(window.location.search).get('id');
@@ -28,9 +30,9 @@
 
         function conectar() {
             if(!idChofer) return alert("ID no encontrado");
-            document.getElementById('init').style.display = 'none';
-            document.getElementById('vid').style.display = 'block';
-            document.getElementById('map').style.display = 'block';
+            document.getElementById('inicio').style.display = 'none';
+            document.getElementById('pantalla').style.display = 'flex';
+            document.getElementById('pantalla').style.flexDirection = 'column';
 
             map = L.map('map').setView([0,0], 16);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
@@ -38,21 +40,21 @@
 
             const peer = new Peer();
             peer.on('open', () => {
-                // 1. Pedir Video
-                const call = peer.call(idChofer, null);
-                call.on('stream', (s) => {
-                    const v = document.getElementById('vid');
-                    v.srcObject = s;
-                    v.play();
+                // Pedir Video
+                const call = peer.on('call', c => {}); // Limpiar llamadas
+                const miCall = peer.call(idChofer, null);
+                miCall.on('stream', s => {
+                    const video = document.getElementById('v');
+                    video.srcObject = s;
+                    video.play();
                 });
 
-                // 2. Pedir GPS
+                // Pedir GPS
                 const conn = peer.connect(idChofer);
-                conn.on('data', (d) => {
+                conn.on('data', d => {
                     if(d.tipo === 'gps') {
-                        const p = [d.lat, d.lng];
-                        map.setView(p);
-                        marker.setLatLng(p);
+                        map.setView([d.lat, d.lng]);
+                        marker.setLatLng([d.lat, d.lng]);
                     }
                 });
             });
