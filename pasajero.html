@@ -3,30 +3,45 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PASAJERO - PABLO SECURITY</title>
+    <title>PABLO SECURITY - PASAJERO</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        body { background: #000; color: #0f0; text-align: center; margin: 0; }
-        video { width: 100%; height: 40vh; background: #111; object-fit: cover; }
-        .btn-play { background: #0f0; padding: 25px; width: 80%; border-radius: 15px; font-weight: bold; margin-top: 40vh; font-size: 20px; }
+        body { background-color: #000; color: #0f0; font-family: 'Courier New', monospace; }
+        #mapa-pasajero { height: 300px; border: 2px solid #0f0; border-radius: 10px; margin-bottom: 20px; }
+        video { width: 100%; border-radius: 10px; border: 1px solid #0f0; background-color: #111; }
     </style>
 </head>
 <body>
-    <div id="inicio">
-        <button class="btn-play" onclick="ver()">CONECTAR CON EL CHOFER</button>
+    <div class="container py-4">
+        <h2 class="text-center mb-4">PABLO SECURITY - VIAJE SEGURO</h2>
+        <div id="mapa-pasajero"></div>
+        <video id="remoteVideo" autoplay playsinline></video>
     </div>
-    <video id="v" autoplay playsinline muted style="display:none;"></video>
-
     <script>
-        const idChofer = new URLSearchParams(window.location.search).get('id');
-        function ver() {
-            document.getElementById('inicio').style.display='none';
-            document.getElementById('v').style.display='block';
+        const urlParams = new URLSearchParams(window.location.search);
+        const idChofer = urlParams.get('id');
+        let map = L.map('mapa-pasajero').setView([0, 0], 15);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        let marker = L.marker([0, 0]).addTo(map);
+
+        if (idChofer) {
             const peer = new Peer();
             peer.on('open', () => {
                 const call = peer.call(idChofer, null);
-                call.on('stream', (s) => {
-                    document.getElementById('v').srcObject = s;
+                call.on('stream', (stream) => {
+                    const video = document.getElementById('remoteVideo');
+                    video.srcObject = stream;
+                    video.play();
+                });
+                const conn = peer.connect(idChofer);
+                conn.on('data', (data) => {
+                    if (data.tipo === 'gps') {
+                        map.setView([data.lat, data.lng]);
+                        marker.setLatLng([data.lat, data.lng]);
+                    }
                 });
             });
         }
