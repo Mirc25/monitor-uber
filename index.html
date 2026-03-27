@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>PABLO SECURITY - MÓVIL</title>
+    <title>PABLO SECURITY - CONDUCTOR</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
@@ -12,33 +12,27 @@
         button { width: 85%; padding: 18px; background: #008000; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; margin: 5px; }
         video { width: 100%; background: #111; border-bottom: 2px solid #0f0; max-height: 35vh; object-fit: cover; }
         .panel { background: #111; border: 1px solid #0f0; margin: 10px; padding: 15px; border-radius: 10px; }
-        .btn-terminar { background: #444; color: #fff; margin-top: 10px; }
         #sos { background: #f00; height: 80px; font-size: 25px; margin: auto 10px 20px 10px; box-shadow: 0 0 20px red; }
     </style>
 </head>
 <body>
-
     <div id="login" style="padding: 20px; margin-top: 50px;">
-        <h2 style="text-shadow: 0 0 10px #0f0;">PABLO SECURITY</h2>
+        <h2>PABLO SECURITY</h2>
         <input type="text" id="nom" placeholder="ID UNIDAD (Ej: MOVIL 01)">
         <button onclick="activar()">INICIAR SERVICIO</button>
     </div>
 
     <div id="app">
         <video id="vLocal" autoplay muted playsinline></video>
-        
         <div class="panel">
-            <h4 style="margin:0 0 10px 0;">GENERAR VIAJE SEGURO</h4>
             <select id="tiempo">
-                <option value="5">5 MINUTOS</option>
-                <option value="15">15 MINUTOS</option>
-                <option value="30">30 MINUTOS</option>
-                <option value="60">1 HORA</option>
+                <option value="15">LINK: 15 MINUTOS</option>
+                <option value="30">LINK: 30 MINUTOS</option>
+                <option value="60">LINK: 1 HORA</option>
             </select>
-            <button style="background:#0f0; color:#000;" onclick="generarLink()">GENERAR Y COPIAR LINK</button>
-            <button class="btn-terminar" onclick="terminarTransmision()">TERMINAR ESTE VIAJE</button>
+            <button style="background:#0f0; color:#000;" onclick="generarLink()">COPIAR LINK PASAJERO</button>
+            <button style="background:#444;" onclick="terminarViaje()">TERMINAR / NUEVO LINK</button>
         </div>
-
         <button id="sos" onclick="enviarSOS()">B O T Ó N - S O S</button>
     </div>
 
@@ -48,35 +42,27 @@
 
         async function activar() {
             const nom = document.getElementById('nom').value.toUpperCase().trim();
-            if(!nom) return alert("Falta ID Unidad");
-
+            if(!nom) return alert("Ingresa ID de Unidad");
             try {
                 miStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
                 document.getElementById('vLocal').srcObject = miStream;
-
-                conectarPeer(nom);
+                conectarNuevoPeer(nom);
                 document.getElementById('login').style.display = 'none';
                 document.getElementById('app').style.display = 'flex';
-            } catch(e) { alert("Error: Activa Cámara/GPS"); }
+            } catch(e) { alert("Error: Activa Cámara y Micrófono."); }
         }
 
-        function conectarPeer(nom) {
-            // Generamos un ID de sesión único (el nombre + un random) 
-            // Esto hace que el link anterior deje de funcionar al generar uno nuevo
-            const sessionID = 'PABLO-' + nom.replace(/\s+/g, '-') + '-' + Math.floor(Math.random()*999);
-            
+        function conectarNuevoPeer(nom) {
             if(miPeer) miPeer.destroy();
-
-            miPeer = new Peer(sessionID, {
-                config: {'iceServers': [{ url: 'stun:stun.l.google.com:19302' }]}
-            });
+            const sid = 'PABLO-' + nom.replace(/\s+/g, '-') + '-' + Math.floor(Math.random()*999);
+            miPeer = new Peer(sid);
             
             miPeer.on('open', (id) => {
                 conectarCentral(nom);
             });
 
             miPeer.on('call', (call) => {
-                call.answer(miStream);
+                call.answer(miStream); // El chofer SIEMPRE responde con su cámara
             });
         }
 
@@ -85,30 +71,26 @@
             miConexionCentral.on('open', () => {
                 miConexionCentral.send({ tipo: 'login', nombre: nombre });
                 miPeer.call(CENTRAL_ID, miStream);
-                
                 navigator.geolocation.watchPosition(p => {
-                    if(miConexionCentral && miConexionCentral.open) 
-                        miConexionCentral.send({ tipo: 'gps', lat: p.coords.latitude, lng: p.coords.longitude });
-                }, null, { enableHighAccuracy: true });
+                    if(miConexionCentral.open) miConexionCentral.send({ tipo: 'gps', lat: p.coords.latitude, lng: p.coords.longitude });
+                });
             });
         }
 
         function generarLink() {
-            const minutos = document.getElementById('tiempo').value;
-            const expira = Date.now() + (minutos * 60000); // Tiempo actual + minutos en ms
+            const min = document.getElementById('tiempo').value;
+            const exp = Date.now() + (min * 60000);
+            const urlBase = window.location.href.split('index.html')[0];
+            const link = `${urlBase}pasajero.html?id=${miPeer.id}&exp=${exp}`;
             
-            const urlBase = window.location.href.split('index.html')[0].split('?')[0];
-            const linkFinal = `${urlBase}pasajero.html?id=${miPeer.id}&exp=${expira}`;
-            
-            navigator.clipboard.writeText(linkFinal);
-            alert("Link válido por " + minutos + " min. Copiado con éxito.");
+            navigator.clipboard.writeText(link).then(() => alert("Link copiado. Expira en " + min + " min."));
         }
 
-        function terminarTransmision() {
-            if(confirm("¿Terminar viaje? El link del pasajero dejará de funcionar.")) {
+        function terminarViaje() {
+            if(confirm("Se invalidará el link actual. ¿Continuar?")) {
                 const nom = document.getElementById('nom').value;
-                conectarPeer(nom); // Al reconectar, el ID cambia y el link anterior MUERE.
-                alert("Viaje finalizado. Link anterior invalidado.");
+                conectarNuevoPeer(nom);
+                alert("Link anterior desactivado.");
             }
         }
 
