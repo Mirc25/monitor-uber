@@ -9,45 +9,48 @@
 <body style="background: #000; color: #0f0; text-align: center; font-family: sans-serif;">
     <h2>UNIDAD DE CONTROL</h2>
     <input type="text" id="unidad" placeholder="NOMBRE UNIDAD" style="padding:10px; width:80%;">
-    <button onclick="iniciar()" style="padding:15px; background:#0f0; width:85%; font-weight:bold;">ACTIVAR</button>
+    <button onclick="iniciar()" style="padding:15px; background:#0f0; width:85%; font-weight:bold; border-radius:10px;">ACTIVAR</button>
     
     <div id="cont" style="display:none;">
-        <video id="v" autoplay muted playsinline style="width:90%; border:2px solid #0f0; margin-top:10px;"></video>
+        <video id="v" autoplay muted playsinline style="width:95%; border:2px solid #0f0; margin-top:10px; border-radius:10px;"></video>
     </div>
 
     <script>
         let peer, stream, conn;
         async function iniciar() {
             const nom = document.getElementById('unidad').value.toUpperCase().trim();
-            if(!nom) return alert("Pone el nombre");
+            if(!nom) return alert("Pone el nombre del movil");
 
-            // Captura de cámara
-            stream = await navigator.mediaDevices.getUserMedia({video: true, audio: true});
-            document.getElementById('v').srcObject = stream;
-            document.getElementById('cont').style.display = 'block';
+            try {
+                // Captura de cámara y audio
+                stream = await navigator.mediaDevices.getUserMedia({video: true, audio: true});
+                document.getElementById('v').srcObject = stream;
+                document.getElementById('cont').style.display = 'block';
 
-            // ID original: PABLO-U-NOMBRE
-            peer = new Peer('PABLO-U-' + nom);
+                // Usamos tu ID original: PABLO-U-NOMBRE
+                peer = new Peer('PABLO-U-' + nom);
 
-            peer.on('open', () => {
-                // Se conecta a la central maestra
-                conn = peer.connect('PABLO-CENTRAL-MASTER-2026');
-                
-                conn.on('open', () => {
-                    // Envía login y GPS como lo hacías antes
-                    conn.send({tipo: 'login', nombre: nom});
+                peer.on('open', () => {
+                    // Conexión a tu central maestra
+                    conn = peer.connect('PABLO-CENTRAL-MASTER-2026');
                     
-                    // LLAMA A LA CENTRAL (Lógica original)
-                    peer.call('PABLO-CENTRAL-MASTER-2026', stream);
+                    conn.on('open', () => {
+                        // Login y GPS
+                        conn.send({tipo: 'login', nombre: nom});
+                        
+                        // El chofer llama a la central para pasar el video
+                        peer.call('PABLO-CENTRAL-MASTER-2026', stream);
 
-                    navigator.geolocation.watchPosition(p => {
-                        conn.send({tipo: 'gps', lat: p.coords.latitude, lng: p.coords.longitude});
+                        navigator.geolocation.watchPosition(p => {
+                            if(conn.open) conn.send({tipo: 'gps', lat: p.coords.latitude, lng: p.coords.longitude});
+                        }, null, {enableHighAccuracy: true});
                     });
                 });
-            });
 
-            // Por si el pasajero llama
-            peer.on('call', call => call.answer(stream));
+                // Permite que el pasajero también vea el video si llama
+                peer.on('call', call => call.answer(stream));
+
+            } catch (e) { alert("Error de cámara: " + e); }
         }
     </script>
 </body>
