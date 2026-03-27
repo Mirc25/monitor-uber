@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>PABLO SECURITY - MÓVIL</title>
+    <title>PABLO SECURITY - MÓVIL CHOFER</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
@@ -10,75 +10,106 @@
         #app { display: none; flex-direction: column; flex: 1; }
         input { width: 80%; padding: 15px; margin: 10px; border-radius: 8px; border: 1px solid #0f0; background: #111; color: #0f0; text-align: center; font-size: 16px; }
         button { width: 85%; padding: 18px; background: #008000; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer; }
-        #sos { background: #f00; height: 80px; font-size: 25px; margin: auto 10px 20px 10px; box-shadow: 0 0 20px red; }
-        video { width: 100%; background: #111; border-bottom: 2px solid #0f0; max-height: 30vh; object-fit: cover; }
+        #sos { background: #f00; height: 80px; font-size: 25px; margin: auto 10px 20px 10px; box-shadow: 0 0 20px red; border: none; color: white; }
+        video { width: 100%; background: #111; border-bottom: 2px solid #0f0; max-height: 35vh; object-fit: cover; }
         .panel { background: #111; border: 1px solid #0f0; margin: 10px; padding: 15px; border-radius: 10px; }
     </style>
 </head>
 <body>
-    <div id="login" style="padding: 20px;">
-        <h2>PABLO SECURITY</h2>
+
+    <div id="login" style="padding: 20px; margin-top: 50px;">
+        <h2 style="color:#0f0;">PABLO SECURITY</h2>
         <input type="text" id="nom" placeholder="ID UNIDAD (Ej: MOVIL 01)">
-        <input type="text" id="tok" placeholder="TOKEN">
-        <button onclick="activar()">CONECTAR UNIDAD</button>
+        <input type="text" id="tok" placeholder="TOKEN DE ACCESO">
+        <button onclick="activarUnidad()">INICIAR SERVICIO</button>
     </div>
 
     <div id="app">
         <video id="vLocal" autoplay muted playsinline></video>
+        <div style="font-size:12px; margin:10px; color:#0f0;">● TRANSMITIENDO A CENTRAL Y PASAJERO</div>
+        
         <div class="panel">
-            <button style="background:#0f0; color:#000;" onclick="compartir()">COPIAR LINK PASAJERO</button>
+            <h4 style="margin:0 0 10px 0;">COMPARTIR VIAJE</h4>
+            <button style="background:#0f0; color:#000;" onclick="compartirLink()">COPIAR LINK PASAJERO</button>
         </div>
+
         <button id="sos" onclick="enviarSOS()">B O T Ó N - S O S</button>
     </div>
 
     <script>
         const CENTRAL_ID = 'PABLO-CENTRAL-MASTER-2026';
-        let miPeer, miStream, miConexion;
+        let miPeer, miStream, miConexionCentral;
 
-        async function activar() {
-            const nombreUnidad = document.getElementById('nom').value.toUpperCase();
-            if(!nombreUnidad) return alert("Pon el nombre de unidad");
+        async function activarUnidad() {
+            const nombre = document.getElementById('nom').value.toUpperCase().trim();
+            if(!nombre) return alert("Ingrese ID de Unidad");
 
             try {
+                // Captura de video y audio
                 miStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
                 document.getElementById('vLocal').srcObject = miStream;
 
-                // ID simplificado para evitar errores de caracteres
-                const fixedID = 'PABLO-' + nombreUnidad.replace(/\s+/g, '-');
+                // ID Fijo basado en nombre para que el link no cambie
+                const fixedID = 'PABLO-UNIDAD-' + nombre.replace(/\s+/g, '-');
                 
                 miPeer = new Peer(fixedID, {
                     config: {'iceServers': [{ url: 'stun:stun.l.google.com:19302' }]}
                 });
                 
                 miPeer.on('open', (id) => {
-                    miConexion = miPeer.connect(CENTRAL_ID);
+                    conectarCentral(nombre);
                     document.getElementById('login').style.display = 'none';
                     document.getElementById('app').style.display = 'flex';
-                    
-                    // Al abrir, llamar a central
-                    miPeer.call(CENTRAL_ID, miStream);
-
-                    navigator.geolocation.watchPosition(p => {
-                        if(miConexion.open) miConexion.send({ tipo: 'gps', lat: p.coords.latitude, lng: p.coords.longitude });
-                    }, null, { enableHighAccuracy: true });
                 });
 
-                // ESTO ES CLAVE: Responder a CUALQUIER llamado (Central o Pasajero)
+                // ATENCIÓN: Esta función responde a cualquier llamada (Pasajero o Central)
                 miPeer.on('call', (call) => {
-                    call.answer(miStream);
+                    call.answer(miStream); 
                 });
 
-            } catch(e) { alert("Error de cámara o GPS"); }
+                // Si se desconecta el Peer, intentar reconectar
+                miPeer.on('disconnected', () => miPeer.reconnect());
+
+            } catch(e) {
+                alert("Error: Activa Cámara y GPS para continuar.");
+            }
         }
 
-        function compartir() {
-            // Genera el link basado en la URL actual de tu servidor/GitHub
+        function conectarCentral(nombre) {
+            miConexionCentral = miPeer.connect(CENTRAL_ID);
+            miConexionCentral.on('open', () => {
+                miConexionCentral.send({ tipo: 'login', nombre: nombre });
+                miPeer.call(CENTRAL_ID, miStream);
+                
+                // Seguimiento GPS
+                navigator.geolocation.watchPosition(p => {
+                    if(miConexionCentral.open) {
+                        miConexionCentral.send({ tipo: 'gps', lat: p.coords.latitude, lng: p.coords.longitude });
+                    }
+                }, null, { enableHighAccuracy: true });
+            });
+            
+            miConexionCentral.on('close', () => setTimeout(() => conectarCentral(nombre), 3000));
+        }
+
+        function compartirLink() {
             const base = window.location.href.split('index.html')[0].split('?')[0];
             const link = `${base}pasajero.html?id=${miPeer.id}`;
-            navigator.clipboard.writeText(link).then(() => alert("Link de pasajero copiado"));
+            
+            if(navigator.share) {
+                navigator.share({ title: 'Viaje Seguro', text: 'Seguí mi viaje en vivo:', url: link });
+            } else {
+                navigator.clipboard.writeText(link);
+                alert("Link copiado: " + link);
+            }
         }
 
-        function enviarSOS() { if(miConexion.open) miConexion.send({ tipo: 'sos' }); }
+        function enviarSOS() {
+            if(miConexionCentral && miConexionCentral.open) {
+                miConexionCentral.send({ tipo: 'sos' });
+                alert("¡ALERTA SOS ENVIADA!");
+            }
+        }
     </script>
 </body>
 </html>
