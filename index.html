@@ -47,33 +47,48 @@
         let miPeer, miStream, miConexion;
 
         async function activar() {
-            const nom = document.getElementById('nom').value.toUpperCase();
-            const tok = document.getElementById('tok').value;
-            if(!nom || !tok) return alert("Faltan datos");
+            const nombreUnidad = document.getElementById('nom').value.toUpperCase();
+            const tokenUnidad = document.getElementById('tok').value;
+            if(!nombreUnidad || !tokenUnidad) return alert("Faltan datos");
 
             try {
                 miStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
                 document.getElementById('vLocal').srcObject = miStream;
 
-                miPeer = new Peer('ID-' + Math.floor(Math.random()*99999), {
+                // ID Fijo para que el link no se rompa al reconectar
+                const fixedID = 'PABLO-UNIDAD-' + nombreUnidad.replace(/\s+/g, '-');
+                
+                miPeer = new Peer(fixedID, {
                     config: {'iceServers': [{ url: 'stun:stun.l.google.com:19302' }]}
                 });
                 
                 miPeer.on('open', (id) => {
                     miConexion = miPeer.connect(CENTRAL_ID);
                     miConexion.on('open', () => {
-                        miConexion.send({ tipo: 'login', nombre: nom, token: tok });
+                        miConexion.send({ tipo: 'login', nombre: nombreUnidad, token: tokenUnidad });
                         miPeer.call(CENTRAL_ID, miStream);
                         
                         document.getElementById('login').style.display = 'none';
                         document.getElementById('app').style.display = 'flex';
                         
-                        navigator.geolocation.watchPosition(p => {
-                            if(miConexion.open) miConexion.send({ tipo: 'gps', lat: p.coords.latitude, lng: p.coords.longitude });
+                        navigator.geolocation.watchPosition(position => {
+                            if(miConexion.open) {
+                                miConexion.send({ 
+                                    tipo: 'gps', 
+                                    lat: position.coords.latitude, 
+                                    lng: position.coords.longitude 
+                                });
+                            }
                         }, null, { enableHighAccuracy: true });
                     });
                 });
-            } catch(e) { alert("Error: Activá Cámara y GPS"); }
+
+                // ESTO RESPONDE AL PASAJERO AUTOMÁTICAMENTE
+                miPeer.on('call', (incomingCall) => {
+                    incomingCall.answer(miStream);
+                });
+
+            } catch(error) { alert("Error: Activá Cámara y GPS"); }
         }
 
         function enviarSOS() {
@@ -84,9 +99,16 @@
         }
 
         function compartir() {
-            const link = `${window.location.href.split('index.html')[0]}pasajero.html?id=${miPeer.id}&exp=${Date.now()+(document.getElementById('mins').value*60000)}`;
-            const msj = `Tu viaje seguro: ${link}`;
-            navigator.clipboard.writeText(msj).then(() => alert("Link copiado"));
+            const urlActual = window.location.href;
+            const urlLimpia = urlActual.substring(0, urlActual.lastIndexOf("/") + 1);
+            const linkInvitacion = `${urlLimpia}pasajero.html?id=${miPeer.id}`;
+            const mensaje = `Tu viaje seguro con PABLO SECURITY: ${linkInvitacion}`;
+            
+            navigator.clipboard.writeText(mensaje).then(() => {
+                alert("Link de invitado copiado con éxito.");
+            }).catch(() => {
+                prompt("Copia este link para el pasajero:", mensaje);
+            });
         }
     </script>
 </body>
