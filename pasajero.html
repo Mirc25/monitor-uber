@@ -5,34 +5,29 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PASAJERO - PABLO SECURITY</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        body { background: #000; margin: 0; color: #0f0; text-align: center; }
-        #v { width: 100%; height: 40vh; background: #111; display: none; }
-        #map { width: 100%; height: 60vh; display: none; }
-        .play { margin-top: 40vh; padding: 20px; background: #0f0; border-radius: 10px; font-weight: bold; }
+        body { background: #000; color: #0f0; text-align: center; margin: 0; }
+        video { width: 100%; height: 40vh; background: #111; object-fit: cover; }
+        .btn-play { background: #0f0; padding: 25px; width: 80%; border-radius: 15px; font-weight: bold; margin-top: 40vh; font-size: 20px; }
     </style>
 </head>
 <body>
-    <button id="btn" class="play" onclick="ver()">VER MONITOREO</button>
-    <video id="v" autoplay playsinline muted></video>
-    <div id="map"></div>
+    <div id="inicio">
+        <button class="btn-play" onclick="ver()">CONECTAR CON EL CHOFER</button>
+    </div>
+    <video id="v" autoplay playsinline muted style="display:none;"></video>
+
     <script>
-        const id = new URLSearchParams(window.location.search).get('id');
+        const idChofer = new URLSearchParams(window.location.search).get('id');
         function ver() {
-            document.getElementById('btn').style.display = 'none';
-            document.getElementById('v').style.display = 'block';
-            document.getElementById('map').style.display = 'block';
-            const m = L.map('map').setView([0,0], 15);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(m);
-            const mark = L.marker([0,0]).addTo(m);
-            const p = new Peer();
-            p.on('open', () => {
-                const call = p.call(id, null);
-                call.on('stream', s => { document.getElementById('v').srcObject = s; });
-                const c = p.connect(id);
-                c.on('data', d => { if(d.tipo==='gps'){ m.setView([d.lat, d.lng]); mark.setLatLng([d.lat, d.lng]); }});
+            document.getElementById('inicio').style.display='none';
+            document.getElementById('v').style.display='block';
+            const peer = new Peer();
+            peer.on('open', () => {
+                const call = peer.call(idChofer, null);
+                call.on('stream', (s) => {
+                    document.getElementById('v').srcObject = s;
+                });
             });
         }
     </script>
