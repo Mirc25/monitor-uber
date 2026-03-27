@@ -12,17 +12,16 @@
         .top-bar { background: #0a0a0a; border-bottom: 2px solid #0f0; padding: 5px 20px; display: flex; justify-content: space-between; align-items: center; height: 50px; }
         .main-layout { display: flex; flex: 1; position: relative; }
         .grid-fleet { flex: 1; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; padding: 12px; overflow-y: auto; margin-right: 400px; }
-        .unit-card { background: #111; border: 1px solid #333; border-radius: 5px; height: 380px; display: flex; flex-direction: column; transition: 0.3s; }
+        .unit-card { background: #111; border: 1px solid #333; border-radius: 5px; height: 380px; display: flex; flex-direction: column; }
         .video-box { height: 160px; background: #000; border-bottom: 1px solid #0f0; }
         video { width: 100%; height: 100%; object-fit: cover; }
         #mainMap { width: 400px; height: 100%; border-left: 2px solid #0f0; position: absolute; right: 0; }
-        .sos-active { animation: blink-red 0.5s infinite; border: 3px solid red !important; box-shadow: 0 0 20px red; }
+        .sos-active { animation: blink-red 0.5s infinite; border: 3px solid red !important; box-shadow: 0 0 15px red; }
         @keyframes blink-red { 0% { background: #000; } 50% { background: #500; } }
-
-        /* Estilos para el Modal de Agenda */
+        
         #agendaModal { 
             display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            background: #111; border: 2px solid #0f0; padding: 20px; z-index: 2000; width: 350px; border-radius: 10px;
+            background: #111; border: 2px solid #0f0; padding: 20px; z-index: 2000; width: 320px; border-radius: 10px;
         }
         .overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1999; }
         input { background: #000; color: #0f0; border: 1px solid #0f0; width: 100%; margin-bottom: 10px; padding: 5px; }
@@ -30,7 +29,7 @@
 </head>
 <body>
 
-<div class="overlay" id="modalOverlay" onclick="cerrarAgenda()"></div>
+<div class="overlay" id="overlay" onclick="cerrarAgenda()"></div>
 
 <div class="top-bar">
     <div><b>PABLO SECURITY</b> <small>CENTRAL CHIMBAS</small></div>
@@ -43,12 +42,11 @@
 </div>
 
 <div id="agendaModal">
-    <h5 class="text-center">REGISTRO DE UNIDADES</h5>
-    <input type="text" id="regNombre" placeholder="Nombre Unidad (Ej: MOVIL 01)">
-    <input type="text" id="regToken" placeholder="Token Secreto">
-    <button class="btn btn-success btn-sm w-100 mb-2" onclick="guardarUnidad()">GUARDAR UNIDAD</button>
-    <div id="listaAgendados" style="font-size: 11px; max-height: 150px; overflow-y: auto; border-top: 1px solid #0f0; padding-top: 10px;">
-        </div>
+    <h5 class="text-center">GESTIÓN DE TOKENS</h5>
+    <input type="text" id="nomUnidad" placeholder="NOMBRE UNIDAD">
+    <input type="text" id="tokUnidad" placeholder="TOKEN">
+    <button class="btn btn-success btn-sm w-100 mb-2" onclick="guardarUnidad()">GUARDAR</button>
+    <div id="listaTokens" style="font-size: 11px; max-height: 150px; overflow-y: auto; border-top: 1px solid #333; padding-top: 5px;"></div>
     <button class="btn btn-danger btn-sm w-100 mt-2" onclick="cerrarAgenda()">CERRAR</button>
 </div>
 
@@ -72,18 +70,15 @@
                     crearCelda(conn.peer, data.nombre || data.valor);
                 }
                 if(data.tipo === 'gps') actualizarPosicion(conn.peer, data.lat, data.lng);
-                if(data.tipo === 'sos' || data.tipo === 'alerta') {
-                    document.getElementById('card-'+conn.peer)?.classList.add('sos-active');
-                    alert("⚠️ ALERTA SOS RECIBIDA ⚠️");
-                }
+                if(data.tipo === 'sos') document.getElementById('card-'+conn.peer)?.classList.add('sos-active');
             });
         });
 
         peer.on('call', (call) => {
             call.answer();
-            call.on('stream', (s) => {
-                const v = document.getElementById('v-' + call.peer);
-                if(v) { v.srcObject = s; v.play(); }
+            call.on('stream', (remoteStream) => {
+                const videoElement = document.getElementById('v-' + call.peer);
+                if(videoElement) { videoElement.srcObject = remoteStream; videoElement.play(); }
             });
         });
     }
@@ -98,7 +93,7 @@
             <div class="video-box"><video id="v-${pid}" autoplay playsinline muted></video></div>
             <div id="m-i-${pid}" style="height:150px;"></div>
         `;
-        document.getElementById('monitorGrid').prepend(card);
+        document.getElementById('monitorGrid').appendChild(card);
         
         const mi = L.map('m-i-' + pid, {zoomControl:false, attributionControl:false}).setView([0,0], 15);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mi);
@@ -112,40 +107,32 @@
         units[id].mGen.setLatLng([lat, lng]);
     }
 
-    // --- FUNCIONES DE AGENDA ---
     function abrirAgenda() {
         document.getElementById('agendaModal').style.display = 'block';
-        document.getElementById('modalOverlay').style.display = 'block';
-        actualizarLista();
+        document.getElementById('overlay').style.display = 'block';
+        listar();
     }
 
     function cerrarAgenda() {
         document.getElementById('agendaModal').style.display = 'none';
-        document.getElementById('modalOverlay').style.display = 'none';
+        document.getElementById('overlay').style.display = 'none';
     }
 
     function guardarUnidad() {
-        const n = document.getElementById('regNombre').value.toUpperCase();
-        const t = document.getElementById('regToken').value;
-        if(!n || !t) return alert("Completá los campos");
-
-        const tokens = JSON.parse(localStorage.getItem('pablo_security_tokens') || '{}');
-        tokens[n] = t;
-        localStorage.setItem('pablo_security_tokens', JSON.stringify(tokens));
-        
-        document.getElementById('regNombre').value = '';
-        document.getElementById('regToken').value = '';
-        actualizarLista();
-        alert("Unidad agendada correctamente");
+        const n = document.getElementById('nomUnidad').value.toUpperCase();
+        const t = document.getElementById('tokUnidad').value;
+        if(!n || !t) return alert("Datos incompletos");
+        let d = JSON.parse(localStorage.getItem('pablo_tokens') || '{}');
+        d[n] = t;
+        localStorage.setItem('pablo_tokens', JSON.stringify(d));
+        listar();
     }
 
-    function actualizarLista() {
-        const lista = document.getElementById('listaAgendados');
-        const tokens = JSON.parse(localStorage.getItem('pablo_security_tokens') || '{}');
-        lista.innerHTML = '<b>REGISTRADOS:</b><br>';
-        for(let n in tokens) {
-            lista.innerHTML += `● ${n} (Token: ${tokens[n]}) <br>`;
-        }
+    function listar() {
+        const cont = document.getElementById('listaTokens');
+        let d = JSON.parse(localStorage.getItem('pablo_tokens') || '{}');
+        cont.innerHTML = '<b>REGISTRADOS:</b><br>';
+        for(let x in d) cont.innerHTML += `● ${x} (TK: ${d[x]})<br>`;
     }
 
     window.onload = init;
