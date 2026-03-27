@@ -2,85 +2,64 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>MONITOREO - PABLO SECURITY</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>VIAJE SEGURO - PABLO SECURITY</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        body { margin:0; background:#000; color:#0f0; font-family: sans-serif; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
-        #video-container { height: 45%; background: #111; position: relative; border-bottom: 2px solid #0f0; display: flex; align-items: center; justify-content: center; }
-        video { width: 100%; height: 100%; object-fit: cover; background: #000; }
-        #map { flex: 1; z-index: 1; }
-        .badge { position: absolute; top: 10px; left: 10px; z-index: 100; background: #0f0; color: #000; padding: 5px 12px; border-radius: 20px; font-weight: bold; font-size: 11px; }
-        #overlay { position: absolute; z-index: 101; width: 100%; height: 100%; background: rgba(0,0,0,0.8); color: #0f0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; cursor: pointer; font-weight: bold; }
+        body { background: #000; color: #0f0; font-family: sans-serif; margin: 0; text-align: center; }
+        header { padding: 20px; border-bottom: 2px solid #0f0; }
+        #videoContainer { width: 100%; max-width: 600px; margin: auto; background: #111; position: relative; }
+        video { width: 100%; height: auto; display: block; }
+        .btn-start { background: #0f0; color: #000; padding: 20px; border: none; font-weight: bold; font-size: 18px; margin: 50px auto; border-radius: 10px; display: block; cursor: pointer; }
+        #status { font-size: 14px; margin-top: 10px; color: #888; }
     </style>
 </head>
 <body>
-    <div id="video-container">
-        <div class="badge">🛡️ VIVO</div>
-        <div id="overlay" onclick="iniciar()">
-            <div style="font-size: 40px;">⚠️</div>
-            <div>TOCAR AQUÍ PARA<br>VER VIDEO DEL VIAJE</div>
-        </div>
-        <video id="v" autoplay muted playsinline></video>
+
+    <header>
+        <h2>PABLO SECURITY</h2>
+        <p>Monitoreo en Tiempo Real</p>
+    </header>
+
+    <div id="interfaz">
+        <button class="btn-start" id="btnPlay" onclick="conectarAlViaje()">VER VIDEO EN VIVO</button>
+        <p id="status">Esperando conexión...</p>
     </div>
-    <div id="map"></div>
 
-<script>
-    const params = new URLSearchParams(window.location.search);
-    const driverID = params.get('id');
-    const expire = parseInt(params.get('exp'));
+    <div id="videoContainer" style="display:none;">
+        <video id="vPasajero" autoplay playsinline></video>
+        <p style="padding: 10px;">🔴 TRANSMISIÓN DE SEGURIDAD</p>
+    </div>
 
-    if (Date.now() > expire) {
-        document.body.innerHTML = "<h2 style='color:white;text-align:center;padding:50px;'>VIAJE FINALIZADO</h2>";
-    } else {
-        const map = L.map('map', {zoomControl:false}).setView([-31.5375, -68.5364], 16);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-        const carIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', iconSize: [40, 40] });
-        let marker = L.marker([-31.5375, -68.5364], {icon: carIcon}).addTo(map);
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const choferPeerID = urlParams.get('id');
 
-        // CONFIGURACIÓN CON SERVIDORES DE GOOGLE
-        const peer = new Peer({
-            config: {'iceServers': [
-                { url: 'stun:stun.l.google.com:19302' },
-                { url: 'stun:stun1.l.google.com:19302' }
-            ]}
-        });
+        function conectarAlViaje() {
+            if(!choferPeerID) return alert("El link no tiene un ID de chofer válido.");
 
-        const videoElement = document.getElementById('v');
-        
-        function conectar() {
-            const conn = peer.connect(driverID);
-            conn.on('data', (d) => {
-                if(d.tipo === 'gps') {
-                    marker.setLatLng([d.lat, d.lng]);
-                    map.panTo([d.lat, d.lng]);
-                }
-            });
+            document.getElementById('btnPlay').style.display = 'none';
+            document.getElementById('status').innerText = 'Conectando con el móvil...';
 
-            // Llamada forzando video
-            const call = peer.call(driverID, new MediaStream());
-            call.on('stream', (s) => {
-                videoElement.srcObject = s;
-                document.getElementById('overlay').style.display = 'none';
-                videoElement.play();
+            const peerPasajero = new Peer();
+
+            peerPasajero.on('open', (id) => {
+                // El pasajero Llama al chofer (el chofer contestará auto en su index.html)
+                const call = peerPasajero.call(choferPeerID, null);
+                
+                call.on('stream', (streamRemoto) => {
+                    document.getElementById('status').style.display = 'none';
+                    document.getElementById('videoContainer').style.display = 'block';
+                    const video = document.getElementById('vPasajero');
+                    video.srcObject = streamRemoto;
+                    video.play();
+                });
+
+                call.on('error', (err) => {
+                    document.getElementById('status').innerText = 'Error: El móvil no está transmitiendo.';
+                });
             });
         }
-
-        peer.on('open', conectar);
-
-        function iniciar() { 
-            videoElement.play();
-            document.getElementById('overlay').style.display = 'none';
-        }
-        
-        setInterval(() => {
-            if (videoElement.paused && videoElement.srcObject) {
-                videoElement.play().catch(()=>{});
-            }
-        }, 3000);
-    }
-</script>
+    </script>
 </body>
 </html>
