@@ -18,13 +18,23 @@
         #mainMap { width: 400px; height: 100%; border-left: 2px solid #0f0; position: absolute; right: 0; }
         .sos-active { animation: blink-red 0.5s infinite; border: 3px solid red !important; }
         @keyframes blink-red { 0% { background: #000; } 50% { background: #500; } }
+
+        /* ESTILOS DEL MODAL QUE FALTABAN */
+        #agendaModal { 
+            display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: #111; border: 2px solid #0f0; padding: 20px; z-index: 2000; width: 320px; border-radius: 10px; box-shadow: 0 0 20px #0f0;
+        }
+        #agendaModal input { width: 100%; background: #000; color: #0f0; border: 1px solid #0f0; margin-bottom: 10px; padding: 8px; }
+        .overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1999; }
     </style>
 </head>
 <body>
 
+<div class="overlay" id="overlay" onclick="cerrarAgenda()"></div>
+
 <div class="top-bar">
     <div><b>PABLO SECURITY</b> <small>CENTRAL CHIMBAS</small></div>
-    <button class="btn btn-sm btn-success fw-bold" onclick="document.getElementById('agendaModal').style.display='block'">📂 AGENDA Y TOKENS</button>
+    <button class="btn btn-sm btn-success fw-bold" onclick="abrirAgenda()">📂 AGENDA Y TOKENS</button>
 </div>
 
 <div class="main-layout">
@@ -32,8 +42,17 @@
     <div id="mainMap"></div>
 </div>
 
+<div id="agendaModal">
+    <h5 class="text-center">GESTIÓN DE TOKENS</h5>
+    <input type="text" id="nomUnidad" placeholder="NOMBRE UNIDAD">
+    <input type="text" id="tokUnidad" placeholder="TOKEN">
+    <button class="btn btn-success btn-sm w-100 mb-2" onclick="guardarUnidad()">GUARDAR</button>
+    <div id="listaTokens" style="font-size: 11px; max-height: 150px; overflow-y: auto; border-top: 1px solid #333; padding-top: 5px;"></div>
+    <button class="btn btn-danger btn-sm w-100 mt-2" onclick="cerrarAgenda()">CERRAR</button>
+</div>
+
 <script>
-    const CENTRAL_ID = 'PABLO-CENTRAL-MASTER-2026'; // ID UNIFICADO
+    const CENTRAL_ID = 'PABLO-CENTRAL-MASTER-2026';
     let peer, mainMap;
     const units = {};
     const carIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', iconSize: [30, 30] });
@@ -73,7 +92,7 @@
         card.innerHTML = `
             <div style="padding:5px; font-size:12px; text-align:center; border-bottom:1px solid #0f0">${nombre}</div>
             <div class="video-box"><video id="v-${pid}" autoplay playsinline muted></video></div>
-            <div id="m-i-${pid}" style="height:100px;"></div>
+            <div id="m-i-${pid}" style="height:150px;"></div>
         `;
         document.getElementById('monitorGrid').appendChild(card);
         
@@ -87,6 +106,39 @@
         units[id].mi.setView([lat, lng]);
         units[id].mInd.setLatLng([lat, lng]);
         units[id].mGen.setLatLng([lat, lng]);
+    }
+
+    // --- FUNCIONES DE AGENDA CORREGIDAS ---
+    function abrirAgenda() {
+        document.getElementById('agendaModal').style.display = 'block';
+        document.getElementById('overlay').style.display = 'block';
+        listar();
+    }
+
+    function cerrarAgenda() {
+        document.getElementById('agendaModal').style.display = 'none';
+        document.getElementById('overlay').style.display = 'none';
+    }
+
+    function guardarUnidad() {
+        const n = document.getElementById('nomUnidad').value.toUpperCase();
+        const t = document.getElementById('tokUnidad').value;
+        if(!n || !t) return alert("Completá los datos");
+        
+        let d = JSON.parse(localStorage.getItem('pablo_tokens') || '{}');
+        d[n] = t;
+        localStorage.setItem('pablo_tokens', JSON.stringify(d));
+        
+        document.getElementById('nomUnidad').value = '';
+        document.getElementById('tokUnidad').value = '';
+        listar();
+    }
+
+    function listar() {
+        const cont = document.getElementById('listaTokens');
+        let d = JSON.parse(localStorage.getItem('pablo_tokens') || '{}');
+        cont.innerHTML = '<b>REGISTRADOS:</b><br>';
+        for(let x in d) cont.innerHTML += `● ${x} (TK: ${d[x]})<br>`;
     }
 
     window.onload = init;
