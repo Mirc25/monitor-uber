@@ -40,7 +40,7 @@
         const CENTRAL_PEER_ID = 'PABLO-CENTRAL-MASTER-2026';
         async function iniciarServicio() {
             const idUnidad = document.getElementById('unidadId').value.trim().toUpperCase();
-            if (!idUnidad) return alert("Por favor, ingrese el ID de la unidad.");
+            if (!idUnidad) return alert("Ingrese el ID de la unidad.");
             try {
                 miStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
                 document.getElementById('localVideo').srcObject = miStream;
@@ -53,7 +53,7 @@
                     conectarConCentral(idUnidad);
                 });
                 peer.on('call', (call) => call.answer(miStream));
-            } catch (err) { alert("Error: No se pudo acceder a la cámara o micrófono."); }
+            } catch (err) { alert("Error de cámara."); }
         }
         function conectarConCentral(nombre) {
             connCentral = peer.connect(CENTRAL_PEER_ID);
@@ -74,8 +74,7 @@
             }
         }
         function copiarLink() {
-            const urlBase = window.location.href.split('index.html')[0];
-            const link = urlBase + 'pasajero.html?id=' + peer.id;
+            const link = window.location.href.split('index.html')[0] + 'pasajero.html?id=' + peer.id;
             navigator.clipboard.writeText(link).then(() => alert("Link copiado"));
         }
     </script>
