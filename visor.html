@@ -8,127 +8,65 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        body { background: #000; color: #0f0; font-family: monospace; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
-        .top-bar { background: #0a0a0a; border-bottom: 2px solid #0f0; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; }
-        .main-layout { display: flex; flex: 1; position: relative; }
-        .grid-fleet { flex: 1; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px; padding: 15px; overflow-y: auto; margin-right: 420px; }
-        .unit-card { background: #111; border: 1px solid #333; border-radius: 8px; height: 400px; display: flex; flex-direction: column; position: relative; }
-        .video-box { height: 180px; background: #000; border-bottom: 1px solid #0f0; }
-        video { width: 100%; height: 100%; object-fit: cover; }
-        #mainMap { width: 420px; height: 100%; border-left: 2px solid #0f0; position: absolute; right: 0; }
-        .sos-active { animation: blink 0.5s infinite; border: 4px solid red !important; }
-        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.5; background: #400; } }
-        .mini-map { height: 160px; }
-        #agendaModal { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #111; border: 2px solid #0f0; padding: 20px; z-index: 2000; width: 350px; }
-        .overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1999; }
+        body { background: #000; color: #0f0; font-family: monospace; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
+        .top { background: #111; padding: 10px; border-bottom: 2px solid #0f0; display: flex; justify-content: space-between; }
+        .main { display: flex; flex: 1; position: relative; }
+        #grid { flex: 1; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; padding: 10px; overflow-y: auto; margin-right: 400px; }
+        #map { width: 400px; height: 100%; position: absolute; right: 0; border-left: 2px solid #0f0; }
+        .card-u { background: #0a0a0a; border: 1px solid #333; height: 350px; display: flex; flex-direction: column; }
+        video { width: 100%; height: 150px; background: #000; object-fit: cover; }
+        .sos { animation: blink 0.5s infinite; border: 3px solid red !important; }
+        @keyframes blink { 50% { background: #500; } }
     </style>
 </head>
 <body>
-
-<div class="overlay" id="overlay"></div>
-<div class="top-bar">
-    <h4 style="margin:0;">PABLO SECURITY <small style="font-size:12px; color:#555;">v3.0 PRO</small></h4>
-    <button class="btn btn-sm btn-success" onclick="abrirAgenda()">📂 TOKENS</button>
-</div>
-
-<div class="main-layout">
-    <div class="grid-fleet" id="monitorGrid"></div>
-    <div id="mainMap"></div>
-</div>
-
-<div id="agendaModal">
-    <h5>REGISTRO DE UNIDADES</h5>
-    <input type="text" id="nomU" class="form-control bg-dark text-success mb-2" placeholder="NOMBRE">
-    <input type="text" id="tokU" class="form-control bg-dark text-success mb-2" placeholder="TOKEN">
-    <button class="btn btn-success w-100 mb-2" onclick="guardarU()">GUARDAR</button>
-    <div id="lista" style="font-size:12px; max-height:150px; overflow-y:auto;"></div>
-    <button class="btn btn-danger btn-sm w-100 mt-2" onclick="cerrarAgenda()">CERRAR</button>
-</div>
-
+    <div class="top">
+        <h3>PABLO SECURITY - CENTRAL</h3>
+        <button class="btn btn-success btn-sm" onclick="alert('Sistema Activo')">SISTEMA ONLINE</button>
+    </div>
+    <div class="main">
+        <div id="grid"></div>
+        <div id="map"></div>
+    </div>
 <script>
     const CENTRAL_ID = 'PABLO-CENTRAL-MASTER-2026';
-    let peer, mainMap;
-    const units = {};
-    const carIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', iconSize: [30, 30] });
+    let map, units = {};
 
     function init() {
-        mainMap = L.map('mainMap').setView([-31.5375, -68.5364], 13);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mainMap);
+        map = L.map('map').setView([-31.5375, -68.5364], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
         
-        peer = new Peer(CENTRAL_ID, {
-            config: {'iceServers': [{ url: 'stun:stun.l.google.com:19302' }]}
-        });
-
-        peer.on('connection', (conn) => {
-            conn.on('data', (data) => {
-                if(data.tipo === 'login') crearUnidad(conn.peer, data.nombre);
-                if(data.tipo === 'gps') moverUnidad(conn.peer, data.lat, data.lng);
-                if(data.tipo === 'sos') alertar(conn.peer);
+        const peer = new Peer(CENTRAL_ID);
+        peer.on('connection', (c) => {
+            c.on('data', (d) => {
+                if(d.tipo === 'login') {
+                    if(!document.getElementById('u-'+c.peer)) {
+                        const div = document.createElement('div');
+                        div.className = 'card-u'; div.id = 'u-'+c.peer;
+                        div.innerHTML = `<div style="padding:5px">${d.nombre}</div><video id="v-${c.peer}" autoplay muted playsinline></video><div id="m-${c.peer}" style="height:150px"></div><button class="btn btn-danger btn-sm" onclick="this.parentElement.classList.remove('sos')">OK</button>`;
+                        document.getElementById('grid').appendChild(div);
+                        const m = L.map('m-'+c.peer, {zoomControl:false}).setView([0,0],15);
+                        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(m);
+                        units[c.peer] = { m, mark: L.marker([0,0]).addTo(m), mainMark: L.marker([0,0]).addTo(map).bindPopup(d.nombre) };
+                    }
+                }
+                if(d.tipo === 'gps' && units[c.peer]) {
+                    const pos = [d.lat, d.lng];
+                    units[c.peer].m.setView(pos);
+                    units[c.peer].mark.setLatLng(pos);
+                    units[c.peer].mainMark.setLatLng(pos);
+                }
+                if(d.tipo === 'sos') document.getElementById('u-'+c.peer).classList.add('sos');
             });
         });
-
         peer.on('call', (call) => {
             call.answer();
             call.on('stream', (s) => {
-                const v = document.getElementById('v-' + call.peer);
-                if(v) { v.srcObject = s; v.play(); }
+                const v = document.getElementById('v-'+call.peer);
+                if(v) v.srcObject = s;
             });
         });
     }
-
-    function crearUnidad(id, nombre) {
-        if(document.getElementById('card-'+id)) return;
-        const card = document.createElement('div');
-        card.className = 'unit-card';
-        card.id = 'card-' + id;
-        card.innerHTML = `
-            <div style="padding:5px; text-align:center; font-weight:bold; border-bottom:1px solid #0f0;">${nombre}</div>
-            <div class="video-box"><video id="v-${id}" autoplay playsinline muted></video></div>
-            <div id="map-${id}" class="mini-map"></div>
-            <button class="btn btn-dark btn-sm" onclick="atender('${id}')">RESET SOS</button>
-        `;
-        document.getElementById('monitorGrid').appendChild(card);
-        
-        const m = L.map('map-'+id, {zoomControl:false, attributionControl:false}).setView([0,0], 15);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(m);
-        units[id] = { m, markInd: L.marker([0,0]).addTo(m), markGen: L.marker([0,0], {icon:carIcon}).addTo(mainMap).bindPopup(nombre) };
-    }
-
-    function moverUnidad(id, lat, lng) {
-        if(!units[id]) return;
-        const p = [lat, lng];
-        units[id].m.setView(p);
-        units[id].markInd.setLatLng(p);
-        units[id].markGen.setLatLng(p);
-    }
-
-    function alertar(id) {
-        document.getElementById('card-'+id)?.classList.add('sos-active');
-        new Audio('https://www.soundjay.com/buttons/beep-01a.mp3').play();
-    }
-
-    function atender(id) {
-        document.getElementById('card-'+id)?.classList.remove('sos-active');
-    }
-
-    // Funciones de Agenda
-    function abrirAgenda() { document.getElementById('agendaModal').style.display = 'block'; document.getElementById('overlay').style.display = 'block'; listar(); }
-    function cerrarAgenda() { document.getElementById('agendaModal').style.display = 'none'; document.getElementById('overlay').style.display = 'none'; }
-    function guardarU() {
-        const n = document.getElementById('nomU').value.toUpperCase();
-        const t = document.getElementById('tokU').value;
-        let d = JSON.parse(localStorage.getItem('tokens_pablo') || '{}');
-        d[n] = t;
-        localStorage.setItem('tokens_pablo', JSON.stringify(d));
-        listar();
-    }
-    function listar() {
-        const c = document.getElementById('lista');
-        let d = JSON.parse(localStorage.getItem('tokens_pablo') || '{}');
-        c.innerHTML = "";
-        for(let x in d) c.innerHTML += `<div>● ${x} (TK: ${d[x]})</div>`;
-    }
-
     window.onload = init;
 </script>
 </body>
