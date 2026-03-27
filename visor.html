@@ -9,22 +9,46 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         body { background: #000; color: #0f0; font-family: 'Courier New', monospace; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
-        .top-bar { background: #0a0a0a; border-bottom: 2px solid #0f0; padding: 5px 20px; display: flex; justify-content: space-between; align-items: center; height: 50px; }
-        .main-layout { display: flex; flex: 1; position: relative; }
-        .grid-fleet { flex: 1; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; padding: 12px; overflow-y: auto; margin-right: 400px; }
-        .unit-card { background: #111; border: 1px solid #333; border-radius: 5px; height: 380px; display: flex; flex-direction: column; }
-        .video-box { height: 160px; background: #000; border-bottom: 1px solid #0f0; }
-        video { width: 100%; height: 100%; object-fit: cover; }
-        #mainMap { width: 400px; height: 100%; border-left: 2px solid #0f0; position: absolute; right: 0; }
-        .sos-active { animation: blink-red 0.5s infinite; border: 3px solid red !important; box-shadow: 0 0 15px red; }
-        @keyframes blink-red { 0% { background: #000; } 50% { background: #500; } }
         
+        /* Barra Superior */
+        .top-bar { background: #0a0a0a; border-bottom: 2px solid #0f0; padding: 5px 20px; display: flex; justify-content: space-between; align-items: center; height: 50px; }
+        
+        /* Layout Principal */
+        .main-layout { display: flex; flex: 1; position: relative; }
+        
+        /* Grilla de Unidades */
+        .grid-fleet { flex: 1; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; padding: 12px; overflow-y: auto; margin-right: 400px; }
+        
+        /* Tarjeta de Unidad */
+        .unit-card { background: #111; border: 1px solid #333; border-radius: 5px; height: 380px; display: flex; flex-direction: column; transition: 0.3s; }
+        .unit-card:hover { border-color: #0f0; }
+        
+        /* Contenedor Video */
+        .video-box { height: 160px; background: #000; border-bottom: 1px solid #0f0; overflow: hidden; }
+        video { width: 100%; height: 100%; object-fit: cover; }
+        
+        /* Mapa Lateral Derecho */
+        #mainMap { width: 400px; height: 100%; border-left: 2px solid #0f0; position: absolute; right: 0; top: 0; }
+        
+        /* Alerta SOS */
+        .sos-active { animation: blink-red 0.5s infinite; border: 3px solid red !important; box-shadow: 0 0 20px red; z-index: 10; }
+        @keyframes blink-red { 0% { background: #000; } 50% { background: #500; } }
+
+        /* Modal Agenda */
         #agendaModal { 
             display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            background: #111; border: 2px solid #0f0; padding: 20px; z-index: 2000; width: 320px; border-radius: 10px;
+            background: #111; border: 2px solid #0f0; padding: 20px; z-index: 2000; width: 350px; border-radius: 10px; box-shadow: 0 0 30px #0f0;
         }
-        .overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1999; }
-        input { background: #000; color: #0f0; border: 1px solid #0f0; width: 100%; margin-bottom: 10px; padding: 5px; }
+        #agendaModal h5 { color: #0f0; text-shadow: 0 0 5px #0f0; }
+        #agendaModal input { width: 100%; background: #000; color: #0f0; border: 1px solid #0f0; margin-bottom: 10px; padding: 10px; font-family: monospace; }
+        .overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 1999; }
+        
+        #listaTokens { font-size: 12px; max-height: 200px; overflow-y: auto; border-top: 1px solid #333; padding-top: 10px; margin-top: 10px; color: #aaa; }
+        .token-item { border-bottom: 1px solid #222; padding: 5px 0; display: flex; justify-content: space-between; }
+        .btn-del { color: red; cursor: pointer; font-weight: bold; padding: 0 5px; }
+
+        /* Mapa pequeño dentro de la card */
+        .mini-map { height: 150px; background: #222; }
     </style>
 </head>
 <body>
@@ -32,81 +56,137 @@
 <div class="overlay" id="overlay" onclick="cerrarAgenda()"></div>
 
 <div class="top-bar">
-    <div><b>PABLO SECURITY</b> <small>CENTRAL CHIMBAS</small></div>
-    <button class="btn btn-sm btn-success fw-bold" onclick="abrirAgenda()">📂 AGENDA Y TOKENS</button>
+    <div>
+        <b style="font-size: 20px;">PABLO SECURITY</b> 
+        <small style="color: #888; margin-left: 10px;">CENTRAL OPERATIVA CHIMBAS</small>
+    </div>
+    <button class="btn btn-sm btn-success fw-bold" onclick="abrirAgenda()">📂 AGENDA DE TOKENS</button>
 </div>
 
 <div class="main-layout">
     <div class="grid-fleet" id="monitorGrid"></div>
+    
     <div id="mainMap"></div>
 </div>
 
 <div id="agendaModal">
-    <h5 class="text-center">GESTIÓN DE TOKENS</h5>
-    <input type="text" id="nomUnidad" placeholder="NOMBRE UNIDAD">
-    <input type="text" id="tokUnidad" placeholder="TOKEN">
-    <button class="btn btn-success btn-sm w-100 mb-2" onclick="guardarUnidad()">GUARDAR</button>
-    <div id="listaTokens" style="font-size: 11px; max-height: 150px; overflow-y: auto; border-top: 1px solid #333; padding-top: 5px;"></div>
-    <button class="btn btn-danger btn-sm w-100 mt-2" onclick="cerrarAgenda()">CERRAR</button>
+    <h5 class="text-center mb-3">SISTEMA DE REGISTRO</h5>
+    <input type="text" id="nomUnidad" placeholder="NOMBRE UNIDAD (Ej: MOVIL 01)">
+    <input type="text" id="tokUnidad" placeholder="TOKEN DE ACCESO">
+    <button class="btn btn-success btn-sm w-100 mb-2" onclick="guardarUnidad()">REGISTRAR UNIDAD</button>
+    
+    <div id="listaTokens"></div>
+    
+    <button class="btn btn-outline-danger btn-sm w-100 mt-3" onclick="cerrarAgenda()">CERRAR PANEL</button>
 </div>
 
 <script>
     const CENTRAL_ID = 'PABLO-CENTRAL-MASTER-2026';
     let peer, mainMap;
     const units = {};
-    const carIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', iconSize: [30, 30] });
+    const carIcon = L.icon({ 
+        iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', 
+        iconSize: [32, 32],
+        iconAnchor: [16, 16]
+    });
 
+    // Iniciar Central
     function init() {
+        // Mapa principal (San Juan, Chimbas)
         mainMap = L.map('mainMap').setView([-31.5375, -68.5364], 13);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mainMap);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: 'PABLO SECURITY 2026'
+        }).addTo(mainMap);
         
+        // Crear Servidor Peer
         peer = new Peer(CENTRAL_ID, {
             config: {'iceServers': [{ url: 'stun:stun.l.google.com:19302' }]}
         });
 
+        // Escuchar datos (GPS, SOS, Login)
         peer.on('connection', (conn) => {
             conn.on('data', (data) => {
-                if(data.tipo === 'login' || data.tipo === 'nombre') {
-                    crearCelda(conn.peer, data.nombre || data.valor);
+                if(data.tipo === 'login') {
+                    crearCelda(conn.peer, data.nombre);
                 }
-                if(data.tipo === 'gps') actualizarPosicion(conn.peer, data.lat, data.lng);
-                if(data.tipo === 'sos') document.getElementById('card-'+conn.peer)?.classList.add('sos-active');
+                if(data.tipo === 'gps') {
+                    actualizarPosicion(conn.peer, data.lat, data.lng);
+                }
+                if(data.tipo === 'sos') {
+                    activarSOS(conn.peer);
+                }
             });
         });
 
+        // Escuchar Video
         peer.on('call', (call) => {
-            call.answer();
+            call.answer(); // Central acepta el video
             call.on('stream', (remoteStream) => {
-                const videoElement = document.getElementById('v-' + call.peer);
-                if(videoElement) { videoElement.srcObject = remoteStream; videoElement.play(); }
+                const video = document.getElementById('v-' + call.peer);
+                if(video) {
+                    video.srcObject = remoteStream;
+                    video.play().catch(e => console.log("Auto-play bloqueado"));
+                }
             });
         });
+
+        console.log("Central lista con ID:", CENTRAL_ID);
     }
 
+    // Crear cuadrito del chofer
     function crearCelda(pid, nombre) {
         if(document.getElementById('card-'+pid)) return;
+        
         const card = document.createElement('div');
         card.className = 'unit-card';
         card.id = 'card-' + pid;
         card.innerHTML = `
-            <div style="padding:5px; font-size:12px; text-align:center; border-bottom:1px solid #0f0">${nombre}</div>
-            <div class="video-box"><video id="v-${pid}" autoplay playsinline muted></video></div>
-            <div id="m-i-${pid}" style="height:150px;"></div>
+            <div style="padding:8px; font-size:13px; font-weight:bold; text-align:center; border-bottom:1px solid #0f0; background:#050505;">
+                ${nombre} <span id="status-${pid}" style="color:#0f0">●</span>
+            </div>
+            <div class="video-box">
+                <video id="v-${pid}" autoplay playsinline muted></video>
+            </div>
+            <div id="mini-map-${pid}" class="mini-map"></div>
+            <button class="btn btn-dark btn-sm m-1" style="font-size:10px; color:#0f0;" onclick="atenderSOS('${pid}')">RESET SOS</button>
         `;
         document.getElementById('monitorGrid').appendChild(card);
         
-        const mi = L.map('m-i-' + pid, {zoomControl:false, attributionControl:false}).setView([0,0], 15);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mi);
-        units[pid] = { mi, mInd: L.marker([0,0]).addTo(mi), mGen: L.marker([0,0], {icon:carIcon}).addTo(mainMap) };
+        // Mapa pequeño para cada unidad
+        const miniMap = L.map('mini-map-' + pid, {zoomControl:false, attributionControl:false}).setView([0,0], 16);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(miniMap);
+        
+        units[pid] = { 
+            mi: miniMap, 
+            mInd: L.marker([0,0]).addTo(miniMap), // Marcador en el mini mapa
+            mGen: L.marker([0,0], {icon:carIcon}).addTo(mainMap).bindPopup(nombre) // Marcador en el mapa grande
+        };
     }
 
+    // Actualizar movimiento
     function actualizarPosicion(id, lat, lng) {
         if(!units[id]) return;
-        units[id].mi.setView([lat, lng]);
-        units[id].mInd.setLatLng([lat, lng]);
-        units[id].mGen.setLatLng([lat, lng]);
+        const pos = [lat, lng];
+        units[id].mi.setView(pos);
+        units[id].mInd.setLatLng(pos);
+        units[id].mGen.setLatLng(pos);
     }
 
+    // Alerta Roja
+    function activarSOS(id) {
+        const card = document.getElementById('card-'+id);
+        if(card) card.classList.add('sos-active');
+        // Sonido de alerta (opcional)
+        const audio = new Audio('https://www.soundjay.com/buttons/beep-01a.mp3');
+        audio.play();
+    }
+
+    function atenderSOS(id) {
+        const card = document.getElementById('card-'+id);
+        if(card) card.classList.remove('sos-active');
+    }
+
+    // --- LÓGICA DE LA AGENDA ---
     function abrirAgenda() {
         document.getElementById('agendaModal').style.display = 'block';
         document.getElementById('overlay').style.display = 'block';
@@ -121,9 +201,20 @@
     function guardarUnidad() {
         const n = document.getElementById('nomUnidad').value.toUpperCase();
         const t = document.getElementById('tokUnidad').value;
-        if(!n || !t) return alert("Datos incompletos");
+        if(!n || !t) return alert("Completa ambos campos");
+        
         let d = JSON.parse(localStorage.getItem('pablo_tokens') || '{}');
         d[n] = t;
+        localStorage.setItem('pablo_tokens', JSON.stringify(d));
+        
+        document.getElementById('nomUnidad').value = '';
+        document.getElementById('tokUnidad').value = '';
+        listar();
+    }
+
+    function eliminarToken(n) {
+        let d = JSON.parse(localStorage.getItem('pablo_tokens') || '{}');
+        delete d[n];
         localStorage.setItem('pablo_tokens', JSON.stringify(d));
         listar();
     }
@@ -131,8 +222,14 @@
     function listar() {
         const cont = document.getElementById('listaTokens');
         let d = JSON.parse(localStorage.getItem('pablo_tokens') || '{}');
-        cont.innerHTML = '<b>REGISTRADOS:</b><br>';
-        for(let x in d) cont.innerHTML += `● ${x} (TK: ${d[x]})<br>`;
+        cont.innerHTML = '<b>UNIDADES REGISTRADAS:</b><br>';
+        for(let x in d) {
+            cont.innerHTML += `
+                <div class="token-item">
+                    <span>● ${x} (ID: ${d[x]})</span>
+                    <span class="btn-del" onclick="eliminarToken('${x}')">×</span>
+                </div>`;
+        }
     }
 
     window.onload = init;
