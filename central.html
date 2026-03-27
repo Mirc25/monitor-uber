@@ -5,40 +5,40 @@
     <title>CENTRAL PABLO SECURITY</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        body { background: #111; color: #0f0; }
-        .monitor { display: flex; flex-wrap: wrap; gap: 10px; }
-        .unidad { border: 2px solid #0f0; width: 320px; background: #000; padding: 5px; }
-        video { width: 100%; height: 240px; background: #222; }
+        body { background: #111; color: #0f0; font-family: sans-serif; }
+        #monitor { display: flex; flex-wrap: wrap; gap: 15px; padding: 20px; }
+        .unidad { border: 2px solid #0f0; width: 320px; background: #000; padding: 10px; border-radius: 10px; }
+        video { width: 100%; height: 240px; background: #222; border-radius: 5px; }
     </style>
 </head>
 <body>
-    <h2 style="text-align:center;">CENTRAL MAESTRA</h2>
-    <div id="monitor" class="monitor"></div>
+    <h1 style="text-align:center;">PANEL CENTRAL MAESTRO</h1>
+    <div id="monitor"></div>
 
     <script>
-        // ID de la Central que tenías originalmente
+        // Tu ID fijo de central
         const peer = new Peer('PABLO-CENTRAL-MASTER-2026');
 
         peer.on('connection', (c) => {
             c.on('data', (d) => {
                 if(d.tipo === 'login') {
+                    // Si la unidad no existe en el panel, la crea
                     if(!document.getElementById('u-' + d.nombre)) {
                         const div = document.createElement('div');
                         div.id = 'u-' + d.nombre;
                         div.className = 'unidad';
-                        div.innerHTML = `<h4>${d.nombre}</h4><video id="v-${d.nombre}" autoplay playsinline muted></video>`;
+                        div.innerHTML = `<h4>MÓVIL: ${d.nombre}</h4><video id="v-${d.nombre}" autoplay playsinline muted></video>`;
                         document.getElementById('monitor').appendChild(div);
                     }
                 }
             });
         });
 
-        // Recibe la llamada del chofer (Lógica original)
+        // Escucha la llamada de video del chofer
         peer.on('call', (call) => {
-            call.answer();
+            call.answer(); // Atiende sin mandar video propio
             call.on('stream', (s) => {
-                // Buscamos el video que creamos arriba basándonos en el ID del peer que llama
-                // El peerId es PABLO-U-NOMBRE, cortamos el prefijo para hallar el video
+                // Identifica qué unidad llama para poner el video en su cuadro
                 const nombre = call.peer.replace('PABLO-U-', '');
                 const vid = document.getElementById('v-' + nombre);
                 if(vid) vid.srcObject = s;
