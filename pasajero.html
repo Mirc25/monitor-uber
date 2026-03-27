@@ -8,15 +8,15 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        body { background: #000; color: #0f0; margin: 0; text-align: center; }
-        #videoPasajero { width: 100%; height: 300px; background: #111; object-fit: cover; }
-        #mapa { width: 100%; height: 350px; border-top: 1px solid #0f0; }
-        .btn-play { background: #0f0; padding: 20px; width: 80%; border-radius: 10px; font-weight: bold; margin-top: 40vh; }
+        body { background: #000; color: #0f0; margin: 0; text-align: center; font-family: sans-serif; }
+        #videoPasajero { width: 100%; height: 35vh; background: #111; object-fit: cover; border-bottom: 1px solid #0f0; }
+        #mapa { width: 100%; height: 65vh; }
+        .btn-inicio { background: #0f0; padding: 25px; width: 85%; border-radius: 15px; font-weight: bold; margin-top: 40vh; font-size: 20px; }
     </style>
 </head>
 <body>
-    <div id="inicio">
-        <button class="btn-play" onclick="conectar()">VER MONITOREO EN VIVO</button>
+    <div id="pantalla-inicio">
+        <button class="btn-inicio" onclick="comenzar()">VER VIAJE EN VIVO</button>
     </div>
 
     <div id="monitor" style="display:none;">
@@ -28,16 +28,19 @@
         const idChofer = new URLSearchParams(window.location.search).get('id');
         let map, marker;
 
-        function conectar() {
-            document.getElementById('inicio').style.display = 'none';
+        function comenzar() {
+            if(!idChofer) return alert("Link inválido");
+            document.getElementById('pantalla-inicio').style.display = 'none';
             document.getElementById('monitor').style.display = 'block';
 
-            map = L.map('mapa').setView([0,0], 15);
+            // Iniciar Mapa
+            map = L.map('mapa').setView([0,0], 16);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
             marker = L.marker([0,0]).addTo(map);
 
             const peer = new Peer();
             peer.on('open', () => {
+                // Pedir Video
                 const call = peer.call(idChofer, null);
                 call.on('stream', (s) => {
                     const video = document.getElementById('v');
@@ -45,7 +48,7 @@
                     video.play();
                 });
 
-                // Para el mapa, el chofer tiene que mandar datos
+                // Pedir GPS
                 const conn = peer.connect(idChofer);
                 conn.on('data', (d) => {
                     if(d.tipo === 'gps') {
