@@ -2,106 +2,65 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PABLO SECURITY - CONDUCTOR</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CHOFER - PABLO SECURITY</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        body { background: #000; color: #0f0; font-family: sans-serif; text-align: center; margin: 0; padding: 10px; }
-        video { width: 100%; border: 2px solid #0f0; border-radius: 10px; background: #111; height: 40vh; object-fit: cover; }
-        input { width: 80%; padding: 15px; background: #111; border: 1px solid #0f0; color: #0f0; border-radius: 8px; margin-bottom: 15px; }
-        .btn { background: #0f0; color: #000; padding: 20px; border: none; font-weight: bold; width: 95%; border-radius: 10px; margin: 5px 0; font-size: 16px; cursor: pointer; }
-        #btn-sos { background: red; color: white; height: 80px; font-size: 22px; box-shadow: 0 0 15px red; }
+        body { background: #000; color: #0f0; text-align: center; font-family: sans-serif; }
+        video { width: 90%; border: 2px solid #0f0; border-radius: 10px; margin-top: 10px; }
+        .btn { background: #0f0; color: #000; padding: 20px; width: 90%; border: none; font-weight: bold; border-radius: 10px; margin: 10px 0; }
     </style>
 </head>
 <body>
-    <div id="setup">
-        <h2>PABLO SECURITY</h2>
-        <input type="text" id="unidad" placeholder="NOMBRE UNIDAD (Ej: MOVIL 01)">
-        <button class="btn" onclick="iniciar()">ACTIVAR SISTEMA</button>
-    </div>
-
-    <div id="control" style="display:none;">
+    <h2>PABLO SECURITY</h2>
+    <input type="text" id="idUnidad" placeholder="UNIDAD (Ej: 1234)" style="padding:15px; width:80%;">
+    <button class="btn" onclick="iniciar()">ACTIVAR TRANSMISIÓN</button>
+    <div id="panel" style="display:none;">
         <video id="vLocal" autoplay muted playsinline></video>
         <button class="btn" onclick="compartir()">COPIAR LINK PASAJERO</button>
-        <button id="btn-sos" class="btn" onclick="enviarSOS()">B O T Ó N - S O S</button>
-        <button class="btn" style="background:#333; color:#fff;" onclick="location.reload()">CERRAR SESIÓN</button>
     </div>
 
     <script>
-        let peer, miStream, connCentral;
+        let peer, miStream;
         const CENTRAL_ID = 'PABLO-CENTRAL-MASTER-2026';
 
         async function iniciar() {
-            const nom = document.getElementById('unidad').value.toUpperCase().trim();
-            if(!nom) return alert("Falta nombre de unidad");
+            const nom = document.getElementById('idUnidad').value.trim();
+            if(!nom) return alert("Pone el ID");
 
-            try {
-                // 1. Capturar Cámara
-                miStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-                document.getElementById('vLocal').srcObject = miStream;
-                document.getElementById('setup').style.display = 'none';
-                document.getElementById('control').style.display = 'block';
+            miStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+            document.getElementById('vLocal').srcObject = miStream;
+            document.getElementById('panel').style.display = 'block';
 
-                // 2. Crear ID FIJO (Para que la central te encuentre siempre)
-                const miID = 'PABLO-U-' + nom.replace(/\s+/g, '-');
-                
-                peer = new Peer(miID, {
-                    config: { 'iceServers': [{ url: 'stun:stun.l.google.com:19302' }] }
-                });
+            // ID FIJO: Esto es lo que busca la central
+            peer = new Peer('PABLO-U-' + nom, {
+                config: { 'iceServers': [{ url: 'stun:stun.l.google.com:19302' }] }
+            });
 
-                peer.on('open', (id) => {
-                    console.log("Conectado con ID:", id);
-                    conectarCentral(nom);
-                });
+            // RESPONDER AUTOMÁTICAMENTE A TODO
+            peer.on('call', (call) => {
+                console.log("Llamada entrante...");
+                call.answer(miStream);
+            });
 
-                // 3. RESPONDER SIEMPRE (Esto arregla el video en Monitor y Pasajero)
-                peer.on('call', (call) => {
-                    console.log("Recibiendo llamada de:", call.peer);
-                    call.answer(miStream);
-                });
-
-                // 4. Enviar datos de GPS
-                peer.on('connection', (conn) => {
-                    // Si es la central, la guardamos
-                    if(conn.peer === CENTRAL_ID) connCentral = conn;
+            peer.on('open', () => {
+                // Intentar conectar a la central para el GPS
+                const conn = peer.connect(CENTRAL_ID);
+                conn.on('open', () => {
+                    conn.send({ tipo: 'login', nombre: nom });
+                    peer.call(CENTRAL_ID, miStream); // Mandar video a central
                     
-                    // Al conectar alguien (Central o Pasajero), mandamos GPS
-                    enviarGPS(conn);
+                    navigator.geolocation.watchPosition(p => {
+                        conn.send({ tipo: 'gps', lat: p.coords.latitude, lng: p.coords.longitude });
+                    });
                 });
-
-            } catch (e) { alert("Error: Habilite Cámara/Micrófono"); }
-        }
-
-        function conectarCentral(nom) {
-            connCentral = peer.connect(CENTRAL_ID);
-            connCentral.on('open', () => {
-                connCentral.send({ tipo: 'login', nombre: nom });
-                peer.call(CENTRAL_ID, miStream); // Llama a la central con video
             });
         }
 
-        function enviarGPS(targetConn) {
-            navigator.geolocation.watchPosition(pos => {
-                const data = { tipo: 'gps', lat: pos.coords.latitude, lng: pos.coords.longitude };
-                if(targetConn && targetConn.open) targetConn.send(data);
-                if(connCentral && connCentral.open) connCentral.send(data);
-            }, null, { enableHighAccuracy: true });
-        }
-
         function compartir() {
-            const base = window.location.href.split('index.html')[0];
-            const url = base + 'pasajero.html?id=' + peer.id;
-            const aux = document.createElement("input");
-            aux.setAttribute("value", url);
-            document.body.appendChild(aux);
-            aux.select();
-            document.execCommand("copy");
-            document.body.removeChild(aux);
-            alert("¡Link copiado!");
-        }
-
-        function enviarSOS() {
-            if(connCentral) connCentral.send({ tipo: 'sos' });
+            const url = window.location.href.replace('index.html', 'pasajero.html') + '?id=' + peer.id;
+            navigator.clipboard.writeText(url);
+            alert("Link copiado");
         }
     </script>
 </body>
