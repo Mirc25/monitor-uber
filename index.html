@@ -2,59 +2,91 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>CONDUCTOR - PABLO SECURITY</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         body { background: #000; color: #0f0; font-family: sans-serif; text-align: center; margin: 0; padding: 10px; }
-        video { width: 100%; border: 2px solid #0f0; border-radius: 10px; background: #111; }
-        .btn { background: #0f0; color: #000; padding: 20px; border: none; font-weight: bold; width: 95%; border-radius: 10px; margin: 10px 0; font-size: 16px; cursor: pointer; }
+        #setup { margin-top: 50px; }
+        video { width: 100%; border: 2px solid #0f0; border-radius: 10px; background: #111; margin-bottom: 10px; height: 40vh; object-fit: cover; }
+        input { width: 80%; padding: 15px; background: #111; border: 1px solid #0f0; color: #0f0; border-radius: 8px; margin-bottom: 15px; font-size: 16px; }
+        .btn { background: #0f0; color: #000; padding: 20px; border: none; font-weight: bold; width: 95%; border-radius: 10px; margin: 5px 0; font-size: 16px; cursor: pointer; transition: 0.3s; }
+        .btn:active { transform: scale(0.95); background: #0c0; }
+        #btn-sos { background: red; color: white; height: 80px; font-size: 22px; box-shadow: 0 0 15px red; margin-top: 20px; }
     </style>
 </head>
 <body>
     <div id="setup">
-        <h2>PABLO SECURITY</h2>
-        <input type="text" id="unidad" placeholder="NOMBRE UNIDAD" style="padding:15px; width:80%; margin-bottom:10px;"><br>
+        <h2 style="text-shadow: 0 0 10px #0f0;">PABLO SECURITY</h2>
+        <input type="text" id="unidad" placeholder="NOMBRE UNIDAD (Ej: MOVIL 01)">
         <button class="btn" onclick="iniciar()">ACTIVAR SISTEMA</button>
     </div>
 
     <div id="control" style="display:none;">
         <video id="vLocal" autoplay muted playsinline></video>
+        <div id="info-unidad" style="font-size: 12px; margin-bottom: 10px; color: #555;"></div>
+        
         <button class="btn" onclick="compartir()">COPIAR LINK PARA PASAJERO</button>
-        <button class="btn" style="background:red; color:white;" onclick="enviarSOS()">B O T Ó N - S O S</button>
+        <button id="btn-sos" class="btn" onclick="enviarSOS()">B O T Ó N - S O S</button>
+        <button class="btn" style="background:#333; color:#fff; margin-top: 30px;" onclick="location.reload()">TERMINAR TURNO</button>
     </div>
 
     <script>
-        let peer, miStream, connCentral, connPasajero;
+        let peer, miStream, connCentral;
+        let conexionesPasajeros = []; // Lista para manejar múltiples pasajeros
         const CENTRAL_ID = 'PABLO-CENTRAL-MASTER-2026';
 
         async function iniciar() {
-            const nom = document.getElementById('unidad').value.toUpperCase();
-            if(!nom) return alert("Falta nombre de unidad");
+            const nom = document.getElementById('unidad').value.toUpperCase().trim();
+            if(!nom) return alert("Por favor, ingresa el nombre de la unidad.");
 
             try {
-                miStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                // Captura cámara y micrófono
+                miStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: "user", width: { ideal: 640 } }, 
+                    audio: true 
+                });
+                
                 document.getElementById('vLocal').srcObject = miStream;
                 document.getElementById('setup').style.display = 'none';
                 document.getElementById('control').style.display = 'block';
 
-                // Usamos servidores STUN de Google para que la imagen no se quede en negro
-                peer = new Peer('PABLO-U-' + nom.replace(/\s+/g, '-'), {
-                    config: { 'iceServers': [{ url: 'stun:stun.l.google.com:19302' }, { url: 'stun:stun1.l.google.com:19302' }] }
+                // Crear ID único de sesión
+                const miID = 'PABLO-U-' + nom.replace(/\s+/g, '-') + '-' + Math.floor(Math.random()*999);
+                
+                // Configuración con servidores STUN de Google para saltar bloqueos de 4G
+                peer = new Peer(miID, {
+                    config: { 'iceServers': [
+                        { url: 'stun:stun.l.google.com:19302' },
+                        { url: 'stun:stun1.l.google.com:19302' }
+                    ]}
                 });
 
-                peer.on('open', (id) => { conectarCentral(nom); });
+                peer.on('open', (id) => {
+                    document.getElementById('info-unidad').innerText = "CONECTADO COMO: " + nom;
+                    conectarCentral(nom);
+                });
 
-                // Escuchar llamadas del Pasajero y de la Central
-                peer.on('call', (call) => { call.answer(miStream); });
+                // Atender llamadas de video (de Central o Pasajeros)
+                peer.on('call', (call) => {
+                    call.answer(miStream);
+                });
 
-                // Escuchar cuando el pasajero se conecta por datos para enviarle el GPS
+                // Aceptar conexiones de datos para el GPS (de Central o Pasajeros)
                 peer.on('connection', (conn) => {
-                    connPasajero = conn;
+                    if (conn.peer === CENTRAL_ID) {
+                        connCentral = conn;
+                    } else {
+                        conexionesPasajeros.push(conn);
+                    }
+                    // Al conectarse alguien nuevo, le mandamos el GPS actual de inmediato
                     enviarGPS();
                 });
 
-            } catch (e) { alert("Error: " + e); }
+            } catch (e) {
+                alert("Error de permisos: Asegúrate de habilitar Cámara y Micrófono.");
+                console.error(e);
+            }
         }
 
         function conectarCentral(nom) {
@@ -68,19 +100,51 @@
 
         function enviarGPS() {
             navigator.geolocation.watchPosition(pos => {
-                const data = { tipo: 'gps', lat: pos.coords.latitude, lng: pos.coords.longitude };
-                if(connCentral && connCentral.open) connCentral.send(data);
-                if(connPasajero && connPasajero.open) connPasajero.send(data);
-            }, null, { enableHighAccuracy: true });
+                const dataGPS = { 
+                    tipo: 'gps', 
+                    lat: pos.coords.latitude, 
+                    lng: pos.coords.longitude 
+                };
+
+                // Enviar a la Central
+                if(connCentral && connCentral.open) {
+                    connCentral.send(dataGPS);
+                }
+
+                // Enviar a todos los pasajeros que tengan el link abierto
+                conexionesPasajeros.forEach(conn => {
+                    if(conn.open) conn.send(dataGPS);
+                });
+
+            }, (err) => {
+                console.error("Error GPS:", err);
+            }, { enableHighAccuracy: true });
         }
 
         function compartir() {
-            const url = window.location.href.split('index.html')[0] + `pasajero.html?id=${peer.id}`;
-            navigator.clipboard.writeText(url);
-            alert("¡Link copiado!");
+            // Genera la ruta correcta al archivo pasajero.html
+            const base = window.location.href.substring(0, window.location.href.lastIndexOf('/'));
+            const urlFinal = base + '/pasajero.html?id=' + peer.id;
+            
+            // Método de copiado compatible con todos los celulares
+            const el = document.createElement('textarea');
+            el.value = urlFinal;
+            document.body.appendChild(el);
+            el.select();
+            document.execCommand('copy');
+            document.body.removeChild(el);
+            
+            alert("¡Link de monitoreo copiado con éxito!");
         }
 
-        function enviarSOS() { if(connCentral) connCentral.send({ tipo: 'sos' }); }
+        function enviarSOS() {
+            if(connCentral && connCentral.open) {
+                connCentral.send({ tipo: 'sos' });
+                alert("¡ALERTA SOS ENVIADA A CENTRAL!");
+            } else {
+                alert("Error: No hay conexión con la central.");
+            }
+        }
     </script>
 </body>
 </html>
