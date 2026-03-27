@@ -2,51 +2,83 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>VIAJE SEGURO - PABLO SECURITY</title>
+    <title>PABLO SECURITY - PASAJERO</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         body { background: #000; color: #0f0; font-family: sans-serif; margin: 0; text-align: center; }
-        #vPasajero { width: 100%; max-width: 500px; background: #111; height: 70vh; object-fit: cover; border-bottom: 2px solid #0f0; }
-        .btn { background: #0f0; color: #000; padding: 20px; border: none; font-weight: bold; margin-top: 20px; border-radius: 10px; width: 80%; }
+        header { padding: 20px; border-bottom: 1px solid #0f0; background: #0a0a0a; }
+        #videoContainer { width: 100%; height: 65vh; background: #111; position: relative; overflow: hidden; }
+        video { width: 100%; height: 100%; object-fit: cover; }
+        .btn-play { background: #0f0; color: #000; padding: 20px; border: none; font-weight: bold; font-size: 18px; margin-top: 50px; border-radius: 10px; cursor: pointer; width: 80%; }
+        .status-bar { padding: 15px; font-size: 14px; color: #888; }
     </style>
 </head>
 <body>
-    <h2>PABLO SECURITY</h2>
+
+    <header>
+        <h2 style="margin:0;">PABLO SECURITY</h2>
+        <small>SISTEMA DE MONITOREO PASAJERO</small>
+    </header>
+
     <div id="inicio">
-        <button class="btn" onclick="conectar()">VER VIAJE EN VIVO</button>
+        <button class="btn-play" onclick="conectarAlChofer()">VER VIAJE EN VIVO</button>
+        <p style="color:#555; margin-top:20px;">Haz clic para conectar con la cámara del móvil.</p>
     </div>
-    <div id="reproductor" style="display:none;">
-        <video id="vPasajero" autoplay playsinline></video>
-        <p>🔴 CONECTADO AL MÓVIL</p>
+
+    <div id="monitor" style="display:none;">
+        <div id="videoContainer">
+            <video id="vPasajero" autoplay playsinline></video>
+        </div>
+        <div class="status-bar" id="txtStatus">Conectando con el conductor...</div>
     </div>
 
     <script>
         const idChofer = new URLSearchParams(window.location.search).get('id');
+        let reintentos = 0;
 
-        function conectar() {
-            if(!idChofer) return alert("Link inválido");
+        function conectarAlChofer() {
+            if(!idChofer) return alert("Link de invitación no válido.");
+
             document.getElementById('inicio').style.display = 'none';
-            document.getElementById('reproductor').style.display = 'block';
+            document.getElementById('monitor').style.display = 'block';
 
-            const peer = new Peer(); // ID aleatorio para el pasajero
-            
+            const peer = new Peer();
+
             peer.on('open', () => {
-                // Llamamos al chofer
-                const call = peer.call(idChofer, null);
-                
-                call.on('stream', (stream) => {
-                    const v = document.getElementById('vPasajero');
-                    v.srcObject = stream;
-                    v.play();
-                });
+                realizarLlamada(peer);
+            });
 
-                // Si falla, reintentar en 3 segundos
-                call.on('error', () => {
-                    alert("Reconectando con el chofer...");
-                    setTimeout(conectar, 3000);
+            peer.on('error', (err) => {
+                console.error(err);
+                document.getElementById('txtStatus').innerText = "Reintentando conexión...";
+            });
+        }
+
+        function realizarLlamada(p) {
+            const call = p.call(idChofer, null);
+            
+            call.on('stream', (streamRemoto) => {
+                document.getElementById('txtStatus').innerText = "🔴 EN VIVO - VIAJE PROTEGIDO";
+                document.getElementById('txtStatus').style.color = "#f00";
+                const video = document.getElementById('vPasajero');
+                video.srcObject = streamRemoto;
+                
+                // Manejo de autoplay en iPhone/Android
+                video.play().catch(() => {
+                    video.muted = true;
+                    video.play();
                 });
             });
+
+            // Si después de 5 segundos no hay video, reintentar automáticamente
+            setTimeout(() => {
+                const v = document.getElementById('vPasajero');
+                if(!v.srcObject && reintentos < 5) {
+                    reintentos++;
+                    realizarLlamada(p);
+                }
+            }, 5000);
         }
     </script>
 </body>
