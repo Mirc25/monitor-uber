@@ -8,56 +8,219 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        body { background-color: #000; color: #0f0; font-family: 'Courier New', monospace; }
-        #mapa-central { height: 400px; border: 2px solid #0f0; border-radius: 10px; margin-bottom: 20px; }
-        .video-card { border: 1px solid #0f0; background: #111; padding: 10px; margin-bottom: 10px; border-radius: 8px; }
-        video { width: 100%; height: 180px; background: #222; object-fit: cover; }
-        .sos-alert { background-color: #f00 !important; animation: blinker 1s linear infinite; }
-        @keyframes blinker { 50% { opacity: 0; } }
+        body { background: #000; color: #0f0; font-family: 'Courier New', Courier, monospace; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        .top-bar { background: #0a0a0a; border-bottom: 2px solid #0f0; padding: 5px 20px; display: flex; justify-content: space-between; align-items: center; height: 50px; }
+        
+        .main-layout { display: flex; flex: 1; overflow: hidden; position: relative; }
+        
+        /* CUADRICULA 25% */
+        .grid-fleet { 
+            flex: 1; display: grid; 
+            grid-template-columns: repeat(4, 1fr); 
+            gap: 12px; padding: 12px; overflow-y: auto;
+            margin-right: 420px; 
+        }
+        
+        .unit-card { background: #111; border: 1px solid #333; border-radius: 5px; overflow: hidden; height: 360px; display: flex; flex-direction: column; position: relative; }
+        .unit-header { background: #1a1a1a; font-size: 11px; padding: 6px; text-align: center; border-bottom: 1px solid #0f0; color: #0f0; font-weight: bold; }
+        
+        .video-box { height: 140px; background: #000; position: relative; }
+        video { width: 100%; height: 100%; object-fit: cover; }
+        
+        .unit-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; padding: 6px; background: #050505; }
+        .btn-ctrl { font-size: 9px; padding: 6px; border: 1px solid #0f0; background: transparent; color: #0f0; cursor: pointer; font-weight: bold; }
+        .btn-ctrl:hover { background: #0f0; color: #000; }
+
+        .sos-overlay { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,0,0,0.5); z-index: 60; animation: blink 0.5s infinite; pointer-events: none; }
+        @keyframes blink { 0% { opacity: 0; } 50% { opacity: 1; } }
+
+        /* MAPA LATERAL GIGANTE */
+        #mainMap { width: 400px; height: calc(100vh - 50px); border-left: 2px solid #0f0; position: absolute; right: 0; top: 0; z-index: 80; }
+
+        /* MODAL AGENDA - RECUPERADO */
+        #agendaModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.98); z-index: 1000; padding: 30px; }
+        .agenda-container { max-width: 900px; margin: 0 auto; background: #0a0a0a; border: 1px solid #0f0; padding: 25px; border-radius: 10px; }
+        .token-tag { background: #0f0; color: #000; font-weight: bold; padding: 2px 6px; border-radius: 3px; font-size: 14px; }
+        
+        .fuchsia-car { filter: invert(19%) sepia(87%) saturate(6011%) hue-rotate(296deg) brightness(101%) contrast(110%); }
     </style>
 </head>
 <body>
-    <div class="container-fluid p-4">
-        <h1 class="text-center mb-4">CENTRAL DE MONITOREO - PABLO SECURITY</h1>
-        <div id="mapa-central"></div>
-        <div class="row" id="grid-unidades"></div>
-    </div>
-    <script>
-        const CENTRAL_PEER_ID = 'PABLO-CENTRAL-MASTER-2026';
-        const peer = new Peer(CENTRAL_PEER_ID);
-        const unidades = {};
-        let map = L.map('mapa-central').setView([-34.6037, -58.3816], 12);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
+<div class="top-bar">
+    <div><b>PABLO SECURITY</b> <small>CENTRAL CHIMBAS</small></div>
+    <button class="btn btn-sm btn-success fw-bold" onclick="toggleAgenda(true)">📂 ABRIR AGENDA Y TOKENS</button>
+</div>
+
+<div class="main-layout">
+    <div class="grid-fleet" id="monitorGrid"></div>
+    <div id="mainMap"></div>
+</div>
+
+<div id="agendaModal">
+    <div class="agenda-container text-success">
+        <div class="d-flex justify-content-between mb-3 border-bottom border-success pb-2">
+            <h4>GESTIÓN DE ABONADOS</h4>
+            <button class="btn btn-sm btn-outline-danger" onclick="toggleAgenda(false)">CERRAR [X]</button>
+        </div>
+
+        <div class="row g-2 mb-4 bg-dark p-3 rounded border border-success">
+            <div class="col-md-5">
+                <label class="small">ID DEL MÓVIL / NOMBRE</label>
+                <input type="text" id="regNombre" class="form-control bg-black text-success border-success">
+            </div>
+            <div class="col-md-3">
+                <label class="small">DURACIÓN</label>
+                <select id="regTiempo" class="form-select bg-black text-success border-success">
+                    <option value="24">24 HORAS</option>
+                    <option value="168">7 DÍAS</option>
+                    <option value="720">30 DÍAS</option>
+                </select>
+            </div>
+            <div class="col-md-4 d-flex align-items-end">
+                <button class="btn btn-success w-100 fw-bold" onclick="crearAbonado()">+ GENERAR ALTA Y TOKEN</button>
+            </div>
+        </div>
+
+        <div id="agendaContenido" style="max-height: 400px; overflow-y: auto;"></div>
+    </div>
+</div>
+
+<script>
+    let peer, mainMap;
+    const units = {};
+    const CENTRAL_ID = 'PABLO-CENTRAL-MASTER-2026';
+    const alarm = new Audio('https://www.soundjay.com/buttons/beep-01a.mp3');
+    const carIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', iconSize: [35, 35], className: 'fuchsia-car' });
+
+    function init() {
+        mainMap = L.map('mainMap').setView([-31.5375, -68.5364], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mainMap);
+        conectarCentral();
+        renderAgenda();
+        setInterval(renderAgenda, 60000);
+    }
+
+    function toggleAgenda(show) { document.getElementById('agendaModal').style.display = show ? 'block' : 'none'; }
+
+    function conectarCentral() {
+        peer = new Peer(CENTRAL_ID);
         peer.on('connection', (conn) => {
             conn.on('data', (data) => {
-                if (data.tipo === 'login') crearCardUnidad(data.nombre, conn.peer);
-                if (data.tipo === 'gps') actualizarGPS(conn.peer, data.lat, data.lng);
-                if (data.tipo === 'sos') marcarSOS(conn.peer);
+                if(data.tipo === 'login') manejarLogin(conn, data);
+                if(data.tipo === 'gps') actualizarPosicion(conn.peer, data.lat, data.lng);
+                if(data.tipo === 'sos') activarSOS(conn.peer);
             });
         });
         peer.on('call', (call) => {
             call.answer();
-            call.on('stream', (stream) => {
-                const vid = document.getElementById('video-' + call.peer);
-                if (vid) vid.srcObject = stream;
+            call.on('stream', (s) => {
+                const v = document.getElementById('v-' + call.peer);
+                if(v) { v.srcObject = s; v.play(); }
+                units[call.peer].stream = s;
             });
         });
-        function crearCardUnidad(nombre, peerId) {
-            if (document.getElementById('card-' + peerId)) return;
-            const col = document.createElement('div');
-            col.className = 'col-md-3'; col.id = 'card-' + peerId;
-            col.innerHTML = `<div class="video-card"><h6>${nombre}</h6><video id="video-${peerId}" autoplay muted playsinline></video></div>`;
-            document.getElementById('grid-unidades').appendChild(col);
-            unidades[peerId] = { marker: L.marker([0, 0]).addTo(map).bindPopup(nombre) };
+    }
+
+    function manejarLogin(conn, data) {
+        let db = JSON.parse(localStorage.getItem('pablo_agenda') || '[]');
+        let user = db.find(u => u.nombre === data.nombre.toUpperCase() && u.token === data.token);
+        if(user && Date.now() < user.vence) {
+            conn.send({ tipo: 'auth_ok', vence: user.vence });
+            crearOActualizarCelda(conn.peer, user.nombre);
+        } else {
+            conn.send({ tipo: 'error', msg: 'ACCESO DENEGADO' });
         }
-        function actualizarGPS(peerId, lat, lng) {
-            if (unidades[peerId]) unidades[peerId].marker.setLatLng([lat, lng]);
+    }
+
+    function crearOActualizarCelda(pid, nombre) {
+        let ex = document.querySelector(`[data-u="${nombre}"]`);
+        if(ex) {
+            const oldPid = ex.id.replace('card-', '');
+            if(units[oldPid]) units[oldPid].markerGen.remove();
+            ex.remove();
         }
-        function marcarSOS(peerId) {
-            document.getElementById('card-' + peerId)?.classList.add('sos-alert');
-            alert("¡ALERTA SOS RECIBIDA!");
-        }
-    </script>
+
+        const grid = document.getElementById('monitorGrid');
+        const card = document.createElement('div');
+        card.className = 'unit-card';
+        card.id = 'card-' + pid;
+        card.setAttribute('data-u', nombre);
+        card.innerHTML = `
+            <div class="unit-header">${nombre}</div>
+            <div class="video-box">
+                <div id="sos-over-${pid}" class="sos-overlay"></div>
+                <video id="v-${pid}" autoplay playsinline muted></video>
+            </div>
+            <div class="unit-actions">
+                <button class="btn-ctrl" style="color:#ff0" onclick="hablar('${pid}')">🎤 HABLAR</button>
+                <button class="btn-ctrl" onclick="escuchar('${pid}')">🔊 ESCUCHAR</button>
+                <button class="btn-ctrl" onclick="zoomVideo('${pid}')">FULL VID</button>
+                <button class="btn-ctrl" onclick="zoomGPS('${pid}')">FULL GPS</button>
+            </div>
+            <div id="m-i-${pid}" style="height:90px; border-top:1px solid #333;"></div>
+        `;
+        grid.prepend(card);
+        
+        const mi = L.map('m-i-' + pid, { zoomControl: false, attributionControl: false }).setView([0,0], 15);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mi);
+        units[pid] = { 
+            mi, 
+            markerInd: L.marker([0,0]).addTo(mi), 
+            markerGen: L.marker([0,0], {icon: carIcon}).addTo(mainMap).bindPopup(nombre)
+        };
+    }
+
+    // --- LOGICA DE AGERNDA Y TOKENS ---
+    function crearAbonado() {
+        const nombre = document.getElementById('regNombre').value.trim().toUpperCase();
+        const horas = parseInt(document.getElementById('regTiempo').value);
+        if(!nombre) return alert("Poné un nombre");
+
+        let db = JSON.parse(localStorage.getItem('pablo_agenda') || '[]');
+        const token = Math.floor(1000 + Math.random() * 8900).toString(); // TOKEN 4 CIFRAS
+        
+        db.push({ 
+            nombre, 
+            token, 
+            vence: Date.now() + (horas * 3600000) 
+        });
+        
+        localStorage.setItem('pablo_agenda', JSON.stringify(db));
+        document.getElementById('regNombre').value = "";
+        renderAgenda();
+    }
+
+    function renderAgenda() {
+        const cont = document.getElementById('agendaContenido');
+        let db = JSON.parse(localStorage.getItem('pablo_agenda') || '[]');
+        cont.innerHTML = db.map((u, index) => {
+            const h = Math.max(0, Math.floor((u.vence - Date.now()) / 3600000));
+            const m = Math.max(0, Math.floor(((u.vence - Date.now()) % 3600000) / 60000));
+            return `<div class="p-3 border border-secondary mb-2 d-flex justify-content-between align-items-center bg-black">
+                <span><b>${u.nombre}</b></span>
+                <span>TOKEN: <span class="token-tag">${u.token}</span></span>
+                <span class="badge ${h < 2 ? 'bg-danger' : 'bg-success'}">${h}h ${m}m restante</span>
+                <button class="btn btn-sm btn-danger" onclick="borrarAbonado(${index})">X</button>
+            </div>`;
+        }).join('');
+    }
+
+    function borrarAbonado(i) {
+        let db = JSON.parse(localStorage.getItem('pablo_agenda') || '[]');
+        db.splice(i, 1);
+        localStorage.setItem('pablo_agenda', JSON.stringify(db));
+        renderAgenda();
+    }
+
+    function actualizarPosicion(id, lat, lng) {
+        if(!units[id]) return;
+        units[id].mi.setView([lat, lng]);
+        units[id].markerInd.setLatLng([lat, lng]);
+        units[id].markerGen.setLatLng([lat, lng]);
+    }
+
+    window.onload = init;
+</script>
 </body>
 </html>
