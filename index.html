@@ -6,61 +6,85 @@
     <title>CHOFER - PABLO SECURITY</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        body { background: #000; color: #0f0; text-align: center; font-family: sans-serif; }
-        video { width: 90%; border: 2px solid #0f0; border-radius: 10px; margin-top: 10px; }
-        .btn { background: #0f0; color: #000; padding: 20px; width: 90%; border: none; font-weight: bold; border-radius: 10px; margin: 10px 0; }
+        body { background: #000; color: #0f0; text-align: center; font-family: sans-serif; margin: 0; padding: 10px; }
+        video { width: 100%; border: 2px solid #0f0; border-radius: 10px; margin-top: 10px; height: 40vh; object-fit: cover; }
+        .btn { background: #0f0; color: #000; padding: 20px; width: 95%; border: none; font-weight: bold; border-radius: 10px; margin: 10px 0; font-size: 16px; }
+        #idUnidad { padding: 15px; width: 85%; background: #111; border: 1px solid #0f0; color: #0f0; margin-bottom: 10px; }
     </style>
 </head>
 <body>
-    <h2>PABLO SECURITY</h2>
-    <input type="text" id="idUnidad" placeholder="UNIDAD (Ej: 1234)" style="padding:15px; width:80%;">
-    <button class="btn" onclick="iniciar()">ACTIVAR TRANSMISIÓN</button>
+    <div id="setup">
+        <h2>PABLO SECURITY</h2>
+        <input type="text" id="idUnidad" placeholder="ID UNIDAD (Ej: MOVIL-01)">
+        <button class="btn" onclick="iniciar()">ACTIVAR SISTEMA</button>
+    </div>
+
     <div id="panel" style="display:none;">
         <video id="vLocal" autoplay muted playsinline></video>
         <button class="btn" onclick="compartir()">COPIAR LINK PASAJERO</button>
+        <button class="btn" style="background:red; color:white;" onclick="enviarSOS()">B O T Ó N - S O S</button>
     </div>
 
     <script>
-        let peer, miStream;
+        let peer, miStream, connCentral;
         const CENTRAL_ID = 'PABLO-CENTRAL-MASTER-2026';
 
         async function iniciar() {
-            const nom = document.getElementById('idUnidad').value.trim();
-            if(!nom) return alert("Pone el ID");
+            const nom = document.getElementById('idUnidad').value.trim().toUpperCase();
+            if(!nom) return alert("Pone el nombre de la unidad");
 
-            miStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-            document.getElementById('vLocal').srcObject = miStream;
-            document.getElementById('panel').style.display = 'block';
+            try {
+                // Capturar Cámara y Audio
+                miStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                document.getElementById('vLocal').srcObject = miStream;
+                document.getElementById('setup').style.display = 'none';
+                document.getElementById('panel').style.display = 'block';
 
-            // ID FIJO: Esto es lo que busca la central
-            peer = new Peer('PABLO-U-' + nom, {
-                config: { 'iceServers': [{ url: 'stun:stun.l.google.com:19302' }] }
-            });
-
-            // RESPONDER AUTOMÁTICAMENTE A TODO
-            peer.on('call', (call) => {
-                console.log("Llamada entrante...");
-                call.answer(miStream);
-            });
-
-            peer.on('open', () => {
-                // Intentar conectar a la central para el GPS
-                const conn = peer.connect(CENTRAL_ID);
-                conn.on('open', () => {
-                    conn.send({ tipo: 'login', nombre: nom });
-                    peer.call(CENTRAL_ID, miStream); // Mandar video a central
-                    
-                    navigator.geolocation.watchPosition(p => {
-                        conn.send({ tipo: 'gps', lat: p.coords.latitude, lng: p.coords.longitude });
-                    });
+                // ID FIJO que busca la central: PABLO-U-NOMBRE
+                peer = new Peer('PABLO-U-' + nom.replace(/\s+/g, '-'), {
+                    config: { 'iceServers': [{ url: 'stun:stun.l.google.com:19302' }] }
                 });
+
+                // ESTO ES LO QUE ARREGLA EL VIDEO: Responder a cualquier llamado
+                peer.on('call', (call) => {
+                    call.answer(miStream);
+                });
+
+                peer.on('open', (id) => {
+                    console.log("ID de unidad activo:", id);
+                    conectarCentral(nom);
+                });
+
+            } catch (e) { alert("Error de cámara: " + e); }
+        }
+
+        function conectarCentral(nom) {
+            connCentral = peer.connect(CENTRAL_ID);
+            connCentral.on('open', () => {
+                // 1. Mandamos datos para que aparezca en el mapa de la central
+                connCentral.send({ tipo: 'login', nombre: nom });
+                
+                // 2. Llamamos a la central con video para que aparezca en el grid
+                peer.call(CENTRAL_ID, miStream);
+
+                // 3. Empezamos a mandar el GPS
+                navigator.geolocation.watchPosition(p => {
+                    if(connCentral.open) {
+                        connCentral.send({ tipo: 'gps', lat: p.coords.latitude, lng: p.coords.longitude });
+                    }
+                }, null, { enableHighAccuracy: true });
             });
         }
 
         function compartir() {
-            const url = window.location.href.replace('index.html', 'pasajero.html') + '?id=' + peer.id;
+            const base = window.location.href.split('index.html')[0];
+            const url = base + 'pasajero.html?id=' + peer.id;
             navigator.clipboard.writeText(url);
-            alert("Link copiado");
+            alert("¡Link copiado!");
+        }
+
+        function enviarSOS() {
+            if(connCentral && connCentral.open) connCentral.send({ tipo: 'sos' });
         }
     </script>
 </body>
