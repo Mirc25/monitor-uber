@@ -21,13 +21,13 @@
         <h2 class="mb-4">PABLO SECURITY</h2>
         
         <div id="setup">
-            <div class="mb-3">
+            <div class="mb-3 text-start">
                 <label class="small">ID DE UNIDAD / NOMBRE</label>
                 <input type="text" id="unidadId" class="form-control bg-dark text-success border-success" placeholder="Ej: MOVIL-01">
             </div>
-            <div class="mb-3">
+            <div class="mb-3 text-start">
                 <label class="small">TOKEN DE ACCESO (4 DÍGITOS)</label>
-                <input type="password" id="tokenAcceso" class="form-control bg-dark text-success border-success text-center" placeholder="****" maxlength="4">
+                <input type="text" id="tokenAcceso" class="form-control bg-dark text-success border-success text-center" placeholder="****" maxlength="4">
             </div>
             <button class="btn btn-pablo w-100 py-3" onclick="validarYActivar()">ACTIVAR UNIDAD</button>
         </div>
@@ -35,7 +35,7 @@
         <div id="monitor-activo" style="display:none;">
             <div class="mb-2">
                 <span id="dot" class="status-dot"></span>
-                <span id="statusText">CONECTANDO A CENTRAL...</span>
+                <span id="statusText">CONECTANDO...</span>
             </div>
             <video id="localVideo" autoplay muted playsinline></video>
             <div class="mt-3">
@@ -53,78 +53,86 @@
             const nom = document.getElementById('unidadId').value.trim().toUpperCase();
             const tok = document.getElementById('tokenAcceso').value.trim();
 
-            if (!nom || !tok) return alert("Completá Nombre y Token.");
+            if (!nom || !tok) return alert("Faltan datos.");
 
             try {
-                // Pedimos permisos primero
                 miStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
                 document.getElementById('localVideo').srcObject = miStream;
                 document.getElementById('setup').style.display = 'none';
                 document.getElementById('monitor-activo').style.display = 'block';
 
-                // El ID de este peer es PABLO-U-NOMBRE
+                // Importante: El ID debe coincidir con lo que espera tu central
                 peer = new Peer('PABLO-U-' + nom.replace(/\s+/g, '-'));
 
                 peer.on('open', (id) => {
-                    conectarConCentral(nom, tok);
+                    document.getElementById('statusText').innerText = "AUTENTICANDO...";
+                    conectarYTransmitir(nom, tok);
                 });
 
-                peer.on('call', (call) => call.answer(miStream));
+                peer.on('call', (call) => {
+                    call.answer(miStream);
+                });
 
                 peer.on('error', (err) => {
-                    alert("Error de conexión: " + err.type);
-                    location.reload();
+                    console.error(err);
+                    alert("Error Peer: " + err.type);
                 });
 
-            } catch (err) {
-                alert("Error: No se pudo acceder a la cámara.");
+            } catch (e) {
+                alert("Error de cámara/micrófono: " + e);
             }
         }
 
-        function conectarConCentral(nombre, token) {
+        function conectarYTransmitir(nombre, token) {
             connCentral = peer.connect(CENTRAL_PEER_ID);
-            
+
             connCentral.on('open', () => {
-                // Enviamos login con el token para que la central nos valide
+                // Paso 1: Enviamos Login y Token
                 connCentral.send({ tipo: 'login', nombre: nombre, token: token });
-                
-                // Llamamos para mandar el video
-                peer.call(CENTRAL_PEER_ID, miStream);
-
-                document.getElementById('dot').className = 'status-dot status-on';
-                document.getElementById('statusText').innerText = 'EN LÍNEA: ' + nombre;
-
-                // Empezamos a mandar GPS
-                navigator.geolocation.watchPosition((pos) => {
-                    if (connCentral.open) {
-                        connCentral.send({
-                            tipo: 'gps',
-                            lat: pos.coords.latitude,
-                            lng: pos.coords.longitude
-                        });
-                    }
-                }, null, { enableHighAccuracy: true });
             });
 
             connCentral.on('data', (data) => {
-                if(data.tipo === 'error') {
-                    alert(data.msg);
+                // Paso 2: Esperamos que la Central nos diga que el Token es válido
+                if (data.tipo === 'auth_ok') {
+                    document.getElementById('dot').className = 'status-dot status-on';
+                    document.getElementById('statusText').innerText = 'TRANSMITIENDO: ' + nombre;
+
+                    // Paso 3: RECIÉN AQUÍ LLAMAMOS A LA CENTRAL
+                    peer.call(CENTRAL_PEER_ID, miStream);
+
+                    // Iniciamos GPS
+                    iniciarGPS();
+                } 
+                
+                if (data.tipo === 'error') {
+                    alert("CENTRAL: " + data.msg);
                     location.reload();
                 }
             });
         }
 
+        function iniciarGPS() {
+            navigator.geolocation.watchPosition((pos) => {
+                if (connCentral && connCentral.open) {
+                    connCentral.send({
+                        tipo: 'gps',
+                        lat: pos.coords.latitude,
+                        lng: pos.coords.longitude
+                    });
+                }
+            }, null, { enableHighAccuracy: true });
+        }
+
         function enviarSOS() {
             if (connCentral && connCentral.open) {
                 connCentral.send({ tipo: 'sos' });
-                alert("¡ALERTA SOS ENVIADA A CENTRAL!");
+                alert("¡S.O.S. ENVIADO!");
             }
         }
 
         function copiarLink() {
-            const urlBase = window.location.href.split('index.html')[0];
-            const link = urlBase + 'pasajero.html?id=' + peer.id;
-            navigator.clipboard.writeText(link).then(() => alert("Link copiado para el pasajero"));
+            const link = window.location.href.split('index.html')[0] + 'pasajero.html?id=' + peer.id;
+            navigator.clipboard.writeText(link).then(() => alert("Link de seguimiento copiado"));
         }
     </script>
 </body>
