@@ -2,85 +2,118 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>MONITOREO - PABLO SECURITY</title>
+    <title>PABLO SECURITY - MÓVIL</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        body { margin:0; background:#000; color:#0f0; font-family: sans-serif; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
-        #video-container { height: 45%; background: #111; position: relative; border-bottom: 2px solid #0f0; display: flex; align-items: center; justify-content: center; }
-        video { width: 100%; height: 100%; object-fit: cover; background: #000; }
-        #map { flex: 1; z-index: 1; }
-        .badge { position: absolute; top: 10px; left: 10px; z-index: 100; background: #0f0; color: #000; padding: 5px 12px; border-radius: 20px; font-weight: bold; font-size: 11px; }
-        #overlay { position: absolute; z-index: 101; width: 100%; height: 100%; background: rgba(0,0,0,0.8); color: #0f0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; cursor: pointer; font-weight: bold; }
+        body { background: #000; color: #0f0; font-family: sans-serif; text-align: center; margin: 0; display: flex; flex-direction: column; min-height: 100vh; }
+        #app { display: none; flex-direction: column; flex: 1; }
+        input { width: 80%; padding: 15px; margin: 10px; border-radius: 8px; border: 1px solid #0f0; background: #111; color: #0f0; text-align: center; font-size: 16px; }
+        button { width: 85%; padding: 18px; background: #008000; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 16px; }
+        #sos { background: #f00; height: 80px; font-size: 25px; margin: auto 10px 20px 10px; box-shadow: 0 0 20px red; }
+        video { width: 100%; background: #111; border-bottom: 2px solid #0f0; max-height: 30vh; object-fit: cover; }
+        .panel { background: #111; border: 1px solid #0f0; margin: 10px; padding: 15px; border-radius: 10px; }
+        select { width: 100%; padding: 10px; background: #000; color: #0f0; border: 1px solid #0f0; margin-bottom: 10px; }
     </style>
 </head>
 <body>
-    <div id="video-container">
-        <div class="badge">🛡️ VIVO</div>
-        <div id="overlay" onclick="iniciar()">
-            <div style="font-size: 40px;">⚠️</div>
-            <div>TOCAR AQUÍ PARA<br>VER VIDEO DEL VIAJE</div>
-        </div>
-        <video id="v" autoplay muted playsinline></video>
+
+    <div id="login" style="padding: 20px;">
+        <h2>PABLO SECURITY</h2>
+        <input type="text" id="nom" placeholder="ID UNIDAD">
+        <input type="text" id="tok" placeholder="TOKEN">
+        <button onclick="activar()">CONECTAR UNIDAD</button>
     </div>
-    <div id="map"></div>
 
-<script>
-    const params = new URLSearchParams(window.location.search);
-    const driverID = params.get('id');
-    const expire = parseInt(params.get('exp'));
-
-    if (Date.now() > expire) {
-        document.body.innerHTML = "<h2 style='color:white;text-align:center;padding:50px;'>VIAJE FINALIZADO</h2>";
-    } else {
-        const map = L.map('map', {zoomControl:false}).setView([-31.5375, -68.5364], 16);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-        const carIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', iconSize: [40, 40] });
-        let marker = L.marker([-31.5375, -68.5364], {icon: carIcon}).addTo(map);
-
-        // CONFIGURACIÓN CON SERVIDORES DE GOOGLE
-        const peer = new Peer({
-            config: {'iceServers': [
-                { url: 'stun:stun.l.google.com:19302' },
-                { url: 'stun:stun1.l.google.com:19302' }
-            ]}
-        });
-
-        const videoElement = document.getElementById('v');
+    <div id="app">
+        <video id="vLocal" autoplay muted playsinline></video>
+        <div id="status" style="font-size:12px; margin:5px;">● UNIDAD ACTIVA - TRANSMITIENDO</div>
         
-        function conectar() {
-            const conn = peer.connect(driverID);
-            conn.on('data', (d) => {
-                if(d.tipo === 'gps') {
-                    marker.setLatLng([d.lat, d.lng]);
-                    map.panTo([d.lat, d.lng]);
-                }
-            });
+        <div class="panel">
+            <h4 style="margin:0 0 10px 0;">⭐ VIAJE 5 ESTRELLAS</h4>
+            <select id="mins">
+                <option value="6">6 MINUTOS</option>
+                <option value="15">15 MINUTOS</option>
+                <option value="30">30 MINUTOS</option>
+            </select>
+            <button style="background:#0f0; color:#000;" onclick="compartir()">COPIAR LINK PASAJERO</button>
+        </div>
 
-            // Llamada forzando video
-            const call = peer.call(driverID, new MediaStream());
-            call.on('stream', (s) => {
-                videoElement.srcObject = s;
-                document.getElementById('overlay').style.display = 'none';
-                videoElement.play();
-            });
+        <button id="sos" onclick="enviarSOS()">B O T Ó N - S O S</button>
+        <audio id="audioCentral" autoplay></audio>
+    </div>
+
+    <script>
+        const CENTRAL_ID = 'PABLO-CENTRAL-MASTER-2026';
+        let miPeer, miStream, miConexion, pasajeros = [];
+
+        async function activar() {
+            const nom = document.getElementById('nom').value.toUpperCase();
+            const tok = document.getElementById('tok').value;
+            if(!nom || !tok) return alert("Faltan datos");
+
+            try {
+                miStream = await navigator.mediaDevices.getUserMedia({
+                    video: { width: 640, height: 480, facingMode: "user" },
+                    audio: true
+                });
+                document.getElementById('vLocal').srcObject = miStream;
+
+                // CONFIGURACIÓN CON SERVIDORES DE GOOGLE (Crucial para 4G)
+                miPeer = new Peer('ID-' + Math.floor(Math.random()*99999), {
+                    config: {'iceServers': [
+                        { url: 'stun:stun.l.google.com:19302' },
+                        { url: 'stun:stun1.l.google.com:19302' }
+                    ]}
+                });
+                
+                miPeer.on('open', (id) => {
+                    miConexion = miPeer.connect(CENTRAL_ID);
+                    miConexion.on('open', () => {
+                        miConexion.send({ tipo: 'login', nombre: nom, token: tok });
+                        miPeer.call(CENTRAL_ID, miStream);
+                        document.getElementById('login').style.display = 'none';
+                        document.getElementById('app').style.display = 'flex';
+                        
+                        navigator.geolocation.watchPosition(p => {
+                            const gps = { tipo: 'gps', lat: p.coords.latitude, lng: p.coords.longitude };
+                            if(miConexion.open) miConexion.send(gps);
+                            pasajeros.forEach(c => { if(c.open) c.send(gps); });
+                        }, null, { enableHighAccuracy: true });
+                    });
+                });
+
+                miPeer.on('call', call => {
+                    call.answer(miStream);
+                    console.log("Video enviado.");
+                });
+
+                miPeer.on('connection', conn => {
+                    if(conn.peer !== CENTRAL_ID) {
+                        pasajeros.push(conn);
+                        navigator.geolocation.getCurrentPosition(p => {
+                            conn.send({ tipo: 'gps', lat: p.coords.latitude, lng: p.coords.longitude });
+                        });
+                    }
+                });
+
+            } catch(e) { alert("Error de cámara."); }
         }
 
-        peer.on('open', conectar);
-
-        function iniciar() { 
-            videoElement.play();
-            document.getElementById('overlay').style.display = 'none';
-        }
-        
-        setInterval(() => {
-            if (videoElement.paused && videoElement.srcObject) {
-                videoElement.play().catch(()=>{});
+        function enviarSOS() {
+            if(miConexion && miConexion.open) {
+                miConexion.send({ tipo: 'sos' });
+                alert("ALERTA SOS ENVIADA");
             }
-        }, 3000);
-    }
-</script>
+        }
+
+        function compartir() {
+            const link = `${window.location.href.split('index.html')[0]}pasajero.html?id=${miPeer.id}&exp=${Date.now()+(document.getElementById('mins').value*60000)}`;
+            const msj = `Viaje 5 estrellas. Toca el video: ${link}`;
+            if(navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(msj).then(() => alert("Copiado"));
+            } else { prompt("Copia:", msj); }
+        }
+    </script>
 </body>
 </html>
