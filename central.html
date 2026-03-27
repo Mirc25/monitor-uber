@@ -31,20 +31,16 @@
 
         peer.on('connection', (conn) => {
             conn.on('data', (data) => {
-                const idUnidad = conn.peer;
-                if (data.tipo === 'login') crearCardUnidad(data.nombre, idUnidad);
-                if (data.tipo === 'gps') actualizarGPS(idUnidad, data.lat, data.lng);
-                if (data.tipo === 'sos') marcarSOS(idUnidad);
+                if (data.tipo === 'login') crearCardUnidad(data.nombre, conn.peer);
+                if (data.tipo === 'gps') actualizarGPS(conn.peer, data.lat, data.lng);
+                if (data.tipo === 'sos') marcarSOS(conn.peer);
             });
         });
         peer.on('call', (call) => {
             call.answer();
             call.on('stream', (stream) => {
-                const videoElement = document.getElementById('video-' + call.peer);
-                if (videoElement) {
-                    videoElement.srcObject = stream;
-                    videoElement.play();
-                }
+                const vid = document.getElementById('video-' + call.peer);
+                if (vid) vid.srcObject = stream;
             });
         });
         function crearCardUnidad(nombre, peerId) {
@@ -53,15 +49,14 @@
             col.className = 'col-md-3'; col.id = 'card-' + peerId;
             col.innerHTML = `<div class="video-card"><h6>${nombre}</h6><video id="video-${peerId}" autoplay muted playsinline></video></div>`;
             document.getElementById('grid-unidades').appendChild(col);
-            unidades[peerId] = { nombre: nombre, marker: L.marker([0, 0]).addTo(map).bindPopup(nombre) };
+            unidades[peerId] = { marker: L.marker([0, 0]).addTo(map).bindPopup(nombre) };
         }
         function actualizarGPS(peerId, lat, lng) {
             if (unidades[peerId]) unidades[peerId].marker.setLatLng([lat, lng]);
         }
         function marcarSOS(peerId) {
-            const card = document.getElementById('card-' + peerId);
-            if (card) card.classList.add('sos-alert');
-            alert("¡ALERTA SOS RECIBIDA DE LA UNIDAD!");
+            document.getElementById('card-' + peerId)?.classList.add('sos-alert');
+            alert("¡ALERTA SOS RECIBIDA!");
         }
     </script>
 </body>
