@@ -9,7 +9,7 @@
         body { background: #000; color: #0f0; font-family: sans-serif; text-align: center; margin: 0; display: flex; flex-direction: column; min-height: 100vh; }
         #app { display: none; flex-direction: column; flex: 1; }
         input { width: 80%; padding: 15px; margin: 10px; border-radius: 8px; border: 1px solid #0f0; background: #111; color: #0f0; text-align: center; font-size: 16px; }
-        button { width: 85%; padding: 18px; background: #008000; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 16px; }
+        button { width: 85%; padding: 18px; background: #008000; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer; }
         #sos { background: #f00; height: 80px; font-size: 25px; margin: auto 10px 20px 10px; box-shadow: 0 0 20px red; }
         video { width: 100%; background: #111; border-bottom: 2px solid #0f0; max-height: 30vh; object-fit: cover; }
         .panel { background: #111; border: 1px solid #0f0; margin: 10px; padding: 15px; border-radius: 10px; }
@@ -20,14 +20,14 @@
 
     <div id="login" style="padding: 20px;">
         <h2>PABLO SECURITY</h2>
-        <input type="text" id="nom" placeholder="ID UNIDAD">
+        <input type="text" id="nom" placeholder="ID UNIDAD (Ej: MOVIL 01)">
         <input type="text" id="tok" placeholder="TOKEN">
         <button onclick="activar()">CONECTAR UNIDAD</button>
     </div>
 
     <div id="app">
         <video id="vLocal" autoplay muted playsinline></video>
-        <div id="status" style="font-size:12px; margin:5px;">● UNIDAD ACTIVA - TRANSMITIENDO</div>
+        <div id="status" style="font-size:12px; margin:5px;">● TRANSMITIENDO EN VIVO</div>
         
         <div class="panel">
             <h4 style="margin:0 0 10px 0;">⭐ VIAJE 5 ESTRELLAS</h4>
@@ -40,12 +40,11 @@
         </div>
 
         <button id="sos" onclick="enviarSOS()">B O T Ó N - S O S</button>
-        <audio id="audioCentral" autoplay></audio>
     </div>
 
     <script>
         const CENTRAL_ID = 'PABLO-CENTRAL-MASTER-2026';
-        let miPeer, miStream, miConexion, pasajeros = [];
+        let miPeer, miStream, miConexion;
 
         async function activar() {
             const nom = document.getElementById('nom').value.toUpperCase();
@@ -53,10 +52,7 @@
             if(!nom || !tok) return alert("Faltan datos");
 
             try {
-                miStream = await navigator.mediaDevices.getUserMedia({
-                    video: { width: 640, height: 480, facingMode: "user" },
-                    audio: true
-                });
+                miStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
                 document.getElementById('vLocal').srcObject = miStream;
 
                 miPeer = new Peer('ID-' + Math.floor(Math.random()*99999), {
@@ -66,39 +62,31 @@
                 miPeer.on('open', (id) => {
                     miConexion = miPeer.connect(CENTRAL_ID);
                     miConexion.on('open', () => {
-                        // Enviamos login para que la central valide y cree la celda
                         miConexion.send({ tipo: 'login', nombre: nom, token: tok });
-                        
-                        // IMPORTANTE: Llamamos a la central con nuestro video
                         miPeer.call(CENTRAL_ID, miStream);
                         
                         document.getElementById('login').style.display = 'none';
                         document.getElementById('app').style.display = 'flex';
                         
                         navigator.geolocation.watchPosition(p => {
-                            const gps = { tipo: 'gps', lat: p.coords.latitude, lng: p.coords.longitude };
-                            if(miConexion.open) miConexion.send(gps);
+                            if(miConexion.open) miConexion.send({ tipo: 'gps', lat: p.coords.latitude, lng: p.coords.longitude });
                         }, null, { enableHighAccuracy: true });
                     });
                 });
-
-                miPeer.on('call', call => { call.answer(miStream); });
-            } catch(e) { alert("Error de cámara."); }
+            } catch(e) { alert("Error: Activá Cámara y GPS"); }
         }
 
         function enviarSOS() {
             if(miConexion && miConexion.open) {
                 miConexion.send({ tipo: 'sos' });
-                alert("ALERTA SOS ENVIADA");
+                alert("ALERTA ENVIADA A CENTRAL");
             }
         }
 
         function compartir() {
             const link = `${window.location.href.split('index.html')[0]}pasajero.html?id=${miPeer.id}&exp=${Date.now()+(document.getElementById('mins').value*60000)}`;
-            const msj = `Viaje 5 estrellas. Toca el video: ${link}`;
-            if(navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(msj).then(() => alert("Copiado"));
-            } else { prompt("Copia:", msj); }
+            const msj = `Tu viaje seguro: ${link}`;
+            navigator.clipboard.writeText(msj).then(() => alert("Link copiado"));
         }
     </script>
 </body>
