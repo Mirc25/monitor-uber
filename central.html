@@ -13,44 +13,48 @@
         
         .main-layout { display: flex; flex: 1; overflow: hidden; }
 
-        /* CUADRICULA DE MONITOREO (Izquierda) */
+        /* CUADRICULA DE 4 COLUMNAS (Imagen WhatsApp) */
         .grid-fleet { 
             flex: 1; display: grid; 
-            grid-template-columns: repeat(4, 1fr); /* 4 columnas como en tu imagen */
+            grid-template-columns: repeat(4, 1fr); 
             gap: 5px; padding: 5px; overflow-y: auto; 
             background: #111;
         }
 
         /* CELDA COMPACTA (Video + Botones + MiniMapa) */
-        .unit-card { background: #000; border: 1px solid #333; display: flex; flex-direction: column; height: 260px; position: relative; }
-        .video-box { height: 100px; background: #222; position: relative; }
+        .unit-card { background: #000; border: 1px solid #333; display: flex; flex-direction: column; height: 280px; position: relative; }
+        .unit-header { background: #1a1a1a; font-size: 10px; padding: 2px; text-align: center; color: #0f0; }
+        .video-box { height: 110px; background: #222; position: relative; cursor: zoom-in; }
         video { width: 100%; height: 100%; object-fit: cover; }
         
-        .unit-actions { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 2px; padding: 2px; background: #000; border-top: 1px solid #0f0; border-bottom: 1px solid #0f0; }
-        .btn-ctrl { font-size: 9px; padding: 3px 0; background: #fff; color: #000; border: none; font-weight: bold; cursor: pointer; }
-        .btn-ctrl:hover { background: #ccc; }
+        .unit-actions { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 2px; padding: 2px; background: #000; border-top: 1px solid #0f0; }
+        .btn-ctrl { font-size: 10px; padding: 4px 0; background: #fff; color: #000; border: none; font-weight: bold; cursor: pointer; text-transform: capitalize; }
+        .btn-active { background: #f00 !important; color: #fff !important; }
 
-        .mini-map { flex: 1; background: #333; border-top: 1px solid #333; }
+        .mini-map { flex: 1; background: #333; border-top: 1px solid #333; pointer-events: none; }
 
-        /* PANEL LATERAL DERECHO (Como tu imagen) */
+        /* PANEL LATERAL DERECHO */
         .side-panel { width: 320px; background: #222; display: flex; flex-direction: column; border-left: 2px solid #0f0; }
-        #mainMap { height: 250px; border-bottom: 2px solid #0f0; }
+        #mainMap { height: 280px; border-bottom: 2px solid #0f0; }
         
-        .tools-area { flex: 1; padding: 20px; display: flex; flex-direction: column; gap: 20px; align-items: center; justify-content: center; }
-        .btn-tool { background: #aaa; color: #000; font-weight: bold; padding: 15px; width: 100%; border-radius: 5px; text-transform: uppercase; font-size: 1.2rem; border: none; }
+        .tools-area { flex: 1; padding: 20px; display: flex; flex-direction: column; gap: 15px; align-items: center; justify-content: flex-start; }
+        .btn-tool { background: #aaa; color: #000; font-weight: bold; padding: 12px; width: 100%; border-radius: 4px; text-transform: uppercase; font-size: 1.1rem; border: none; }
         
-        .ai-switch { text-align: center; color: #fff; margin-top: 30px; }
-        .toggle { width: 80px; height: 35px; background: #fff; border-radius: 20px; display: inline-block; position: relative; margin-top: 10px; }
-        .toggle::after { content: ''; position: absolute; right: 5px; top: 5px; width: 25px; height: 25px; background: #eee; border-radius: 50%; box-shadow: 0 0 5px #000; }
+        .ai-switch { text-align: center; color: #fff; margin-top: 20px; }
+        .toggle-btn { width: 70px; height: 30px; background: #fff; border-radius: 20px; display: inline-block; position: relative; margin-top: 10px; cursor: pointer; }
+        .toggle-btn::after { content: ''; position: absolute; right: 5px; top: 4px; width: 22px; height: 22px; background: #ddd; border-radius: 50%; box-shadow: 0 0 3px #000; }
 
-        #agendaModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 1000; padding: 20px; }
+        /* MODAL AGENDA */
+        #agendaModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.96); z-index: 2000; padding: 25px; }
+        .agenda-container { max-width: 800px; margin: 0 auto; background: #111; border: 1px solid #0f0; padding: 20px; border-radius: 8px; color: #0f0; }
+        .table { color: #0f0 !important; }
     </style>
 </head>
 <body>
 
 <div class="top-bar">
-    <div style="font-weight: bold;">PABLO SECURITY CENTRAL CHIMBAS</div>
-    <button class="btn btn-sm btn-success" onclick="toggleAgenda(true)">+ ABRIR AGENDA Y TOKENS</button>
+    <div style="font-weight: bold; color: #0f0; letter-spacing: 1px;">PABLO SECURITY CENTRAL CHIMBAS</div>
+    <button class="btn btn-sm btn-success fw-bold" onclick="toggleAgenda(true)">📂 ABRIR AGENDA Y TOKENS</button>
 </div>
 
 <div class="main-layout">
@@ -58,31 +62,64 @@
 
     <div class="side-panel">
         <div id="mainMap"></div>
-        
         <div class="tools-area">
             <button class="btn-tool">carpeta negra</button>
             <button class="btn-tool">siguientes</button>
-            
             <div class="ai-switch">
-                <div>ia reconocimiento facial</div>
-                <div class="toggle"></div>
-                <div style="margin-top: 5px; font-weight: bold;">activada</div>
+                <div style="font-size: 14px;">ia reconocimiento facial</div>
+                <div class="toggle-btn"></div>
+                <div style="margin-top: 5px; font-weight: bold; font-size: 13px;">activada</div>
             </div>
         </div>
     </div>
 </div>
 
-<div id="agendaModal"> ... </div>
+<div id="agendaModal">
+    <div class="agenda-container">
+        <div class="d-flex justify-content-between mb-3 border-bottom border-success pb-2">
+            <h4>GESTIÓN DE ABONADOS</h4>
+            <button class="btn btn-sm btn-danger" onclick="toggleAgenda(false)">CERRAR [X]</button>
+        </div>
+        <div class="row g-2 mb-4 bg-dark p-3 rounded border border-success">
+            <div class="col-md-5">
+                <input type="text" id="regNombre" class="form-control bg-black text-success border-success" placeholder="NOMBRE UNIDAD">
+            </div>
+            <div class="col-md-3">
+                <select id="regTiempo" class="form-select bg-black text-success border-success">
+                    <option value="24">24 HORAS</option>
+                    <option value="168">7 DÍAS</option>
+                    <option value="720">30 DÍAS</option>
+                </select>
+            </div>
+            <div class="col-md-4"><button class="btn btn-success w-100 fw-bold" onclick="generarAlta()">+ GENERAR ALTA</button></div>
+        </div>
+        <div style="max-height: 400px; overflow-y: auto;">
+            <table class="table table-dark table-hover border-success">
+                <thead><tr><th>UNIDAD</th><th>TOKEN</th><th>VENCIMIENTO</th><th>ACCIONES</th></tr></thead>
+                <tbody id="listaAbonados"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
 
 <script>
-    let peer, mainMap;
+    let peer, mainMap, miMicStream;
     const units = {};
     const CENTRAL_ID = 'PABLO-CENTRAL-MASTER-2026';
+
+    function obtenerDB() {
+        try {
+            const data = localStorage.getItem('pablo_db');
+            const lista = data ? JSON.parse(data) : [];
+            return Array.isArray(lista) ? lista : [];
+        } catch (e) { return []; }
+    }
 
     function init() {
         mainMap = L.map('mainMap').setView([-31.5375, -68.5364], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mainMap);
         conectarCentral();
+        renderAgenda();
     }
 
     function conectarCentral() {
@@ -102,6 +139,17 @@
         });
     }
 
+    function manejarLogin(conn, data) {
+        let db = obtenerDB();
+        const user = db.find(u => u.nombre === data.nombre.toUpperCase() && u.token === data.token);
+        if(user && Date.now() < new Date(user.expira).getTime()) {
+            crearOActualizarCelda(conn.peer, user.nombre);
+            conn.send({ tipo: 'auth_ok' });
+        } else {
+            conn.send({ tipo: 'error', msg: 'ACCESO DENEGADO' });
+        }
+    }
+
     function crearOActualizarCelda(pid, nombre) {
         if(document.getElementById('card-' + pid)) return;
         const grid = document.getElementById('monitorGrid');
@@ -109,17 +157,16 @@
         card.className = 'unit-card';
         card.id = 'card-' + pid;
         card.innerHTML = `
-            <div class="video-box"><video id="v-${pid}" autoplay muted playsinline></video></div>
+            <div class="unit-header">${nombre}</div>
+            <div class="video-box" onclick="zoomVideo('${pid}')"><video id="v-${pid}" autoplay muted playsinline></video></div>
             <div class="unit-actions">
-                <button class="btn-ctrl" onclick="escuchar('${pid}')">Escuchar</button>
-                <button class="btn-ctrl" onclick="hablar('${pid}')">hablar</button>
+                <button id="btn-e-${pid}" class="btn-ctrl" onclick="toggleEscuchar('${pid}')">Escuchar</button>
+                <button id="btn-h-${pid}" class="btn-ctrl" onclick="toggleHablar('${pid}')">hablar</button>
                 <button class="btn-ctrl" style="color:red">Stop SOS</button>
             </div>
             <div id="m-${pid}" class="mini-map"></div>
         `;
         grid.prepend(card);
-        
-        // Inicializar mini-mapa para cada unidad
         const m = L.map('m-' + pid, { zoomControl: false, attributionControl: false }).setView([0,0], 15);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(m);
         units[pid] = { m, mark: L.marker([0,0]).addTo(m) };
@@ -133,7 +180,63 @@
         }
     }
 
+    function generarAlta() {
+        const n = document.getElementById('regNombre').value.trim().toUpperCase();
+        const t = document.getElementById('regTiempo').value;
+        if(!n) return alert("Falta nombre");
+        let db = obtenerDB();
+        db.push({
+            nombre: n,
+            token: Math.floor(1000 + Math.random() * 9000).toString(),
+            expira: new Date(Date.now() + (parseInt(t) * 3600000)).toISOString()
+        });
+        localStorage.setItem('pablo_db', JSON.stringify(db));
+        document.getElementById('regNombre').value = "";
+        renderAgenda();
+    }
+
+    function renderAgenda() {
+        const tabla = document.getElementById('listaAbonados');
+        if (!tabla) return;
+        let db = obtenerDB();
+        tabla.innerHTML = db.map((u, i) => `
+            <tr><td>${u.nombre}</td><td class="text-warning">${u.token}</td><td>${new Date(u.expira).toLocaleString()}</td>
+            <td><button class="btn btn-sm btn-danger" onclick="eliminarAbonado(${i})">X</button></td></tr>
+        `).join('');
+    }
+
+    function eliminarAbonado(i) {
+        let db = obtenerDB();
+        db.splice(i, 1);
+        localStorage.setItem('pablo_db', JSON.stringify(db));
+        renderAgenda();
+    }
+
     function toggleAgenda(show) { document.getElementById('agendaModal').style.display = show ? 'block' : 'none'; }
+    
+    function zoomVideo(pid) { 
+        const v = document.getElementById('v-' + pid);
+        v.requestFullscreen ? v.requestFullscreen() : v.webkitRequestFullscreen();
+    }
+
+    async function toggleHablar(pid) {
+        const btn = document.getElementById('btn-h-' + pid);
+        if(btn.classList.contains('btn-active')) { location.reload(); return; }
+        try {
+            if(!miMicStream) miMicStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            peer.call(pid, miMicStream);
+            btn.classList.add('btn-active'); btn.innerText = "AL AIRE";
+        } catch(e) { alert("Error Mic: " + e); }
+    }
+
+    function toggleEscuchar(pid) {
+        const v = document.getElementById('v-' + pid);
+        const btn = document.getElementById('btn-e-' + pid);
+        v.muted = !v.muted;
+        btn.classList.toggle('btn-active');
+        btn.innerText = v.muted ? "Escuchar" : "Mute";
+    }
+
     window.onload = init;
 </script>
 </body>
