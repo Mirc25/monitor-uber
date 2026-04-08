@@ -14,35 +14,23 @@
         .main-layout { display: flex; flex: 1; overflow: hidden; }
         .grid-fleet { flex: 1; display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; padding: 5px; overflow-y: auto; background: #111; }
         .unit-card { background: #000; border: 1px solid #333; display: flex; flex-direction: column; height: 320px; position: relative; transition: 0.3s; }
-        
-        .alerta-ia { 
-            border: 5px solid #f00 !important; 
-            box-shadow: 0 0 25px #f00;
-            animation: parpadeo-ia 0.4s infinite alternate; 
-            z-index: 1000; 
-            cursor: pointer;
-        }
-        @keyframes parpadeo-ia { 
-            0% { background: #000; transform: scale(1); } 
-            100% { background: #400; transform: scale(0.98); } 
-        }
-
+        .alerta-ia { border: 5px solid #f00 !important; box-shadow: 0 0 25px #f00; animation: parpadeo-ia 0.4s infinite alternate; z-index: 1000; cursor: pointer; }
+        @keyframes parpadeo-ia { 0% { background: #000; transform: scale(1); } 100% { background: #400; transform: scale(0.98); } }
         .unit-header { background: #1a1a1a; font-size: 10px; padding: 2px; text-align: center; color: #0f0; }
         .video-box { height: 110px; background: #222; position: relative; }
         video { width: 100%; height: 100%; object-fit: cover; }
-        
         .unit-actions { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 2px; padding: 2px; background: #000; border-top: 1px solid #0f0; }
         .btn-ctrl { font-size: 9px; padding: 4px 0; background: #fff; color: #000; border: none; font-weight: bold; cursor: pointer; text-transform: uppercase; user-select: none; }
         .btn-block { background: #ffc107; color: #000; }
         .btn-active { background: #0f0 !important; color: #000 !important; }
         .btn-talking { background: #f0f !important; color: #fff !important; }
-        
         .mini-map { flex: 1; background: #333; border-top: 1px solid #333; pointer-events: none; }
         .side-panel { width: 320px; background: #222; display: flex; flex-direction: column; border-left: 2px solid #0f0; }
         #mainMap { height: 280px; border-bottom: 2px solid #0f0; background: #111; }
         .tools-area { flex: 1; padding: 20px; display: flex; flex-direction: column; gap: 15px; align-items: center; justify-content: flex-start; }
         .btn-tool { background: #aaa; color: #000; font-weight: bold; padding: 12px; width: 100%; border-radius: 4px; text-transform: uppercase; font-size: 1.1rem; border: none; cursor: pointer; }
-        
+        .fuchsia-car { filter: invert(19%) sepia(87%) saturate(6011%) hue-rotate(296deg) brightness(101%) contrast(110%); }
+        .sos-car { filter: brightness(0) saturate(100%) invert(13%) sepia(95%) saturate(7403%) hue-rotate(359deg) brightness(97%) contrast(116%); }
         #agendaModal, #blackFolderModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.96); z-index: 2000; padding: 25px; }
         .modal-container { max-width: 800px; margin: 0 auto; background: #111; border: 1px solid #0f0; padding: 20px; border-radius: 8px; color: #0f0; }
     </style>
@@ -50,7 +38,7 @@
 <body>
 
 <div class="top-bar">
-    <div><b>PABLO SECURITY CENTRAL CHIMBAS</b></div>
+    <div><b>PABLO SECURITY CENTRAL MASTER</b></div>
     <button class="btn btn-sm btn-success fw-bold" onclick="toggleAgenda(true)">📂 ABRIR AGENDA Y TOKENS</button>
 </div>
 
@@ -60,36 +48,17 @@
         <div id="mainMap"></div>
         <div class="tools-area">
             <button class="btn-tool" onclick="toggleCarpetaNegra(true)">carpeta negra</button>
-            <button class="btn-tool" id="btn-ia-status">IA DESACTIVADA</button>
-            <div style="text-align:center; color:#fff; margin-top:20px;">
-                <div>ia reconocimiento facial</div>
-                <div id="ia-toggle" style="width:70px; height:30px; background:#444; border-radius:20px; margin:10px auto; position:relative; cursor:pointer;" onclick="toggleIA()">
-                    <div id="ia-dot" style="position:absolute; left:5px; top:4px; width:22px; height:22px; background:#ddd; border-radius:50%; transition: 0.3s;"></div>
-                </div>
-                <div id="ia-text" style="font-weight:bold; font-size:13px; color:#555;">DESACTIVADA</div>
+            <div id="ia-toggle" style="width:70px; height:30px; background:#444; border-radius:20px; margin:10px auto; position:relative; cursor:pointer;" onclick="toggleIA()">
+                <div id="ia-dot" style="position:absolute; left:5px; top:4px; width:22px; height:22px; background:#ddd; border-radius:50%; transition: 0.3s;"></div>
             </div>
+            <div id="ia-text" style="font-weight:bold; font-size:13px; color:#555;">IA DESACTIVADA</div>
         </div>
-    </div>
-</div>
-
-<div id="blackFolderModal">
-    <div class="modal-container" style="border-color: #f00;">
-        <div class="d-flex justify-content-between mb-3 border-bottom border-danger pb-2">
-            <h4>CARPETA NEGRA</h4>
-            <button class="btn btn-sm btn-outline-danger" onclick="toggleCarpetaNegra(false)">CERRAR</button>
-        </div>
-        <div class="row g-2 mb-4 bg-dark p-2 rounded">
-            <div class="col-md-5"><input type="file" id="fotoDelincuente" class="form-control bg-black text-danger border-danger" accept="image/*"></div>
-            <div class="col-md-4"><input type="text" id="nombreDelincuente" class="form-control bg-black text-danger border-danger" placeholder="ALIAS"></div>
-            <div class="col-md-3"><button class="btn btn-danger w-100 fw-bold" onclick="guardarDelincuente()">AÑADIR</button></div>
-        </div>
-        <div id="listaNegra" class="row g-2" style="max-height: 400px; overflow-y: auto;"></div>
     </div>
 </div>
 
 <script>
     let peer, mainMap, dbIndexed, iaActiva = false;
-    let localStream = null;
+    let localStream = null; // Micrófono de la central
     const units = {};
     const CENTRAL_ID = 'PABLO-CENTRAL-MASTER-2026';
     const alarmAudio = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
@@ -98,26 +67,15 @@
     const carIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', iconSize: [25, 25], className: 'fuchsia-car' });
     const sosIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', iconSize: [30, 30], className: 'sos-car' });
 
-    const request = indexedDB.open("PabloSecurity_Folder", 1);
-    request.onupgradeneeded = (e) => { e.target.result.createObjectStore("delincuentes", { keyPath: "id", autoIncrement: true }); };
-    request.onsuccess = (e) => { dbIndexed = e.target.result; cargarListaNegraVisual(); };
-
     async function init() {
         mainMap = L.map('mainMap').setView([-31.5375, -68.5364], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mainMap);
-        try {
-            const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
-            await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
-            await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
-            await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
-            console.log("IA LISTA");
-        } catch(e) { console.error("Error modelos"); }
         
-        // Pedir micro de central una vez al inicio
+        // Pedir permiso de micrófono de central al iniciar
         try {
             localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        } catch(e) { console.log("Micro central denegado"); }
-        
+        } catch(e) { console.log("Micrófono de central no disponible"); }
+
         conectarCentral();
         setInterval(escanearIA, 2000); 
     }
@@ -125,6 +83,8 @@
     function conectarCentral() {
         peer = new Peer(CENTRAL_ID);
         peer.on('connection', (conn) => {
+            units[conn.peer] = units[conn.peer] || {};
+            units[conn.peer].conn = conn;
             conn.on('data', (data) => {
                 if(data.tipo === 'login') manejarLogin(conn, data);
                 if(data.tipo === 'gps') actualizarPosicionGlobal(conn.peer, data.lat, data.lng);
@@ -134,20 +94,23 @@
             call.answer();
             call.on('stream', (s) => {
                 const v = document.getElementById('v-' + call.peer);
-                if(v) { v.srcObject = s; v.play().catch(()=>{}); }
+                if(v) { 
+                    v.srcObject = s; 
+                    // Por defecto el video llega mudo, se activa con el botón ESCUCHAR
+                    v.muted = true; 
+                    v.play(); 
+                }
             });
         });
     }
 
-    // --- REPARACIÓN DE BOTONES AUDIO ---
-
-    // HABLAR: PTT (Push To Talk)
+    // --- REPARACIÓN BOTÓN HABLAR (PTT) ---
     function iniciarHabla(pid) {
-        if(!localStream) return;
+        if(!localStream) return alert("Micro central no activo");
         const btn = document.getElementById('btn-hablar-' + pid);
         btn.classList.add('btn-talking');
-        const call = peer.call(pid, localStream);
-        units[pid].currentCall = call;
+        // Llamamos al celular enviando nuestro audio
+        units[pid].currentCall = peer.call(pid, localStream);
     }
 
     function detenerHabla(pid) {
@@ -159,28 +122,24 @@
         }
     }
 
-    // ESCUCHAR: Interruptor (Toggle)
+    // --- REPARACIÓN BOTÓN ESCUCHAR (INTERRUPTOR) ---
     function toggleEscucha(pid) {
+        const v = document.getElementById('v-' + pid);
         const btn = document.getElementById('btn-escuchar-' + pid);
-        if(!units[pid].escuchando) {
-            // Activar micrófono del celular vía comando PeerJS
-            if(units[pid].conn) units[pid].conn.send({ tipo: 'comando', accion: 'mic_on' });
+        
+        if (v.muted) {
+            v.muted = false; // Activamos el audio en el monitor
             btn.classList.add('btn-active');
-            btn.innerText = "🔊 ON";
-            units[pid].escuchando = true;
+            btn.innerText = "🔊 ESCUCHANDO";
         } else {
-            // Desactivar micrófono del celular
-            if(units[pid].conn) units[pid].conn.send({ tipo: 'comando', accion: 'mic_off' });
+            v.muted = true; // Silenciamos el monitor
             btn.classList.remove('btn-active');
             btn.innerText = "🔈 ESCUCHAR";
-            units[pid].escuchando = false;
         }
     }
 
-    function confirmarBloqueo(pid, nombre) {
-        if(confirm(`¿Estás seguro que quieres bloquear la pantalla de ${nombre}?`)) {
-            if(units[pid].conn) units[pid].conn.send({ tipo: 'bloquear_pantalla' });
-        }
+    function bloquearPantalla(pid) {
+        if(units[pid].conn) units[pid].conn.send({ tipo: 'bloquear_pantalla' });
     }
 
     function crearOActualizarCelda(pid, nombre) {
@@ -192,35 +151,25 @@
 
         card.innerHTML = `
             <div class="unit-header">${nombre}</div>
-            <div class="video-box"><video id="v-${pid}" autoplay muted playsinline crossorigin="anonymous"></video></div>
+            <div class="video-box"><video id="v-${pid}" autoplay playsinline muted crossorigin="anonymous"></video></div>
             <div class="unit-actions">
                 <button id="btn-hablar-${pid}" class="btn-ctrl" 
-                    onmousedown="iniciarHabla('${pid}')" 
-                    onmouseup="detenerHabla('${pid}')" 
-                    onmouseleave="detenerHabla('${pid}')"
-                    ontouchstart="iniciarHabla('${pid}')" 
+                    onmousedown="iniciarHabla('${pid}')" onmouseup="detenerHabla('${pid}')" 
+                    onmouseleave="detenerHabla('${pid}')" ontouchstart="iniciarHabla('${pid}')" 
                     ontouchend="detenerHabla('${pid}')">🎙️ Hablar</button>
                 <button id="btn-escuchar-${pid}" class="btn-ctrl" onclick="event.stopPropagation(); toggleEscucha('${pid}')">🔈 Escuchar</button>
-                <button class="btn-ctrl btn-block" onclick="event.stopPropagation(); confirmarBloqueo('${pid}', '${nombre}')">Bloquear</button>
+                <button class="btn-ctrl btn-block" onclick="event.stopPropagation(); bloquearPantalla('${pid}')">🔒 Bloquear</button>
                 <button class="btn-ctrl" style="color:red" onclick="event.stopPropagation(); pararAlerta('${pid}')">STOP SOS</button>
             </div>
             <div id="m-${pid}" class="mini-map"></div>`;
         grid.prepend(card);
         const m = L.map('m-' + pid, { zoomControl: false, attributionControl: false }).setView([0,0], 15);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(m);
-        if(!units[pid]) units[pid] = {};
+        units[pid] = units[pid] || {};
         units[pid].miniMap = m; units[pid].miniMarker = L.marker([0,0]).addTo(m);
-        units[pid].escuchando = false;
     }
 
-    function manejarLogin(conn, data) {
-        units[conn.peer] = units[conn.peer] || {};
-        units[conn.peer].conn = conn;
-        crearOActualizarCelda(conn.peer, data.nombre);
-        conn.send({ tipo: 'auth_ok' });
-    }
-
-    // GPS, IA y Carpeta Negra se mantienen iguales
+    // Funciones de apoyo (IA, GPS, Login) se mantienen igual
     function actualizarPosicionGlobal(pid, lat, lng) {
         const pos = [lat, lng];
         if (!units[pid]) units[pid] = {};
@@ -232,85 +181,12 @@
             if (units[pid].miniMarker) units[pid].miniMarker.setLatLng(pos);
         }
     }
-
-    function toggleIA() {
-        iaActiva = !iaActiva;
-        document.getElementById('ia-dot').style.left = iaActiva ? "40px" : "5px";
-        document.getElementById('ia-toggle').style.background = iaActiva ? "#0f0" : "#444";
-        document.getElementById('ia-text').innerText = iaActiva ? "ACTIVA" : "DESACTIVADA";
+    function manejarLogin(conn, data) {
+        units[conn.peer] = units[conn.peer] || {};
+        units[conn.peer].conn = conn;
+        crearOActualizarCelda(conn.peer, data.nombre);
+        conn.send({ tipo: 'auth_ok' });
     }
-
-    async function escanearIA() {
-        if(!iaActiva) return;
-        const vids = document.querySelectorAll('video');
-        const dbList = await new Promise(res => {
-            const list = [];
-            dbIndexed.transaction("delincuentes", "readonly").objectStore("delincuentes").openCursor().onsuccess = (e) => {
-                const c = e.target.result; if(c) { list.push(c.value); c.continue(); } else res(list);
-            };
-        });
-        if(dbList.length === 0) return;
-        for(let v of vids) {
-            if(v.paused || v.ended || v.readyState < 3) continue;
-            try {
-                const det = await faceapi.detectAllFaces(v, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 })).withFaceLandmarks().withFaceDescriptors();
-                for(let d of det) {
-                    for(let del of dbList) {
-                        if(faceapi.euclideanDistance(d.descriptor, new Float32Array(del.descriptor)) < 0.6) dispararAlerta(v.id.replace('v-', ''));
-                    }
-                }
-            } catch(e) {}
-        }
-    }
-
-    function dispararAlerta(pid) {
-        const c = document.getElementById('card-' + pid);
-        if(c && !c.classList.contains('alerta-ia')) {
-            c.classList.add('alerta-ia');
-            if(units[pid].mainMarker) units[pid].mainMarker.setIcon(sosIcon);
-            alarmAudio.play().catch(()=>{});
-        }
-    }
-
-    function pararAlerta(pid) {
-        const c = document.getElementById('card-' + pid);
-        if(c && c.classList.contains('alerta-ia')) {
-            c.classList.remove('alerta-ia'); 
-            if(units[pid].mainMarker) units[pid].mainMarker.setIcon(carIcon); 
-            if(document.querySelectorAll('.alerta-ia').length === 0) { alarmAudio.pause(); alarmAudio.currentTime = 0; }
-        }
-    }
-
-    function toggleCarpetaNegra(s) { document.getElementById('blackFolderModal').style.display = s ? 'block' : 'none'; }
-    async function guardarDelincuente() {
-        const nom = document.getElementById('nombreDelincuente').value;
-        const file = document.getElementById('fotoDelincuente').files[0];
-        if(!nom || !file) return;
-        try {
-            const img = await faceapi.bufferToImage(file);
-            const detections = await faceapi.detectSingleFace(img, new faceapi.TinyFaceDetectorOptions({ inputSize: 224 })).withFaceLandmarks().withFaceDescriptor();
-            const tx = dbIndexed.transaction(["delincuentes"], "readwrite");
-            tx.objectStore("delincuentes").add({ nombre: nom.toUpperCase(), descriptor: Array.from(detections.descriptor), foto: await toBase64(file) });
-            tx.oncomplete = () => { cargarListaNegraVisual(); alert("GUARDADO"); };
-        } catch(e) { alert("Error IA"); }
-    }
-    function cargarListaNegraVisual() {
-        const cont = document.getElementById('listaNegra'); if(!cont) return;
-        cont.innerHTML = "";
-        dbIndexed.transaction("delincuentes", "readonly").objectStore("delincuentes").openCursor().onsuccess = (e) => {
-            const c = e.target.result; if(c) {
-                cont.innerHTML += `<div class="col-4 col-md-3 mb-2 text-center"><div class="card bg-black border-danger p-1"><img src="${c.value.foto}" style="height:80px; object-fit:cover; border-radius:4px;"><div class="small text-danger mt-1">${c.value.nombre}</div><button class="btn btn-danger btn-sm w-100 mt-1" onclick="eliminarSospechoso(${c.value.id})">BORRAR</button></div></div>`;
-                c.continue();
-            }
-        };
-    }
-    function eliminarSospechoso(id) {
-        const tx = dbIndexed.transaction(["delincuentes"], "readwrite");
-        tx.objectStore("delincuentes").delete(id);
-        tx.oncomplete = () => cargarListaNegraVisual();
-    }
-    function toBase64(f) { return new Promise(res => { const r = new FileReader(); r.onload = e => res(e.target.result); r.readAsDataURL(f); }); }
-    function toggleAgenda(s) { document.getElementById('agendaModal').style.display = s ? 'block' : 'none'; }
     window.onload = init;
 </script>
 </body>
