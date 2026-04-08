@@ -82,6 +82,18 @@
     const CENTRAL_ID = 'PABLO-CENTRAL-MASTER-2026';
     const alarm = new Audio('https://www.soundjay.com/buttons/beep-01a.mp3');
 
+    // FUNCIÓN PARA OBTENER LA BASE DE DATOS SEGURA
+    function obtenerDB() {
+        try {
+            let data = localStorage.getItem('pablo_db');
+            let lista = data ? JSON.parse(data) : [];
+            // Si por alguna razón no es una lista, devolvemos una vacía
+            return Array.isArray(lista) ? lista : [];
+        } catch (e) {
+            return [];
+        }
+    }
+
     function init() {
         mainMap = L.map('mainMap').setView([-31.5375, -68.5364], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mainMap);
@@ -107,7 +119,7 @@
     }
 
     function manejarLogin(conn, data) {
-        let db = JSON.parse(localStorage.getItem('pablo_db') || '[]');
+        let db = obtenerDB();
         const user = db.find(u => u.nombre === data.nombre.toUpperCase() && u.token === data.token);
         if(user && Date.now() < new Date(user.expira).getTime()) {
             crearOActualizarCelda(conn.peer, user.nombre);
@@ -122,8 +134,7 @@
         const t = document.getElementById('regTiempo').value;
         if(!n) return alert("Ingresa un nombre");
 
-        // CORRECCIÓN CLAVE: Usar parseInt para que la suma funcione
-        let db = JSON.parse(localStorage.getItem('pablo_db') || '[]');
+        let db = obtenerDB(); // Obtenemos la lista limpia
         const horasEnMilisegundos = parseInt(t) * 3600000; 
         const fechaVencimiento = new Date(Date.now() + horasEnMilisegundos);
 
@@ -136,12 +147,14 @@
         db.push(nuevo);
         localStorage.setItem('pablo_db', JSON.stringify(db));
         document.getElementById('regNombre').value = "";
-        renderAgenda(); // Refresca la tabla inmediatamente
+        renderAgenda();
     }
 
     function renderAgenda() {
         const tabla = document.getElementById('listaAbonados');
-        let db = JSON.parse(localStorage.getItem('pablo_db') || '[]');
+        if (!tabla) return;
+        
+        let db = obtenerDB();
         tabla.innerHTML = db.map((u, i) => `
             <tr>
                 <td>${u.nombre}</td>
@@ -153,7 +166,7 @@
     }
 
     function eliminarAbonado(i) {
-        let db = JSON.parse(localStorage.getItem('pablo_db') || '[]');
+        let db = obtenerDB();
         db.splice(i, 1);
         localStorage.setItem('pablo_db', JSON.stringify(db));
         renderAgenda();
