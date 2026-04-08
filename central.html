@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>PABLO SECURITY - CENTRAL MAESTRA IA</title>
+    <title>PABLO SECURITY - CENTRAL MASTER 2026</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -13,16 +13,15 @@
         .top-bar { background: #000; border-bottom: 1px solid #0f0; padding: 5px 15px; display: flex; justify-content: space-between; align-items: center; height: 45px; }
         .main-layout { display: flex; flex: 1; overflow: hidden; }
         .grid-fleet { flex: 1; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; padding: 8px; overflow-y: auto; background: #111; }
-        .unit-card { background: #000; border: 1px solid #333; display: flex; flex-direction: column; height: 350px; position: relative; transition: 0.3s; }
+        .unit-card { background: #000; border: 1px solid #333; display: flex; flex-direction: column; height: 380px; position: relative; transition: 0.3s; }
         .alerta-ia { border: 5px solid #f00 !important; box-shadow: 0 0 25px #f00; animation: parpadeo-ia 0.4s infinite alternate; z-index: 1000; cursor: pointer; }
         @keyframes parpadeo-ia { 0% { background: #000; } 100% { background: #400; } }
-        .pausa-activa { border-bottom: 3px solid #00f !important; }
+        .pausa-activa { border-bottom: 4px solid #00f !important; }
         .unit-header { background: #1a1a1a; font-size: 10px; padding: 2px; text-align: center; color: #0f0; font-weight: bold; }
         .video-box { flex: 1; background: #000; position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-        video { height: 100%; width: auto; object-fit: contain; }
+        video { height: 100%; width: auto; object-fit: contain; background: #000; }
         .unit-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 4px; background: #000; border-top: 1px solid #0f0; }
         .btn-ctrl { font-size: 9px; padding: 8px 0; background: #fff; color: #000; border: none; font-weight: bold; cursor: pointer; text-transform: uppercase; user-select: none; }
-        .btn-gps { background: #007bff; color: #fff; }
         .btn-active { background: #0f0 !important; color: #000 !important; }
         .btn-talking { background: #f0f !important; color: #fff !important; }
         .side-panel { width: 320px; background: #222; display: flex; flex-direction: column; border-left: 2px solid #0f0; }
@@ -74,14 +73,11 @@
     </div>
 </div>
 
-<div id="gpsModal" class="modales"><div class="modal-container"><div class="d-flex justify-content-between"><h4>UBICACIÓN GPS</h4><button class="btn btn-sm btn-danger" onclick="cerrarMapaGPS()">CERRAR</button></div><div id="mapaFlotanteContainer"></div></div></div>
+<div id="gpsModal" class="modales"><div class="modal-container"><div class="d-flex justify-content-between"><h4>UBICACIÓN GPS</h4><button class="btn btn-sm btn-danger" onclick="cerrarMapaGPS()">X</button></div><div id="mapaFlotanteContainer"></div></div></div>
 
 <div id="blackFolderModal" class="modales">
     <div class="modal-container" style="border-color: #f00;">
-        <div class="d-flex justify-content-between mb-3 border-bottom border-danger pb-2">
-            <h4>CARPETA NEGRA</h4>
-            <button class="btn btn-sm btn-outline-danger" onclick="toggleCarpetaNegra(false)">CERRAR</button>
-        </div>
+        <div class="d-flex justify-content-between mb-3 border-bottom border-danger pb-2"><h4>CARPETA NEGRA</h4><button class="btn btn-sm btn-outline-danger" onclick="toggleCarpetaNegra(false)">CERRAR</button></div>
         <div class="row g-2 mb-4 bg-dark p-2 rounded">
             <div class="col-md-5"><input type="file" id="fotoDelincuente" class="form-control bg-black text-danger border-danger" accept="image/*"></div>
             <div class="col-md-4"><input type="text" id="nombreDelincuente" class="form-control bg-black text-danger border-danger" placeholder="ALIAS"></div>
@@ -114,7 +110,13 @@
             await faceapi.nets.tinyFaceDetector.loadFromUri(URL);
             await faceapi.nets.faceLandmark68Net.loadFromUri(URL);
             await faceapi.nets.faceRecognitionNet.loadFromUri(URL);
-        } catch(e) {}
+            console.log("IA MODELOS OK");
+        } catch(e) { console.error("Error IA"); }
+
+        try {
+            localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        } catch(e) { console.log("Micro central no activo"); }
+
         conectarCentral();
         renderAgenda();
         setInterval(escanearIA, 2000); 
@@ -139,45 +141,7 @@
         });
     }
 
-    // --- AGENDA CON TIEMPOS ---
-    function toggleAgenda(s) { document.getElementById('agendaModal').style.display = s ? 'block' : 'none'; }
-    
-    function generarAlta() {
-        const n = document.getElementById('regNombre').value.trim().toUpperCase();
-        const horas = parseInt(document.getElementById('regTiempo').value);
-        if(!n) return;
-        let db = JSON.parse(localStorage.getItem('pablo_db') || "[]");
-        db.push({ 
-            nombre: n, 
-            token: Math.floor(1000 + Math.random() * 9000).toString(), 
-            vence: Date.now() + (horas * 60 * 60 * 1000) 
-        });
-        localStorage.setItem('pablo_db', JSON.stringify(db));
-        document.getElementById('regNombre').value = "";
-        renderAgenda();
-    }
-
-    function renderAgenda() {
-        const list = JSON.parse(localStorage.getItem('pablo_db') || "[]");
-        const ahora = Date.now();
-        const cont = document.getElementById('listaAbonadosVisual');
-        if(!cont) return;
-        cont.innerHTML = list.map((u, i) => {
-            const falta = Math.round((u.vence - ahora) / (1000 * 60 * 60));
-            return `<div class="p-2 border-bottom border-secondary small d-flex justify-content-between align-items-center"><span>${u.nombre} - <b>${u.token}</b></span><span>${falta > 0 ? falta+'h rest.' : 'VENCIDO'}</span><button class="btn btn-xs btn-danger py-0" onclick="eliminarAbonado(${i})">X</button></div>`;
-        }).join('');
-    }
-
-    function eliminarAbonado(i) { let db = JSON.parse(localStorage.getItem('pablo_db') || "[]"); db.splice(i, 1); localStorage.setItem('pablo_db', JSON.stringify(db)); renderAgenda(); }
-    
-    function manejarLogin(conn, data) {
-        const db = JSON.parse(localStorage.getItem('pablo_db') || "[]");
-        const u = db.find(x => x.nombre === data.nombre.toUpperCase() && x.token === data.token);
-        if(u && Date.now() < u.vence) { crearOActualizarCelda(conn.peer, data.nombre); conn.send({ tipo: 'auth_ok' }); }
-        else { conn.send({ tipo: 'error', msg: 'ACCESO DENEGADO O VENCIDO' }); }
-    }
-
-    // --- MOTOR IA E GPS (MANTENIDO) ---
+    // --- MOTOR IA REESTABLECIDO ---
     async function escanearIA() {
         if(!iaActiva) return;
         const tx = dbIndexed.transaction("delincuentes", "readonly");
@@ -185,15 +149,19 @@
             const list = []; tx.objectStore("delincuentes").openCursor().onsuccess = (e) => { const c = e.target.result; if(c) { list.push(c.value); c.continue(); } else res(list); };
         });
         if(dbList.length === 0) return;
+
         const vids = document.querySelectorAll('video');
         for(let v of vids) {
             const pid = v.id.replace('v-', '');
-            if(units[pid]?.ignoreIA || v.readyState < 3) continue;
+            if(units[pid]?.ignoreIA || v.readyState < 3 || v.paused) continue;
             try {
-                const det = await faceapi.detectAllFaces(v, new faceapi.TinyFaceDetectorOptions()).withFaceDescriptors();
+                // Analizamos usando TinyDetector con sensibilidad alta
+                const det = await faceapi.detectAllFaces(v, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 })).withFaceDescriptors();
                 for(let d of det) {
                     for(let del of dbList) {
-                        if(faceapi.euclideanDistance(d.descriptor, new Float32Array(del.descriptor)) < 0.6) dispararAlerta(pid);
+                        if(faceapi.euclideanDistance(d.descriptor, new Float32Array(del.descriptor)) < 0.6) {
+                            dispararAlerta(pid);
+                        }
                     }
                 }
             } catch(e) {}
@@ -221,15 +189,46 @@
         }
     }
 
-    function abrirMapaGPS(pid, nombre) { document.getElementById('gpsModal').style.display = 'block'; const pos = [units[pid].lat, units[pid].lng]; if (!floatingMap) { floatingMap = L.map('mapaFlotanteContainer').setView(pos, 16); L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(floatingMap); floatingMarker = L.marker(pos, {icon: carIcon}).addTo(floatingMap); } else { floatingMap.setView(pos, 16); floatingMarker.setLatLng(pos); setTimeout(() => { floatingMap.invalidateSize(); }, 200); } }
-    function cerrarMapaGPS() { document.getElementById('gpsModal').style.display = 'none'; }
+    // --- AGENDA REPARADA ---
+    function toggleAgenda(s) { document.getElementById('agendaModal').style.display = s ? 'block' : 'none'; }
+    function generarAlta() {
+        const n = document.getElementById('regNombre').value.trim().toUpperCase();
+        const horas = parseInt(document.getElementById('regTiempo').value);
+        if(!n) return;
+        let db = JSON.parse(localStorage.getItem('pablo_db') || "[]");
+        db.push({ nombre: n, token: Math.floor(1000 + Math.random() * 9000).toString(), vence: Date.now() + (horas * 60 * 60 * 1000) });
+        localStorage.setItem('pablo_db', JSON.stringify(db));
+        document.getElementById('regNombre').value = "";
+        renderAgenda();
+    }
+    function renderAgenda() {
+        const list = JSON.parse(localStorage.getItem('pablo_db') || "[]");
+        const ahora = Date.now();
+        const cont = document.getElementById('listaAbonadosVisual');
+        if(!cont) return;
+        cont.innerHTML = list.map((u, i) => {
+            const falta = Math.round((u.vence - ahora) / (1000 * 60 * 60));
+            return `<div class="p-2 border-bottom border-secondary small d-flex justify-content-between align-items-center"><span>${u.nombre} - <b>${u.token}</b></span><span>${falta > 0 ? falta+'h rest.' : 'VENCIDO'}</span><button class="btn btn-xs btn-danger py-0" onclick="eliminarAbonado(${i})">X</button></div>`;
+        }).join('');
+    }
+    function eliminarAbonado(i) { let db = JSON.parse(localStorage.getItem('pablo_db') || "[]"); db.splice(i, 1); localStorage.setItem('pablo_db', JSON.stringify(db)); renderAgenda(); }
+    function manejarLogin(conn, data) {
+        const db = JSON.parse(localStorage.getItem('pablo_db') || "[]");
+        const u = db.find(x => x.nombre === data.nombre.toUpperCase() && x.token === data.token);
+        if(u && Date.now() < u.vence) { crearOActualizarCelda(conn.peer, data.nombre); conn.send({ tipo: 'auth_ok' }); }
+        else { conn.send({ tipo: 'error', msg: 'ACCESO DENEGADO O VENCIDO' }); }
+    }
+
+    // --- CONTROLES Y GPS ---
     function iniciarHabla(pid) { if(!localStream) return; llamadaActual = peer.call(pid, localStream); document.getElementById('btn-hablar-'+pid).classList.add('btn-talking'); }
     function detenerHabla(pid) { if(llamadaActual) { llamadaActual.close(); llamadaActual = null; } document.getElementById('btn-hablar-'+pid).classList.remove('btn-talking'); }
     function toggleEscucha(pid) { const v = document.getElementById('v-'+pid); v.muted = !v.muted; document.getElementById('btn-escuchar-'+pid).innerText = v.muted ? "🔈 ESCUCHAR" : "🔊 ON"; document.getElementById('btn-escuchar-'+pid).classList.toggle('btn-active'); }
     function bloquearPantalla(pid) { if(units[pid].conn) units[pid].conn.send({ tipo: 'comando', accion: 'bloquear' }); }
     function toggleIA() { iaActiva = !iaActiva; document.getElementById('ia-dot').style.left = iaActiva ? "40px" : "5px"; document.getElementById('ia-toggle').style.background = iaActiva ? "#0f0" : "#444"; document.getElementById('ia-text').innerText = iaActiva ? "ACTIVA" : "DESACTIVADA"; }
     function toggleCarpetaNegra(s) { document.getElementById('blackFolderModal').style.display = s ? 'block' : 'none'; }
-
+    function abrirMapaGPS(pid, nombre) { document.getElementById('gpsModal').style.display = 'block'; const pos = [units[pid].lat, units[pid].lng]; if (!floatingMap) { floatingMap = L.map('mapaFlotanteContainer').setView(pos, 16); L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(floatingMap); floatingMarker = L.marker(pos, {icon: carIcon}).addTo(floatingMap); } else { floatingMap.setView(pos, 16); floatingMarker.setLatLng(pos); setTimeout(() => { floatingMap.invalidateSize(); }, 200); } }
+    function cerrarMapaGPS() { document.getElementById('gpsModal').style.display = 'none'; }
+    
     function crearOActualizarCelda(pid, nombre) {
         if(document.getElementById('card-' + pid)) return;
         const grid = document.getElementById('monitorGrid');
