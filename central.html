@@ -14,13 +14,10 @@
         .main-layout { display: flex; flex: 1; overflow: hidden; }
         .grid-fleet { flex: 1; display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; padding: 5px; overflow-y: auto; background: #111; }
         .unit-card { background: #000; border: 1px solid #333; display: flex; flex-direction: column; height: 340px; position: relative; transition: 0.3s; }
-        
         .alerta-ia { border: 5px solid #f00 !important; box-shadow: 0 0 25px #f00; animation: parpadeo-ia 0.4s infinite alternate; z-index: 1000; cursor: pointer; }
         @keyframes parpadeo-ia { 0% { background: #000; } 100% { background: #400; } }
-        
         .pausa-ia { opacity: 0.7; border: 2px solid #00f !important; }
-        .pausa-ia::after { content: "IA EN PAUSA (3m)"; position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); background: #00f; color: #fff; padding: 5px; font-weight: bold; border-radius: 5px; z-index: 20; }
-
+        .pausa-ia::after { content: "IA PAUSADA 3M"; position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); background: #00f; color: #fff; padding: 5px; font-weight: bold; border-radius: 5px; z-index: 20; font-size: 12px; }
         .unit-header { background: #1a1a1a; font-size: 10px; padding: 2px; text-align: center; color: #0f0; }
         .video-box { height: 110px; background: #222; }
         video { width: 100%; height: 100%; object-fit: cover; }
@@ -28,7 +25,6 @@
         .btn-ctrl { font-size: 9px; padding: 8px 0; background: #fff; color: #000; border: none; font-weight: bold; cursor: pointer; text-transform: uppercase; }
         .btn-talking { background: #f0f !important; color: #fff !important; }
         .btn-active { background: #0f0 !important; color: #000 !important; }
-
         .mini-map { flex: 1; background: #333; pointer-events: none; }
         .side-panel { width: 320px; background: #222; display: flex; flex-direction: column; border-left: 2px solid #0f0; }
         #mainMap { height: 260px; border-bottom: 2px solid #0f0; }
@@ -39,7 +35,7 @@
 <body>
 
 <div class="top-bar">
-    <div style="font-weight: bold; color: #0f0;">PABLO SECURITY CENTRAL MASTER</div>
+    <div style="font-weight: bold;">PABLO SECURITY CENTRAL MASTER</div>
     <div>
         <button class="btn btn-sm btn-info fw-bold me-2" id="btn-micro-global" onclick="activarMicrofonoCentral()">🎤 ACTIVAR MICRO</button>
         <button class="btn btn-sm btn-success fw-bold" onclick="toggleAgenda(true)">📂 AGENDA Y TOKENS</button>
@@ -61,13 +57,13 @@
 </div>
 
 <div id="agendaModal" class="modales">
-    <div class="modal-container" style="border-color: #0f0;">
+    <div class="modal-container">
         <div class="d-flex justify-content-between mb-3 border-bottom border-success pb-2">
             <h4>GESTIÓN DE ABONADOS</h4>
             <button class="btn btn-sm btn-danger" onclick="toggleAgenda(false)">CERRAR</button>
         </div>
         <div class="row g-2 mb-3">
-            <div class="col-7"><input type="text" id="regNombre" class="form-control bg-dark text-white border-success" placeholder="NOMBRE"></div>
+            <div class="col-7"><input type="text" id="regNombre" class="form-control bg-dark text-white border-success" placeholder="NOMBRE CHOFER"></div>
             <div class="col-5"><button class="btn btn-success w-100" onclick="generarAlta()">DAR DE ALTA</button></div>
         </div>
         <div id="listaAbonadosVisual" class="bg-black p-2" style="max-height: 350px; overflow-y: auto;"></div>
@@ -76,40 +72,30 @@
 
 <div id="blackFolderModal" class="modales">
     <div class="modal-container" style="border-color: #f00;">
-        <h4>CARPETA NEGRA</h4>
+        <h4>LISTA NEGRA</h4>
         <button class="btn btn-sm btn-danger float-end" onclick="toggleCarpetaNegra(false)">CERRAR</button>
-        <div class="row g-2 my-4 bg-dark p-2 rounded">
+        <div class="row g-2 my-4 bg-dark p-2">
             <div class="col-md-5"><input type="file" id="fotoDelincuente" class="form-control bg-black text-danger border-danger" accept="image/*"></div>
             <div class="col-md-4"><input type="text" id="nombreDelincuente" class="form-control bg-black text-danger border-danger" placeholder="ALIAS"></div>
             <div class="col-md-3"><button class="btn btn-danger w-100 fw-bold" onclick="guardarDelincuente()">AÑADIR</button></div>
         </div>
-        <div id="listaNegra" class="row g-2"></div>
+        <div id="listaNegra" class="row g-2" style="max-height: 300px; overflow-y: auto;"></div>
     </div>
 </div>
 
 <script>
-    let peer, mainMap, dbIndexed, iaActiva = false;
-    let localStream = null;
-    let llamadaActual = null;
+    let peer, mainMap, dbIndexed, iaActiva = false, modelosListos = false;
+    let localStream = null, llamadaActual = null;
     const units = {};
     const CENTRAL_ID = 'PABLO-CENTRAL-MASTER-2026';
     const alarmAudio = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
     alarmAudio.loop = true;
-
     const carIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', iconSize: [25, 25], className: 'fuchsia-car' });
     const sosIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', iconSize: [30, 30], className: 'sos-car' });
 
     const request = indexedDB.open("PabloSecurity_Folder", 1);
     request.onupgradeneeded = (e) => { e.target.result.createObjectStore("delincuentes", { keyPath: "id", autoIncrement: true }); };
     request.onsuccess = (e) => { dbIndexed = e.target.result; cargarListaNegraVisual(); };
-
-    async function activarMicrofonoCentral() {
-        try {
-            localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            document.getElementById('btn-micro-global').classList.replace('btn-info', 'btn-success');
-            document.getElementById('btn-micro-global').innerText = "🎤 MICRO LISTO";
-        } catch (e) { alert("Error micro."); }
-    }
 
     async function init() {
         mainMap = L.map('mainMap').setView([-31.5375, -68.5364], 13);
@@ -119,7 +105,9 @@
             await faceapi.nets.tinyFaceDetector.loadFromUri(URL);
             await faceapi.nets.faceLandmark68Net.loadFromUri(URL);
             await faceapi.nets.faceRecognitionNet.loadFromUri(URL);
-        } catch(e) {}
+            modelosListos = true;
+            console.log("✅ IA LISTA");
+        } catch(e) { console.error("❌ IA ERROR"); }
         conectarCentral();
         renderAgenda();
         setInterval(escanearIA, 1500);
@@ -144,88 +132,34 @@
         });
     }
 
-    // --- AGENDA ---
-    function toggleAgenda(s) { document.getElementById('agendaModal').style.display = s ? 'block' : 'none'; }
-    function generarAlta() {
-        const n = document.getElementById('regNombre').value.toUpperCase();
-        if(!n) return;
-        let db = JSON.parse(localStorage.getItem('pablo_db') || "[]");
-        db.push({ nombre: n, token: Math.floor(1000 + Math.random() * 9000).toString() });
-        localStorage.setItem('pablo_db', JSON.stringify(db));
-        renderAgenda();
-    }
-    function renderAgenda() {
-        const list = JSON.parse(localStorage.getItem('pablo_db') || "[]");
-        document.getElementById('listaAbonadosVisual').innerHTML = list.map((u, i) => `<div class="p-1 border-bottom border-secondary small d-flex justify-content-between"><span>${u.nombre} - <b>${u.token}</b></span><button class="btn btn-xs btn-danger py-0" onclick="eliminarAbonado(${i})">X</button></div>`).join('');
-    }
-    function eliminarAbonado(i) {
-        let db = JSON.parse(localStorage.getItem('pablo_db') || "[]");
-        db.splice(i, 1);
-        localStorage.setItem('pablo_db', JSON.stringify(db));
-        renderAgenda();
-    }
-    function manejarLogin(conn, data) {
-        const db = JSON.parse(localStorage.getItem('pablo_db') || "[]");
-        const user = db.find(u => u.nombre === data.nombre.toUpperCase() && u.token === data.token);
-        if(user) { crearOActualizarCelda(conn.peer, data.nombre); conn.send({ tipo: 'auth_ok' }); }
-        else { conn.send({ tipo: 'error', msg: 'DENEGADO' }); }
-    }
-
-    // --- BOTONES CONTROL ---
-    function iniciarHabla(pid) { if(!localStream) return alert("Activa micro"); llamadaActual = peer.call(pid, localStream); document.getElementById('btn-hablar-'+pid).classList.add('btn-talking'); }
-    function detenerHabla(pid) { if(llamadaActual) { llamadaActual.close(); llamadaActual = null; } document.getElementById('btn-hablar-'+pid).classList.remove('btn-talking'); }
-    function toggleEscucha(pid) { const v = document.getElementById('v-'+pid); v.muted = !v.muted; document.getElementById('btn-escuchar-'+pid).innerText = v.muted ? "🔈 ESCUCHAR" : "🔊 ON"; document.getElementById('btn-escuchar-'+pid).classList.toggle('btn-active'); }
-    function bloquearPantalla(pid) { if(units[pid].conn) units[pid].conn.send({ tipo: 'bloquear_pantalla' }); }
-
-    function crearOActualizarCelda(pid, nombre) {
-        if(document.getElementById('card-' + pid)) return;
-        const grid = document.getElementById('monitorGrid');
-        const card = document.createElement('div');
-        card.className = 'unit-card'; card.id = 'card-' + pid;
-        card.onclick = function() { if(this.classList.contains('alerta-ia')) pararAlerta(pid); };
-        card.innerHTML = `
-            <div class="unit-header">${nombre}</div>
-            <div class="video-box"><video id="v-${pid}" autoplay playsinline muted crossorigin="anonymous"></video></div>
-            <div class="unit-actions">
-                <button id="btn-hablar-${pid}" class="btn-ctrl" onmousedown="iniciarHabla('${pid}')" onmouseup="detenerHabla('${pid}')" onmouseleave="detenerHabla('${pid}')">🎙️ Hablar</button>
-                <button id="btn-escuchar-${pid}" class="btn-ctrl" onclick="event.stopPropagation(); toggleEscucha('${pid}')">🔈 Escuchar</button>
-                <button class="btn-ctrl" style="background:#ffc107" onclick="event.stopPropagation(); bloquearPantalla('${pid}')">🔒 Bloquear</button>
-                <button class="btn-ctrl" style="color:red" onclick="event.stopPropagation(); pararAlerta('${pid}')">SOS</button>
-            </div>
-            <div id="m-${pid}" class="mini-map"></div>`;
-        grid.prepend(card);
-        const m = L.map('m-' + pid, { zoomControl: false, attributionControl: false }).setView([0,0], 15);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(m);
-        units[pid] = units[pid] || { ignoreIA: false };
-        units[pid].miniMap = m; units[pid].miniMarker = L.marker([0,0]).addTo(m);
-    }
-
-    // --- IA Y CARPETA ---
-    function toggleIA() { iaActiva = !iaActiva; document.getElementById('ia-dot').style.left = iaActiva ? "40px" : "5px"; document.getElementById('ia-toggle').style.background = iaActiva ? "#0f0" : "#444"; document.getElementById('ia-text').innerText = iaActiva ? "IA ACTIVA" : "IA DESACTIVADA"; document.getElementById('ia-text').style.color = iaActiva ? "#0f0" : "#555"; }
     async function escanearIA() {
-        if(!iaActiva) return;
+        if(!iaActiva || !modelosListos) return;
         const dbList = await new Promise(res => {
             const list = [];
-            dbIndexed.transaction("delincuentes", "readonly").objectStore("delincuentes").openCursor().onsuccess = (e) => {
+            const tx = dbIndexed.transaction("delincuentes", "readonly");
+            tx.objectStore("delincuentes").openCursor().onsuccess = (e) => {
                 const c = e.target.result; if(c) { list.push(c.value); c.continue(); } else res(list);
             };
         });
         if(dbList.length === 0) return;
+
         const vids = document.querySelectorAll('video');
         for(let v of vids) {
             const pid = v.id.replace('v-', '');
             if(units[pid] && units[pid].ignoreIA) continue;
-            if(v.readyState < 3) continue;
+            if(v.readyState < 3 || v.paused) continue;
             try {
-                const det = await faceapi.detectAllFaces(v, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.2 })).withFaceDescriptors();
+                const det = await faceapi.detectAllFaces(v, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.3 })).withFaceDescriptors();
                 for(let d of det) {
                     for(let del of dbList) {
-                        if(faceapi.euclideanDistance(d.descriptor, new Float32Array(del.descriptor)) < 0.62) dispararAlerta(pid);
+                        const dist = faceapi.euclideanDistance(d.descriptor, new Float32Array(del.descriptor));
+                        if(dist < 0.6) dispararAlerta(pid);
                     }
                 }
             } catch(e) {}
         }
     }
+
     function dispararAlerta(pid) {
         const c = document.getElementById('card-' + pid);
         if(c && !c.classList.contains('alerta-ia') && !units[pid].ignoreIA) {
@@ -234,6 +168,7 @@
             alarmAudio.play().catch(()=>{});
         }
     }
+
     function pararAlerta(pid) {
         const c = document.getElementById('card-' + pid);
         if(c) {
@@ -245,29 +180,46 @@
             if(document.querySelectorAll('.alerta-ia').length === 0) { alarmAudio.pause(); alarmAudio.currentTime = 0; }
         }
     }
-    function toggleCarpetaNegra(s) { document.getElementById('blackFolderModal').style.display = s ? 'block' : 'none'; }
+
     async function guardarDelincuente() {
         const nom = document.getElementById('nombreDelincuente').value;
         const file = document.getElementById('fotoDelincuente').files[0];
-        if(!nom || !file) return;
+        if(!nom || !file || !modelosListos) return alert("Faltan datos o IA no lista");
         try {
             const img = await faceapi.bufferToImage(file);
-            const detections = await faceapi.detectSingleFace(img, new faceapi.TinyFaceDetectorOptions({ inputSize: 416 })).withFaceDescriptor();
-            dbIndexed.transaction(["delincuentes"], "readwrite").objectStore("delincuentes").add({ nombre: nom.toUpperCase(), descriptor: Array.from(detections.descriptor), foto: await toBase64(file) });
-            cargarListaNegraVisual();
+            const det = await faceapi.detectSingleFace(img, new faceapi.TinyFaceDetectorOptions({ inputSize: 416 })).withFaceDescriptor();
+            if(!det) return alert("IA no detectó cara en foto");
+            const tx = dbIndexed.transaction(["delincuentes"], "readwrite");
+            tx.objectStore("delincuentes").add({ nombre: nom.toUpperCase(), descriptor: Array.from(det.descriptor), foto: await toBase64(file) });
+            tx.oncomplete = () => { cargarListaNegraVisual(); alert("GUARDADO"); };
         } catch(e) { alert("Error IA"); }
     }
+
     function cargarListaNegraVisual() {
         const cont = document.getElementById('listaNegra'); if(!cont) return;
         cont.innerHTML = "";
         dbIndexed.transaction("delincuentes", "readonly").objectStore("delincuentes").openCursor().onsuccess = (e) => {
             const c = e.target.result; if(c) {
-                cont.innerHTML += `<div class="col-4 mb-2 text-center"><div class="card bg-black border-danger p-1"><img src="${c.value.foto}" style="height:60px; object-fit:cover;"><button class="btn btn-danger btn-sm mt-1" onclick="eliminarSospechoso(${c.value.id})">X</button></div></div>`;
+                cont.innerHTML += `<div class="col-4 mb-2 text-center"><div class="card bg-black border-danger p-1"><img src="${c.value.foto}" style="height:60px; object-fit:cover;"><div class="small mt-1">${c.value.nombre}</div><button class="btn btn-danger btn-sm mt-1" onclick="eliminarSospechoso(${c.value.id})">X</button></div></div>`;
                 c.continue();
             }
         };
     }
+
     function eliminarSospechoso(id) { dbIndexed.transaction(["delincuentes"], "readwrite").objectStore("delincuentes").delete(id); setTimeout(cargarListaNegraVisual, 100); }
+    function activarMicrofonoCentral() { navigator.mediaDevices.getUserMedia({ audio: true }).then(s => { localStream = s; document.getElementById('btn-micro-global').className = "btn btn-sm btn-success fw-bold me-2"; document.getElementById('btn-micro-global').innerText = "🎤 MICRO OK"; }).catch(e => alert("Error micro")); }
+    function toggleAgenda(s) { document.getElementById('agendaModal').style.display = s ? 'block' : 'none'; }
+    function toggleCarpetaNegra(s) { document.getElementById('blackFolderModal').style.display = s ? 'block' : 'none'; }
+    function generarAlta() { const n = document.getElementById('regNombre').value.toUpperCase(); if(!n) return; let db = JSON.parse(localStorage.getItem('pablo_db') || "[]"); db.push({ nombre: n, token: Math.floor(1000 + Math.random() * 9000).toString() }); localStorage.setItem('pablo_db', JSON.stringify(db)); renderAgenda(); }
+    function renderAgenda() { const list = JSON.parse(localStorage.getItem('pablo_db') || "[]"); document.getElementById('listaAbonadosVisual').innerHTML = list.map((u, i) => `<div class="p-1 border-bottom border-secondary small d-flex justify-content-between"><span>${u.nombre} - <b>${u.token}</b></span><button class="btn btn-xs btn-danger py-0" onclick="eliminarAbonado(${i})">X</button></div>`).join(''); }
+    function eliminarAbonado(i) { let db = JSON.parse(localStorage.getItem('pablo_db') || "[]"); db.splice(i, 1); localStorage.setItem('pablo_db', JSON.stringify(db)); renderAgenda(); }
+    function manejarLogin(conn, data) { const db = JSON.parse(localStorage.getItem('pablo_db') || "[]"); const user = db.find(u => u.nombre === data.nombre.toUpperCase() && u.token === data.token); if(user) { crearOActualizarCelda(conn.peer, data.nombre); conn.send({ tipo: 'auth_ok' }); } else { conn.send({ tipo: 'error', msg: 'DENEGADO' }); } }
+    function toggleIA() { iaActiva = !iaActiva; document.getElementById('ia-dot').style.left = iaActiva ? "40px" : "5px"; document.getElementById('ia-toggle').style.background = iaActiva ? "#0f0" : "#444"; document.getElementById('ia-text').innerText = iaActiva ? "IA ACTIVA" : "IA DESACTIVADA"; document.getElementById('ia-text').style.color = iaActiva ? "#0f0" : "#555"; }
+    function iniciarHabla(pid) { if(!localStream) return; llamadaActual = peer.call(pid, localStream); document.getElementById('btn-hablar-'+pid).classList.add('btn-talking'); }
+    function detenerHabla(pid) { if(llamadaActual) { llamadaActual.close(); llamadaActual = null; } document.getElementById('btn-hablar-'+pid).classList.remove('btn-talking'); }
+    function toggleEscucha(pid) { const v = document.getElementById('v-'+pid); v.muted = !v.muted; document.getElementById('btn-escuchar-'+pid).innerText = v.muted ? "🔈 ESCUCHAR" : "🔊 ON"; document.getElementById('btn-escuchar-'+pid).classList.toggle('btn-active'); }
+    function bloquearPantalla(pid) { if(units[pid].conn) units[pid].conn.send({ tipo: 'comando', accion: 'bloquear' }); }
+    function crearOActualizarCelda(pid, nombre) { if(document.getElementById('card-' + pid)) return; const grid = document.getElementById('monitorGrid'); const card = document.createElement('div'); card.className = 'unit-card'; card.id = 'card-' + pid; card.onclick = function() { if(this.classList.contains('alerta-ia')) pararAlerta(pid); }; card.innerHTML = `<div class="unit-header">${nombre}</div><div class="video-box"><video id="v-${pid}" autoplay playsinline muted crossorigin="anonymous"></video></div><div class="unit-actions"><button id="btn-hablar-${pid}" class="btn-ctrl" onmousedown="iniciarHabla('${pid}')" onmouseup="detenerHabla('${pid}')" onmouseleave="detenerHabla('${pid}')">🎙️ Hablar</button><button id="btn-escuchar-${pid}" class="btn-ctrl" onclick="event.stopPropagation(); toggleEscucha('${pid}')">🔈 Escuchar</button><button class="btn-ctrl" style="background:#ffc107" onclick="event.stopPropagation(); bloquearPantalla('${pid}')">🔒 Bloquear</button><button class="btn-ctrl" style="color:red" onclick="event.stopPropagation(); pararAlerta('${pid}')">SOS</button></div><div id="m-${pid}" class="mini-map"></div>`; grid.prepend(card); const m = L.map('m-' + pid, { zoomControl: false, attributionControl: false }).setView([0,0], 15); L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(m); units[pid] = units[pid] || { ignoreIA: false }; units[pid].miniMap = m; units[pid].miniMarker = L.marker([0,0]).addTo(m); }
     function actualizarPosicionGlobal(pid, lat, lng) { const pos = [lat, lng]; if(!units[pid]) units[pid] = {ignoreIA: false}; if(!units[pid].mainMarker) { units[pid].mainMarker = L.marker(pos, {icon: carIcon}).addTo(mainMap).bindPopup(pid); } else { units[pid].mainMarker.setLatLng(pos); } if(units[pid].miniMap) { units[pid].miniMap.setView(pos); if(units[pid].miniMarker) units[pid].miniMarker.setLatLng(pos); } }
     function toBase64(f) { return new Promise(res => { const r = new FileReader(); r.onload = e => res(e.target.result); r.readAsDataURL(f); }); }
     window.onload = init;
