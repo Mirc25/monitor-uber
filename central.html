@@ -46,7 +46,7 @@
         <div class="row g-2 mb-4 bg-dark p-3 rounded border border-success">
             <div class="col-md-5">
                 <label class="small text-success">NOMBRE DEL MÓVIL</label>
-                <input type="text" id="regNombre" class="form-control bg-black text-success border-success" placeholder="EJ: MOVIL 1">
+                <input type="text" id="regNombre" class="form-control bg-black text-success border-success" placeholder="MOVIL 1">
             </div>
             <div class="col-md-3">
                 <label class="small text-success">DURACIÓN</label>
@@ -80,18 +80,14 @@
     let peer, mainMap, miMicStream;
     const units = {};
     const CENTRAL_ID = 'PABLO-CENTRAL-MASTER-2026';
-    const alarm = new Audio('https://www.soundjay.com/buttons/beep-01a.mp3');
 
-    // FUNCIÓN PARA OBTENER LA BASE DE DATOS SEGURA
+    // Función segura para obtener la base de datos
     function obtenerDB() {
         try {
-            let data = localStorage.getItem('pablo_db');
-            let lista = data ? JSON.parse(data) : [];
-            // Si por alguna razón no es una lista, devolvemos una vacía
+            const data = localStorage.getItem('pablo_db');
+            const lista = data ? JSON.parse(data) : [];
             return Array.isArray(lista) ? lista : [];
-        } catch (e) {
-            return [];
-        }
+        } catch (e) { return []; }
     }
 
     function init() {
@@ -113,7 +109,11 @@
             call.answer();
             call.on('stream', (s) => {
                 const v = document.getElementById('v-' + call.peer);
-                if(v) { v.srcObject = s; v.play(); }
+                if(v) {
+                    v.srcObject = s;
+                    // Corrección para el error AbortError
+                    v.play().catch(e => console.warn("Reproducción postergada"));
+                }
             });
         });
     }
@@ -134,9 +134,8 @@
         const t = document.getElementById('regTiempo').value;
         if(!n) return alert("Ingresa un nombre");
 
-        let db = obtenerDB(); // Obtenemos la lista limpia
-        const horasEnMilisegundos = parseInt(t) * 3600000; 
-        const fechaVencimiento = new Date(Date.now() + horasEnMilisegundos);
+        let db = obtenerDB();
+        const fechaVencimiento = new Date(Date.now() + (parseInt(t) * 3600000));
 
         const nuevo = {
             nombre: n,
@@ -153,7 +152,6 @@
     function renderAgenda() {
         const tabla = document.getElementById('listaAbonados');
         if (!tabla) return;
-        
         let db = obtenerDB();
         tabla.innerHTML = db.map((u, i) => `
             <tr>
@@ -197,6 +195,7 @@
         units[pid] = { mi, markerInd: L.marker([0,0]).addTo(mi), markerGen: L.marker([0,0]).addTo(mainMap).bindPopup(nombre) };
     }
 
+    // Funciones de Zoom
     function zoomVideo(pid) { 
         const v = document.getElementById('v-' + pid);
         v.requestFullscreen ? v.requestFullscreen() : v.webkitRequestFullscreen();
