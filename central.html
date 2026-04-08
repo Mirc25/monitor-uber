@@ -10,38 +10,33 @@
     <style>
         body { background: #000; color: #0f0; font-family: 'Courier New', Courier, monospace; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
         .top-bar { background: #0a0a0a; border-bottom: 2px solid #0f0; padding: 5px 20px; display: flex; justify-content: space-between; align-items: center; height: 50px; }
-        
         .main-layout { display: flex; flex: 1; overflow: hidden; position: relative; }
         
-        /* CUADRICULA 25% */
         .grid-fleet { 
             flex: 1; display: grid; 
-            grid-template-columns: repeat(4, 1fr); 
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); 
             gap: 12px; padding: 12px; overflow-y: auto;
             margin-right: 420px; 
         }
         
-        .unit-card { background: #111; border: 1px solid #333; border-radius: 5px; overflow: hidden; height: 360px; display: flex; flex-direction: column; position: relative; }
+        .unit-card { background: #111; border: 1px solid #333; border-radius: 5px; overflow: hidden; height: 380px; display: flex; flex-direction: column; position: relative; }
         .unit-header { background: #1a1a1a; font-size: 11px; padding: 6px; text-align: center; border-bottom: 1px solid #0f0; color: #0f0; font-weight: bold; }
         
-        .video-box { height: 140px; background: #000; position: relative; }
+        .video-box { height: 160px; background: #000; position: relative; cursor: zoom-in; }
         video { width: 100%; height: 100%; object-fit: cover; }
         
-        .unit-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; padding: 6px; background: #050505; }
-        .btn-ctrl { font-size: 9px; padding: 6px; border: 1px solid #0f0; background: transparent; color: #0f0; cursor: pointer; font-weight: bold; }
+        .unit-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; padding: 8px; background: #050505; }
+        .btn-ctrl { font-size: 10px; padding: 8px; border: 1px solid #0f0; background: transparent; color: #0f0; cursor: pointer; font-weight: bold; text-transform: uppercase; }
         .btn-ctrl:hover { background: #0f0; color: #000; }
+        .btn-active { background: #f00 !important; color: #fff !important; border-color: #f00; }
 
         .sos-overlay { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,0,0,0.5); z-index: 60; animation: blink 0.5s infinite; pointer-events: none; }
         @keyframes blink { 0% { opacity: 0; } 50% { opacity: 1; } }
 
-        /* MAPA LATERAL GIGANTE */
         #mainMap { width: 400px; height: calc(100vh - 50px); border-left: 2px solid #0f0; position: absolute; right: 0; top: 0; z-index: 80; }
 
-        /* MODAL AGENDA */
         #agendaModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.98); z-index: 1000; padding: 30px; }
         .agenda-container { max-width: 900px; margin: 0 auto; background: #0a0a0a; border: 1px solid #0f0; padding: 25px; border-radius: 10px; }
-        .token-tag { background: #0f0; color: #000; font-weight: bold; padding: 2px 6px; border-radius: 3px; font-size: 14px; }
-        
         .fuchsia-car { filter: invert(19%) sepia(87%) saturate(6011%) hue-rotate(296deg) brightness(101%) contrast(110%); }
     </style>
 </head>
@@ -57,37 +52,8 @@
     <div id="mainMap"></div>
 </div>
 
-<div id="agendaModal">
-    <div class="agenda-container text-success">
-        <div class="d-flex justify-content-between mb-3 border-bottom border-success pb-2">
-            <h4>GESTIÓN DE ABONADOS</h4>
-            <button class="btn btn-sm btn-outline-danger" onclick="toggleAgenda(false)">CERRAR [X]</button>
-        </div>
-
-        <div class="row g-2 mb-4 bg-dark p-3 rounded border border-success">
-            <div class="col-md-5">
-                <label class="small">ID DEL MÓVIL / NOMBRE</label>
-                <input type="text" id="regNombre" class="form-control bg-black text-success border-success">
-            </div>
-            <div class="col-md-3">
-                <label class="small">DURACIÓN</label>
-                <select id="regTiempo" class="form-select bg-black text-success border-success">
-                    <option value="24">24 HORAS</option>
-                    <option value="168">7 DÍAS</option>
-                    <option value="720">30 DÍAS</option>
-                </select>
-            </div>
-            <div class="col-md-4 d-flex align-items-end">
-                <button class="btn btn-success w-100 fw-bold" onclick="crearAbonado()">+ GENERAR ALTA Y TOKEN</button>
-            </div>
-        </div>
-
-        <div id="agendaContenido" style="max-height: 400px; overflow-y: auto;"></div>
-    </div>
-</div>
-
 <script>
-    let peer, mainMap;
+    let peer, mainMap, miMicStream;
     const units = {};
     const CENTRAL_ID = 'PABLO-CENTRAL-MASTER-2026';
     const alarm = new Audio('https://www.soundjay.com/buttons/beep-01a.mp3');
@@ -97,11 +63,7 @@
         mainMap = L.map('mainMap').setView([-31.5375, -68.5364], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mainMap);
         conectarCentral();
-        renderAgenda();
-        setInterval(renderAgenda, 60000);
     }
-
-    function toggleAgenda(show) { document.getElementById('agendaModal').style.display = show ? 'block' : 'none'; }
 
     function conectarCentral() {
         peer = new Peer(CENTRAL_ID);
@@ -113,52 +75,32 @@
             });
         });
         peer.on('call', (call) => {
-            call.answer();
+            call.answer(); // Recibe video/audio del chofer
             call.on('stream', (s) => {
                 const v = document.getElementById('v-' + call.peer);
                 if(v) { v.srcObject = s; v.play(); }
-                units[call.peer].stream = s;
             });
         });
     }
 
-    function manejarLogin(conn, data) {
-        let db = JSON.parse(localStorage.getItem('pablo_agenda') || '[]');
-        let user = db.find(u => u.nombre === data.nombre.toUpperCase() && u.token === data.token);
-        if(user && Date.now() < user.vence) {
-            conn.send({ tipo: 'auth_ok', vence: user.vence });
-            crearOActualizarCelda(conn.peer, user.nombre);
-        } else {
-            conn.send({ tipo: 'error', msg: 'ACCESO DENEGADO' });
-        }
-    }
-
     function crearOActualizarCelda(pid, nombre) {
-        let ex = document.querySelector(`[data-u="${nombre}"]`);
-        if(ex) {
-            const oldPid = ex.id.replace('card-', '');
-            if(units[oldPid]) units[oldPid].markerGen.remove();
-            ex.remove();
-        }
-
         const grid = document.getElementById('monitorGrid');
+        if(document.getElementById('card-' + pid)) return;
+
         const card = document.createElement('div');
         card.className = 'unit-card';
         card.id = 'card-' + pid;
-        card.setAttribute('data-u', nombre);
         card.innerHTML = `
             <div class="unit-header">${nombre}</div>
-            <div class="video-box">
+            <div class="video-box" onclick="zoomVideo('${pid}')">
                 <div id="sos-over-${pid}" class="sos-overlay"></div>
                 <video id="v-${pid}" autoplay playsinline muted></video>
             </div>
             <div class="unit-actions">
-                <button class="btn-ctrl" style="color:#ff0" onclick="hablar('${pid}')">🎤 HABLAR</button>
-                <button class="btn-ctrl" onclick="escuchar('${pid}')">🔊 ESCUCHAR</button>
-                <button class="btn-ctrl" onclick="zoomVideo('${pid}')">FULL VID</button>
-                <button class="btn-ctrl" onclick="zoomGPS('${pid}')">FULL GPS</button>
+                <button id="btn-h-${pid}" class="btn-ctrl" onclick="toggleHablar('${pid}')">🎤 HABLAR</button>
+                <button id="btn-e-${pid}" class="btn-ctrl" onclick="toggleEscuchar('${pid}')">🔊 ESCUCHAR</button>
             </div>
-            <div id="m-i-${pid}" style="height:90px; border-top:1px solid #333;"></div>
+            <div id="m-i-${pid}" onclick="zoomGPS('${pid}')" style="height:120px; border-top:1px solid #333; cursor:zoom-in"></div>
         `;
         grid.prepend(card);
         
@@ -171,75 +113,62 @@
         };
     }
 
-    function activarSOS(pid) {
-        const over = document.getElementById('sos-over-' + pid);
-        if(over) over.style.display = 'block';
-        alarm.play();
-        alert("¡ALERTA SOS!");
+    // --- NUEVAS FUNCIONES DE CONTROL ---
+
+    async function toggleHablar(pid) {
+        const btn = document.getElementById('btn-h-' + pid);
+        if(btn.classList.contains('btn-active')) {
+            location.reload(); // Forma segura de cortar el chorro de audio en PeerJS
+            return;
+        }
+
+        try {
+            if(!miMicStream) miMicStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            peer.call(pid, miMicStream); // Central llama al chofer enviando audio
+            btn.classList.add('btn-active');
+            btn.innerText = "🛑 PARAR MIC";
+        } catch(e) { alert("Error Micrófono: " + e); }
     }
 
-    function crearAbonado() {
-        const nombre = document.getElementById('regNombre').value.trim().toUpperCase();
-        const horas = parseInt(document.getElementById('regTiempo').value);
-        if(!nombre) return alert("Poné un nombre");
-
-        let db = JSON.parse(localStorage.getItem('pablo_agenda') || '[]');
-        const token = Math.floor(1000 + Math.random() * 8900).toString(); 
-        
-        db.push({ 
-            nombre, 
-            token, 
-            vence: Date.now() + (horas * 3600000) 
-        });
-        
-        localStorage.setItem('pablo_agenda', JSON.stringify(db));
-        document.getElementById('regNombre').value = "";
-        renderAgenda();
+    function toggleEscuchar(pid) {
+        const v = document.getElementById('v-' + pid);
+        const btn = document.getElementById('btn-e-' + pid);
+        if(v.muted) {
+            v.muted = false;
+            btn.classList.add('btn-active');
+            btn.innerText = "🔇 SILENCIAR";
+        } else {
+            v.muted = true;
+            btn.classList.remove('btn-active');
+            btn.innerText = "🔊 ESCUCHAR";
+        }
     }
 
-    function renderAgenda() {
-        const cont = document.getElementById('agendaContenido');
-        let db = JSON.parse(localStorage.getItem('pablo_agenda') || '[]');
-        cont.innerHTML = db.map((u, index) => {
-            const h = Math.max(0, Math.floor((u.vence - Date.now()) / 3600000));
-            const m = Math.max(0, Math.floor(((u.vence - Date.now()) % 3600000) / 60000));
-            
-            // Lógica de Link Temporal
-            const choferPid = 'PABLO-U-' + u.nombre.replace(/\s+/g, '-');
-            const linkUrl = `${window.location.origin}${window.location.pathname.replace('central.html', 'pasajero.html')}?id=${choferPid}&t=${u.token}&v=${u.vence}`;
-
-            return `<div class="p-3 border border-secondary mb-2 d-flex justify-content-between align-items-center bg-black">
-                <div class="d-flex flex-column">
-                    <span><b>${u.nombre}</b></span>
-                    <small>TOKEN: <span class="token-tag">${u.token}</span></small>
-                </div>
-                <div class="text-center">
-                    <span class="badge ${h < 2 ? 'bg-danger' : 'bg-success'}">${h}h ${m}m restante</span>
-                </div>
-                <div class="d-flex gap-2">
-                    <button class="btn btn-sm btn-outline-warning fw-bold" onclick="copiarLinkTemporal('${linkUrl}')">🔗 LINK</button>
-                    <button class="btn btn-sm btn-danger" onclick="borrarAbonado(${index})">X</button>
-                </div>
-            </div>`;
-        }).join('');
+    function zoomVideo(pid) {
+        const v = document.getElementById('v-' + pid);
+        if (v.requestFullscreen) v.requestFullscreen();
+        else if (v.webkitRequestFullscreen) v.webkitRequestFullscreen();
     }
 
-    function copiarLinkTemporal(url) {
-        navigator.clipboard.writeText(url).then(() => alert("Link de pasajero copiado."));
-    }
-
-    function borrarAbonado(i) {
-        let db = JSON.parse(localStorage.getItem('pablo_agenda') || '[]');
-        db.splice(i, 1);
-        localStorage.setItem('pablo_agenda', JSON.stringify(db));
-        renderAgenda();
+    function zoomGPS(pid) {
+        if(units[pid]) {
+            const pos = units[pid].markerGen.getLatLng();
+            mainMap.setView(pos, 18);
+            units[pid].markerGen.openPopup();
+        }
     }
 
     function actualizarPosicion(id, lat, lng) {
         if(!units[id]) return;
-        units[id].mi.setView([lat, lng]);
-        units[id].markerInd.setLatLng([lat, lng]);
-        units[id].markerGen.setLatLng([lat, lng]);
+        const pos = [lat, lng];
+        units[id].mi.setView(pos);
+        units[id].markerInd.setLatLng(pos);
+        units[id].markerGen.setLatLng(pos);
+    }
+
+    function activarSOS(pid) {
+        document.getElementById('sos-over-' + pid).style.display = 'block';
+        alarm.play();
     }
 
     window.onload = init;
