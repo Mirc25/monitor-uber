@@ -63,12 +63,22 @@
             <h4 style="color: #f00;">CARPETA NEGRA</h4>
             <button class="btn btn-sm btn-outline-danger" onclick="toggleCarpetaNegra(false)">CERRAR</button>
         </div>
-        <div class="row g-2 mb-4">
-            <div class="col-md-6"><input type="file" id="fotoDelincuente" class="form-control bg-black text-danger border-danger" accept="image/*"></div>
+        <div class="row g-2 mb-4 bg-dark p-2 rounded">
+            <div class="col-md-5"><input type="file" id="fotoDelincuente" class="form-control bg-black text-danger border-danger" accept="image/*"></div>
             <div class="col-md-4"><input type="text" id="nombreDelincuente" class="form-control bg-black text-danger border-danger" placeholder="ALIAS"></div>
-            <div class="col-md-2"><button class="btn btn-danger w-100 fw-bold" onclick="guardarDelincuente()">AÑADIR</button></div>
+            <div class="col-md-3"><button class="btn btn-danger w-100 fw-bold" onclick="guardarDelincuente()">AÑADIR</button></div>
         </div>
         <div id="listaNegra" class="row g-2" style="max-height: 400px; overflow-y: auto;"></div>
+    </div>
+</div>
+
+<div id="agendaModal">
+    <div class="modal-container">
+        <div class="d-flex justify-content-between mb-3 border-bottom border-success pb-2">
+            <h4>GESTIÓN DE ABONADOS</h4>
+            <button class="btn btn-sm btn-danger" onclick="toggleAgenda(false)">CERRAR</button>
+        </div>
+        <div id="listaAbonadosVisual"></div>
     </div>
 </div>
 
@@ -79,7 +89,6 @@
     const carIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', iconSize: [25, 25], className: 'fuchsia-car' });
     const sosIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', iconSize: [30, 30], className: 'sos-car' });
 
-    // Base de Datos
     const request = indexedDB.open("PabloSecurity_Folder", 1);
     request.onupgradeneeded = (e) => { e.target.result.createObjectStore("delincuentes", { keyPath: "id", autoIncrement: true }); };
     request.onsuccess = (e) => { dbIndexed = e.target.result; cargarListaNegraVisual(); };
@@ -88,18 +97,82 @@
         mainMap = L.map('mainMap').setView([-31.5375, -68.5364], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mainMap);
         
-        // CORRECCIÓN DE RUTA DE MODELOS
         try {
             const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
             await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
             await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
             await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
-            console.log("✅ MODELOS IA CARGADOS CORRECTAMENTE");
-        } catch(e) { console.error("❌ ERROR CARGANDO MODELOS:", e); }
+            console.log("IA LISTA");
+        } catch(e) { console.error("Error modelos IA"); }
 
         conectarCentral();
-        setInterval(escanearIA, 2000); 
+        setInterval(escanearIA, 2500); 
     }
+
+    // --- FUNCIONES DE CARPETA NEGRA (CON ELIMINAR) ---
+
+    function toggleCarpetaNegra(s) { document.getElementById('blackFolderModal').style.display = s ? 'block' : 'none'; }
+
+    async function guardarDelincuente() {
+        const nom = document.getElementById('nombreDelincuente').value;
+        const file = document.getElementById('fotoDelincuente').files[0];
+        if(!nom || !file) return alert("Faltan datos");
+
+        try {
+            const img = await faceapi.bufferToImage(file);
+            const detections = await faceapi.detectSingleFace(img, new faceapi.TinyFaceDetectorOptions({ inputSize: 224 }))
+                                           .withFaceLandmarks()
+                                           .withFaceDescriptor();
+            
+            if(!detections) return alert("IA: No se detectó rostro claro en la foto.");
+
+            const b64 = await toBase64(file);
+            const tx = dbIndexed.transaction(["delincuentes"], "readwrite");
+            tx.objectStore("delincuentes").add({ 
+                nombre: nom.toUpperCase(), 
+                descriptor: Array.from(detections.descriptor), 
+                foto: b64 
+            });
+            tx.oncomplete = () => { cargarListaNegraVisual(); alert("REGISTRADO EXITOSAMENTE"); };
+        } catch(e) { alert("Error IA o modelos no cargados"); }
+    }
+
+    function cargarListaNegraVisual() {
+        const cont = document.getElementById('listaNegra');
+        if(!cont) return;
+        cont.innerHTML = "";
+        
+        const tx = dbIndexed.transaction("delincuentes", "readonly");
+        tx.objectStore("delincuentes").openCursor().onsuccess = (e) => {
+            const cursor = e.target.result;
+            if(cursor) {
+                const item = cursor.value;
+                cont.innerHTML += `
+                    <div class="col-4 col-md-3 mb-2">
+                        <div class="card bg-black border-danger p-1 h-100">
+                            <img src="${item.foto}" style="height:80px; object-fit:cover; border-radius:4px;">
+                            <div class="small text-center text-danger text-truncate mt-1">${item.nombre}</div>
+                            <button class="btn btn-danger btn-sm w-100 mt-1 fw-bold" style="font-size:10px;" onclick="eliminarSospechoso(${item.id})">ELIMINAR</button>
+                        </div>
+                    </div>`;
+                cursor.continue();
+            }
+        };
+    }
+
+    function eliminarSospechoso(id) {
+        if(!confirm("¿Deseas eliminar a esta persona de la lista negra?")) return;
+        
+        const tx = dbIndexed.transaction(["delincuentes"], "readwrite");
+        const store = tx.objectStore("delincuentes");
+        store.delete(id);
+        tx.oncomplete = () => {
+            console.log("Sospechoso eliminado");
+            cargarListaNegraVisual();
+        };
+    }
+
+    // --- RESTO DEL CÓDIGO ESTABLE ---
 
     function conectarCentral() {
         peer = new Peer(CENTRAL_ID);
@@ -124,7 +197,6 @@
         if (!units[pid].mainMarker) {
             units[pid].mainMarker = L.marker(pos, {icon: carIcon}).addTo(mainMap).bindPopup(pid.replace('PABLO-U-', ''));
         } else { units[pid].mainMarker.setLatLng(pos); }
-
         if (units[pid].miniMap) {
             units[pid].miniMap.setView(pos);
             if (units[pid].miniMarker) units[pid].miniMarker.setLatLng(pos);
@@ -156,43 +228,6 @@
         units[pid].miniMap = m; units[pid].miniMarker = L.marker([0,0]).addTo(m);
     }
 
-    function toggleCarpetaNegra(s) { document.getElementById('blackFolderModal').style.display = s ? 'block' : 'none'; }
-
-    async function guardarDelincuente() {
-        const nom = document.getElementById('nombreDelincuente').value;
-        const file = document.getElementById('fotoDelincuente').files[0];
-        if(!nom || !file) return alert("Faltan datos");
-
-        try {
-            const img = await faceapi.bufferToImage(file);
-            const detections = await faceapi.detectSingleFace(img, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
-            
-            if(!detections) return alert("IA: No se detectó rostro en la foto.");
-
-            const b64 = await toBase64(file);
-            const tx = dbIndexed.transaction(["delincuentes"], "readwrite");
-            tx.objectStore("delincuentes").add({ 
-                nombre: nom.toUpperCase(), 
-                descriptor: Array.from(detections.descriptor), 
-                foto: b64 
-            });
-            tx.oncomplete = () => { cargarListaNegraVisual(); alert("REGISTRADO EN CARPETA NEGRA"); };
-        } catch(e) { alert("Error IA: Asegúrate de cargar la página con HTTPS"); }
-    }
-
-    function cargarListaNegraVisual() {
-        const cont = document.getElementById('listaNegra'); if(!cont) return;
-        cont.innerHTML = "";
-        const tx = dbIndexed.transaction("delincuentes", "readonly");
-        tx.objectStore("delincuentes").openCursor().onsuccess = (e) => {
-            const cursor = e.target.result;
-            if(cursor) {
-                cont.innerHTML += `<div class="col-3 text-center"><img src="${cursor.value.foto}" class="img-fluid rounded"><div class="small text-danger">${cursor.value.nombre}</div></div>`;
-                cursor.continue();
-            }
-        };
-    }
-
     function toggleIA() {
         iaActiva = !iaActiva;
         document.getElementById('ia-dot').style.left = iaActiva ? "40px" : "5px";
@@ -217,14 +252,12 @@
         for(let v of vids) {
             if(v.paused || v.ended || v.readyState < 3) continue;
             try {
-                const detections = await faceapi.detectAllFaces(v, new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.4 }))
+                const detections = await faceapi.detectAllFaces(v, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
                                                .withFaceLandmarks()
                                                .withFaceDescriptors();
-                
                 for(let det of detections) {
                     for(let del of dbList) {
-                        const dist = faceapi.euclideanDistance(det.descriptor, new Float32Array(del.descriptor));
-                        if(dist < 0.6) dispararAlerta(v.id.replace('v-', ''), del.nombre);
+                        if(faceapi.euclideanDistance(det.descriptor, new Float32Array(del.descriptor)) < 0.6) dispararAlerta(v.id.replace('v-', ''), del.nombre);
                     }
                 }
             } catch(e) {}
@@ -236,8 +269,7 @@
         if(c && !c.classList.contains('alerta-ia')) {
             c.classList.add('alerta-ia');
             if(units[pid].mainMarker) units[pid].mainMarker.setIcon(sosIcon);
-            const beep = new Audio('https://www.soundjay.com/buttons/beep-01a.mp3');
-            beep.play().catch(()=>{});
+            new Audio('https://www.soundjay.com/buttons/beep-01a.mp3').play().catch(()=>{});
         }
     }
 
@@ -247,7 +279,7 @@
     }
 
     function toBase64(f) { return new Promise(res => { const r = new FileReader(); r.onload = e => res(e.target.result); r.readAsDataURL(f); }); }
-    function toggleAgenda(s) { /* Se mantiene igual */ }
+    function toggleAgenda(s) { /* ... */ }
     window.onload = init;
 </script>
 </body>
