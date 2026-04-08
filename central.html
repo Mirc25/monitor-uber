@@ -35,8 +35,10 @@
 
         #mainMap { width: 400px; height: calc(100vh - 50px); border-left: 2px solid #0f0; position: absolute; right: 0; top: 0; z-index: 80; }
 
-        #agendaModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.98); z-index: 1000; padding: 30px; }
-        .agenda-container { max-width: 900px; margin: 0 auto; background: #0a0a0a; border: 1px solid #0f0; padding: 25px; border-radius: 10px; }
+        /* MODAL AGENDA CORREGIDO */
+        #agendaModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 1000; padding: 20px; overflow-y: auto; }
+        .agenda-container { max-width: 800px; margin: 0 auto; background: #111; border: 1px solid #0f0; padding: 20px; border-radius: 8px; }
+        .table { color: #0f0; border-color: #333; }
         .fuchsia-car { filter: invert(19%) sepia(87%) saturate(6011%) hue-rotate(296deg) brightness(101%) contrast(110%); }
     </style>
 </head>
@@ -52,6 +54,40 @@
     <div id="mainMap"></div>
 </div>
 
+<div id="agendaModal">
+    <div class="agenda-container">
+        <div class="d-flex justify-content-between mb-3">
+            <h4>GESTIÓN DE UNIDADES Y TOKENS</h4>
+            <button class="btn btn-danger btn-sm" onclick="toggleAgenda(false)">CERRAR [X]</button>
+        </div>
+        
+        <div class="row g-2 mb-4">
+            <div class="col-md-4"><input type="text" id="regNombre" class="form-control bg-dark text-white border-secondary" placeholder="Nombre Chofer/Unidad"></div>
+            <div class="col-md-3">
+                <select id="regTiempo" class="form-select bg-dark text-white border-secondary">
+                    <option value="24">COBERTURA 24H</option>
+                    <option value="168">7 DÍAS (SEMANAL)</option>
+                    <option value="720">30 DÍAS (MENSUAL)</option>
+                </select>
+            </div>
+            <div class="col-md-3"><button class="btn btn-success w-100" onclick="generarAlta()">GENERAR ALTA</button></div>
+        </div>
+
+        <table class="table table-dark table-hover">
+            <thead>
+                <tr>
+                    <th>UNIDAD</th>
+                    <th>TOKEN</th>
+                    <th>VENCE</th>
+                    <th>ESTADO</th>
+                    <th>ACCIONES</th>
+                </tr>
+            </thead>
+            <tbody id="listaAbonados"></tbody>
+        </table>
+    </div>
+</div>
+
 <script>
     let peer, mainMap, miMicStream;
     const units = {};
@@ -59,10 +95,13 @@
     const alarm = new Audio('https://www.soundjay.com/buttons/beep-01a.mp3');
     const carIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', iconSize: [35, 35], className: 'fuchsia-car' });
 
+    let dbAbonados = JSON.parse(localStorage.getItem('pablo_db')) || [];
+
     function init() {
         mainMap = L.map('mainMap').setView([-31.5375, -68.5364], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mainMap);
         conectarCentral();
+        renderAgenda();
     }
 
     function conectarCentral() {
@@ -75,12 +114,22 @@
             });
         });
         peer.on('call', (call) => {
-            call.answer(); // Recibe video/audio del chofer
+            call.answer();
             call.on('stream', (s) => {
                 const v = document.getElementById('v-' + call.peer);
                 if(v) { v.srcObject = s; v.play(); }
             });
         });
+    }
+
+    function manejarLogin(conn, data) {
+        const abonado = dbAbonados.find(u => u.nombre === data.nombre && u.token === data.token);
+        if (abonado && new Date(abonado.expira) > new Date()) {
+            crearOActualizarCelda(conn.peer, data.nombre);
+            conn.send({ autoriz: true });
+        } else {
+            conn.send({ autoriz: false, msg: "Token vencido o inválido" });
+        }
     }
 
     function crearOActualizarCelda(pid, nombre) {
@@ -113,41 +162,28 @@
         };
     }
 
-    // --- NUEVAS FUNCIONES DE CONTROL ---
-
+    // --- CONTROLES DE AUDIO Y ZOOM ---
     async function toggleHablar(pid) {
         const btn = document.getElementById('btn-h-' + pid);
-        if(btn.classList.contains('btn-active')) {
-            location.reload(); // Forma segura de cortar el chorro de audio en PeerJS
-            return;
-        }
-
+        if(btn.classList.contains('btn-active')) { location.reload(); return; }
         try {
             if(!miMicStream) miMicStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            peer.call(pid, miMicStream); // Central llama al chofer enviando audio
-            btn.classList.add('btn-active');
-            btn.innerText = "🛑 PARAR MIC";
+            peer.call(pid, miMicStream);
+            btn.classList.add('btn-active'); btn.innerText = "🛑 PARAR MIC";
         } catch(e) { alert("Error Micrófono: " + e); }
     }
 
     function toggleEscuchar(pid) {
         const v = document.getElementById('v-' + pid);
         const btn = document.getElementById('btn-e-' + pid);
-        if(v.muted) {
-            v.muted = false;
-            btn.classList.add('btn-active');
-            btn.innerText = "🔇 SILENCIAR";
-        } else {
-            v.muted = true;
-            btn.classList.remove('btn-active');
-            btn.innerText = "🔊 ESCUCHAR";
-        }
+        v.muted = !v.muted;
+        btn.classList.toggle('btn-active');
+        btn.innerText = v.muted ? "🔊 ESCUCHAR" : "🔇 SILENCIAR";
     }
 
     function zoomVideo(pid) {
         const v = document.getElementById('v-' + pid);
-        if (v.requestFullscreen) v.requestFullscreen();
-        else if (v.webkitRequestFullscreen) v.webkitRequestFullscreen();
+        v.requestFullscreen ? v.requestFullscreen() : v.webkitRequestFullscreen();
     }
 
     function zoomGPS(pid) {
@@ -167,8 +203,50 @@
     }
 
     function activarSOS(pid) {
-        document.getElementById('sos-over-' + pid).style.display = 'block';
+        const over = document.getElementById('sos-over-' + pid);
+        if(over) over.style.display = 'block';
         alarm.play();
+    }
+
+    // --- LÓGICA DE AGENDA ---
+    function toggleAgenda(show) { document.getElementById('agendaModal').style.display = show ? 'block' : 'none'; }
+
+    function generarAlta() {
+        const n = document.getElementById('regNombre').value.toUpperCase();
+        const t = document.getElementById('regTiempo').value;
+        if(!n) return alert("Ingresa nombre");
+        
+        const nuevo = {
+            nombre: n,
+            token: Math.floor(1000 + Math.random() * 9000).toString(),
+            expira: new Date(Date.now() + t * 3600000).toISOString()
+        };
+        dbAbonados.push(nuevo);
+        localStorage.setItem('pablo_db', JSON.stringify(dbAbonados));
+        renderAgenda();
+    }
+
+    function renderAgenda() {
+        const b = document.getElementById('listaAbonados');
+        b.innerHTML = '';
+        dbAbonados.forEach((u, i) => {
+            const exp = new Date(u.expira);
+            const activo = exp > new Date();
+            b.innerHTML += `
+                <tr>
+                    <td>${u.nombre}</td>
+                    <td class="text-warning fw-bold">${u.token}</td>
+                    <td>${exp.toLocaleString()}</td>
+                    <td>${activo ? '✅ OK' : '❌ VENCIDO'}</td>
+                    <td><button class="btn btn-danger btn-sm" onclick="eliminar(${i})">BORRAR</button></td>
+                </tr>`;
+        });
+    }
+
+    function eliminar(i) {
+        dbAbonados.splice(i, 1);
+        localStorage.setItem('pablo_db', JSON.stringify(dbAbonados));
+        renderAgenda();
     }
 
     window.onload = init;
