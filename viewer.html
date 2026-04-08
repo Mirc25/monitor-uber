@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PABLO SECURITY - Viaje en Vivo</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: #000; color: #fff; font-family: sans-serif; display: flex; flex-direction: column; height: 100dvh; overflow: hidden; }
+
+        #statusBar {
+            background: #111;
+            border-bottom: 2px solid #0f0;
+            padding: 8px 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+            font-weight: bold;
+        }
+        #dot { width: 12px; height: 12px; border-radius: 50%; background: #f00; flex-shrink: 0; }
+        #dot.on { background: #0f0; animation: pulse 1.2s infinite; }
+        @keyframes pulse { 0%,100%{ opacity:1; } 50%{ opacity:0.4; } }
+
+        #videoWrap {
+            flex: 1 1 55%;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+        #remoteVideo {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            display: none;
+        }
+        #placeholder {
+            text-align: center;
+            color: #555;
+            padding: 20px;
+        }
+        #placeholder .icon { font-size: 48px; margin-bottom: 10px; }
+
+        #mapWrap {
+            flex: 0 0 45%;
+            position: relative;
+        }
+        #map { width: 100%; height: 100%; }
+        #mapLabel {
+            position: absolute;
+            top: 6px; left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.7);
+            color: #0f0;
+            font-size: 11px;
+            font-weight: bold;
+            padding: 2px 10px;
+            border-radius: 10px;
+            z-index: 1000;
+            white-space: nowrap;
+        }
+
+        #endMsg {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.94);
+            z-index: 9999;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            gap: 16px;
+        }
+        #endMsg .big { font-size: 52px; }
+        #endMsg h2 { color: #f44; font-size: 22px; }
+        #endMsg p { color: #aaa; font-size: 14px; max-width: 300px; }
+    </style>
+</head>
+<body>
+
+<div id="statusBar">
+    <div id="dot"></div>
+    <span id="statusText">Conectando con la unidad...</span>
+</div>
+
+<div id="videoWrap">
+    <video id="remoteVideo" autoplay playsinline></video>
+    <div id="placeholder">
+        <div class="icon">📡</div>
+        <p>Esperando stream de video...</p>
+    </div>
+</div>
+
+<div id="mapWrap">
+    <div id="mapLabel">📍 UBICACIÓN EN TIEMPO REAL</div>
+    <div id="map"></div>
+</div>
+
+<div id="endMsg" role="alert">
+    <div class="big">🔴</div>
+    <h2>Sesión finalizada</h2>
+    <p>El conductor terminó el viaje compartido o la app se cerró.</p>
+</div>
+
+<script>
+    // --- Obtener token desde URL ---
+    const params = new URLSearchParams(location.search);
+    const token = params.get('v');
+    const UNIT_PEER_ID = 'PABLO-VIAJE-' + (token || '');
+
+    const dot       = document.getElementById('dot');
+    const statusTxt = document.getElementById('statusText');
+    const video     = document.getElementById('remoteVideo');
+    const placeholder = document.getElementById('placeholder');
+    const endMsg    = document.getElementById('endMsg');
+
+    function setStatus(online, texto) {
+        dot.className = online ? 'on' : '';
+        statusTxt.textContent = texto;
+    }
+
+    // --- Mapa ---
+    const map = L.map('map', { zoomControl: true }).setView([-31.5375, -68.5364], 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap'
+    }).addTo(map);
+
+    const carIcon = L.icon({
+        iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png',
+        iconSize: [28, 28]
+    });
+    let marker = null;
+
+    function moverMarcador(lat, lng) {
+        const pos = [lat, lng];
+        if (!marker) {
+            marker = L.marker(pos, { icon: carIcon }).addTo(map);
+        } else {
+            marker.setLatLng(pos);
+        }
+        map.panTo(pos);
+    }
+
+    // --- Sin token válido ---
+    if (!token || token.length < 4) {
+        setStatus(false, 'Link inválido o expirado.');
+        endMsg.style.display = 'flex';
+    } else {
+        iniciarViewer();
+    }
+
+    function iniciarViewer() {
+        // Peer con ID aleatorio para el viewer
+        const viewerPeerId = 'VWR-' + Math.random().toString(36).substr(2, 8).toUpperCase();
+        let peerV = new Peer(viewerPeerId);
+        let streamReceived = false;
+
+        peerV.on('open', () => {
+            setStatus(false, 'Conectando con unidad...');
+
+            // 1. Conexión de datos para GPS
+            const conn = peerV.connect(UNIT_PEER_ID, { reliable: true });
+            conn.on('open', () => {
+                // listo, GPS llegará por on('data')
+            });
+            conn.on('data', (data) => {
+                if (data.tipo === 'gps') moverMarcador(data.lat, data.lng);
+            });
+            conn.on('error', () => {}); // GPS no crítico
+
+            // 2. Llamada para obtener el video/audio
+            setTimeout(() => {
+                const call = peerV.call(UNIT_PEER_ID, new MediaStream());
+                call.on('stream', (s) => {
+                    streamReceived = true;
+                    video.srcObject = s;
+                    video.style.display = 'block';
+                    placeholder.style.display = 'none';
+                    setStatus(true, 'EN VIVO');
+                });
+                call.on('close', () => {
+                    if (streamReceived) mostrarFin();
+                });
+                call.on('error', () => {
+                    if (!streamReceived) setStatus(false, 'Sin video - reintentando...');
+                });
+            }, 800);
+        });
+
+        peerV.on('error', (err) => {
+            if (err.type === 'peer-unavailable') {
+                setStatus(false, 'Unidad no disponible. ¿El link ya expiró?');
+                endMsg.style.display = 'flex';
+            } else if (err.type === 'network' || err.type === 'socket-error' || err.type === 'socket-closed') {
+                setStatus(false, 'Sin conexión - reintentando...');
+                setTimeout(() => { peerV.destroy(); iniciarViewer(); }, 5000);
+            }
+        });
+
+        peerV.on('disconnected', () => {
+            if (!peerV.destroyed) peerV.reconnect();
+        });
+
+        peerV.on('close', () => {
+            if (streamReceived) mostrarFin();
+            else { setTimeout(() => iniciarViewer(), 5000); }
+        });
+    }
+
+    function mostrarFin() {
+        setStatus(false, 'Sesión finalizada');
+        endMsg.style.display = 'flex';
+        video.srcObject = null;
+    }
+</script>
+</body>
+</html>
