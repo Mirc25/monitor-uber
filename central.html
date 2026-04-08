@@ -23,7 +23,6 @@
         #agendaModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 1000; padding: 20px; }
         .agenda-container { max-width: 850px; margin: 0 auto; background: #111; border: 1px solid #0f0; padding: 20px; border-radius: 8px; color: #0f0; }
         .table { color: #0f0 !important; border-color: #0f0; }
-        .fuchsia-car { filter: invert(19%) sepia(87%) saturate(6011%) hue-rotate(296deg) brightness(101%) contrast(110%); }
     </style>
 </head>
 <body>
@@ -47,7 +46,7 @@
         <div class="row g-2 mb-4 bg-dark p-3 rounded border border-success">
             <div class="col-md-5">
                 <label class="small text-success">NOMBRE DEL MÓVIL</label>
-                <input type="text" id="regNombre" class="form-control bg-black text-success border-success">
+                <input type="text" id="regNombre" class="form-control bg-black text-success border-success" placeholder="EJ: MOVIL 1">
             </div>
             <div class="col-md-3">
                 <label class="small text-success">DURACIÓN</label>
@@ -82,13 +81,12 @@
     const units = {};
     const CENTRAL_ID = 'PABLO-CENTRAL-MASTER-2026';
     const alarm = new Audio('https://www.soundjay.com/buttons/beep-01a.mp3');
-    const carIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', iconSize: [35, 35], className: 'fuchsia-car' });
 
     function init() {
         mainMap = L.map('mainMap').setView([-31.5375, -68.5364], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mainMap);
         conectarCentral();
-        renderAgenda();
+        renderAgenda(); 
     }
 
     function conectarCentral() {
@@ -97,7 +95,6 @@
             conn.on('data', (data) => {
                 if(data.tipo === 'login') manejarLogin(conn, data);
                 if(data.tipo === 'gps') actualizarPosicion(conn.peer, data.lat, data.lng);
-                if(data.tipo === 'sos') activarSOS(conn.peer);
             });
         });
         peer.on('call', (call) => {
@@ -125,17 +122,21 @@
         const t = document.getElementById('regTiempo').value;
         if(!n) return alert("Ingresa un nombre");
 
+        // CORRECCIÓN CLAVE: Usar parseInt para que la suma funcione
         let db = JSON.parse(localStorage.getItem('pablo_db') || '[]');
+        const horasEnMilisegundos = parseInt(t) * 3600000; 
+        const fechaVencimiento = new Date(Date.now() + horasEnMilisegundos);
+
         const nuevo = {
             nombre: n,
             token: Math.floor(1000 + Math.random() * 9000).toString(),
-            expira: new Date(Date.now() + (parseInt(t) * 3600000)).toISOString()
+            expira: fechaVencimiento.toISOString()
         };
 
         db.push(nuevo);
         localStorage.setItem('pablo_db', JSON.stringify(db));
         document.getElementById('regNombre').value = "";
-        renderAgenda();
+        renderAgenda(); // Refresca la tabla inmediatamente
     }
 
     function renderAgenda() {
@@ -180,13 +181,12 @@
         grid.prepend(card);
         const mi = L.map('m-i-' + pid, { zoomControl: false, attributionControl: false }).setView([0,0], 15);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mi);
-        units[pid] = { mi, markerInd: L.marker([0,0]).addTo(mi), markerGen: L.marker([0,0], {icon: carIcon}).addTo(mainMap).bindPopup(nombre) };
+        units[pid] = { mi, markerInd: L.marker([0,0]).addTo(mi), markerGen: L.marker([0,0]).addTo(mainMap).bindPopup(nombre) };
     }
 
     function zoomVideo(pid) { 
         const v = document.getElementById('v-' + pid);
-        if (v.requestFullscreen) v.requestFullscreen();
-        else if (v.webkitRequestFullscreen) v.webkitRequestFullscreen();
+        v.requestFullscreen ? v.requestFullscreen() : v.webkitRequestFullscreen();
     }
 
     function zoomGPS(pid) { 
@@ -218,8 +218,6 @@
         units[id].markerInd.setLatLng(pos);
         units[id].markerGen.setLatLng(pos);
     }
-
-    function activarSOS(pid) { alarm.play(); alert("¡ALERTA SOS EN UNIDAD!"); }
 
     window.onload = init;
 </script>
