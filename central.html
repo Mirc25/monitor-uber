@@ -1,11 +1,90 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>PABLO SECURITY - CENTRAL MAESTRA</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        body { background: #000; color: #0f0; font-family: sans-serif; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        .top-bar { background: #000; border-bottom: 1px solid #0f0; padding: 5px 15px; display: flex; justify-content: space-between; align-items: center; height: 40px; }
+        .main-layout { display: flex; flex: 1; overflow: hidden; }
+        .grid-fleet { flex: 1; display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; padding: 5px; overflow-y: auto; background: #111; }
+        .unit-card { background: #000; border: 1px solid #333; display: flex; flex-direction: column; height: 280px; position: relative; }
+        .unit-header { background: #1a1a1a; font-size: 10px; padding: 2px; text-align: center; color: #0f0; }
+        .video-box { height: 110px; background: #222; position: relative; cursor: zoom-in; }
+        video { width: 100%; height: 100%; object-fit: cover; }
+        .unit-actions { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 2px; padding: 2px; background: #000; border-top: 1px solid #0f0; }
+        .btn-ctrl { font-size: 10px; padding: 4px 0; background: #fff; color: #000; border: none; font-weight: bold; cursor: pointer; }
+        .btn-active { background: #f00 !important; color: #fff !important; }
+        .mini-map { flex: 1; background: #333; border-top: 1px solid #333; pointer-events: none; }
+        .side-panel { width: 320px; background: #222; display: flex; flex-direction: column; border-left: 2px solid #0f0; }
+        #mainMap { height: 280px; border-bottom: 2px solid #0f0; }
+        .tools-area { flex: 1; padding: 20px; display: flex; flex-direction: column; gap: 15px; align-items: center; justify-content: flex-start; }
+        .btn-tool { background: #aaa; color: #000; font-weight: bold; padding: 12px; width: 100%; border-radius: 4px; text-transform: uppercase; font-size: 1.1rem; border: none; }
+        .ai-switch { text-align: center; color: #fff; margin-top: 20px; }
+        .toggle-btn { width: 70px; height: 30px; background: #fff; border-radius: 20px; display: inline-block; position: relative; margin-top: 10px; cursor: pointer; }
+        .toggle-btn::after { content: ''; position: absolute; right: 5px; top: 4px; width: 22px; height: 22px; background: #ddd; border-radius: 50%; box-shadow: 0 0 3px #000; }
+        #agendaModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.96); z-index: 2000; padding: 25px; }
+        .agenda-container { max-width: 800px; margin: 0 auto; background: #111; border: 1px solid #0f0; padding: 20px; border-radius: 8px; color: #0f0; }
+        .fuchsia-car { filter: invert(19%) sepia(87%) saturate(6011%) hue-rotate(296deg) brightness(101%) contrast(110%); }
+    </style>
+</head>
+<body>
+
+<div class="top-bar">
+    <div style="font-weight: bold; color: #0f0;">PABLO SECURITY CENTRAL CHIMBAS</div>
+    <button class="btn btn-sm btn-success fw-bold" onclick="toggleAgenda(true)">📂 ABRIR AGENDA Y TOKENS</button>
+</div>
+
+<div class="main-layout">
+    <div class="grid-fleet" id="monitorGrid"></div>
+    <div class="side-panel">
+        <div id="mainMap"></div>
+        <div class="tools-area">
+            <button class="btn-tool">carpeta negra</button>
+            <button class="btn-tool">siguientes</button>
+            <div class="ai-switch">
+                <div style="font-size: 14px;">ia reconocimiento facial</div>
+                <div class="toggle-btn"></div>
+                <div style="margin-top: 5px; font-weight: bold; font-size: 13px;">activada</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="agendaModal">
+    <div class="agenda-container">
+        <div class="d-flex justify-content-between mb-3 border-bottom border-success pb-2">
+            <h4>GESTIÓN DE ABONADOS</h4>
+            <button class="btn btn-sm btn-danger" onclick="toggleAgenda(false)">CERRAR [X]</button>
+        </div>
+        <div class="row g-2 mb-4 bg-dark p-3 rounded border border-success">
+            <div class="col-md-5"><input type="text" id="regNombre" class="form-control bg-black text-success border-success" placeholder="NOMBRE UNIDAD"></div>
+            <div class="col-md-3">
+                <select id="regTiempo" class="form-select bg-black text-success border-success">
+                    <option value="24">24 HORAS</option>
+                    <option value="168">7 DÍAS</option>
+                    <option value="720">30 DÍAS</option>
+                </select>
+            </div>
+            <div class="col-md-4"><button class="btn btn-success w-100 fw-bold" onclick="generarAlta()">+ GENERAR ALTA</button></div>
+        </div>
+        <div style="max-height: 400px; overflow-y: auto;">
+            <table class="table table-dark table-hover border-success"><tbody id="listaAbonados"></tbody></table>
+        </div>
+    </div>
+</div>
+
 <script>
     let peer, mainMap, miMicStream;
-    const units = {}; // Aquí guardamos los datos de cada conductor
+    const units = {};
     const CENTRAL_ID = 'PABLO-CENTRAL-MASTER-2026';
     const carIcon = L.icon({ 
         iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', 
-        iconSize: [25, 25],
-        className: 'fuchsia-car' // Aplicamos el filtro fucsia de tu imagen
+        iconSize: [25, 25], className: 'fuchsia-car' 
     });
 
     function obtenerDB() {
@@ -16,7 +95,6 @@
     }
 
     function init() {
-        // Mapa principal (Derecha)
         mainMap = L.map('mainMap').setView([-31.5375, -68.5364], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mainMap);
         conectarCentral();
@@ -40,27 +118,13 @@
         });
     }
 
-    // ESTA FUNCIÓN DIBUJA LOS AUTITOS SIEMPRE
     function actualizarPosicionGlobal(pid, lat, lng) {
         const pos = [lat, lng];
-        
-        // Si el conductor no existe en memoria, creamos su marcador en el mapa grande
         if (!units[pid]) {
-            // Buscamos el nombre en la base de datos para el popup
-            const db = obtenerDB();
-            // Los IDs de PeerJS suelen ser PABLO-U-NOMBRE
-            const nombreLimpio = pid.replace('PABLO-U-', '').replace(/-/g, ' ');
-
-            units[pid] = {
-                // Marcador en el mapa de la derecha (el autito)
-                mainMarker: L.marker(pos, {icon: carIcon}).addTo(mainMap).bindPopup(nombreLimpio)
-            };
+            units[pid] = { mainMarker: L.marker(pos, {icon: carIcon}).addTo(mainMap).bindPopup(pid.replace('PABLO-U-', '')) };
         } else {
-            // Si ya existe, solo movemos el autito
             units[pid].mainMarker.setLatLng(pos);
         }
-
-        // Si ADEMÁS tiene la celda de video abierta, actualizamos su mini-mapa
         if (units[pid].miniMap) {
             units[pid].miniMap.setView(pos);
             units[pid].miniMarker.setLatLng(pos);
@@ -68,44 +132,67 @@
     }
 
     function manejarLogin(conn, data) {
-        let db = obtenerDB();
+        const db = obtenerDB();
         const user = db.find(u => u.nombre === data.nombre.toUpperCase() && u.token === data.token);
         if(user && Date.now() < new Date(user.expira).getTime()) {
-            crearCeldaMonitoreo(conn.peer, user.nombre);
+            crearOActualizarCelda(conn.peer, user.nombre);
             conn.send({ tipo: 'auth_ok' });
-        } else {
-            conn.send({ tipo: 'error', msg: 'ACCESO DENEGADO' });
-        }
+        } else { conn.send({ tipo: 'error', msg: 'DENEGADO' }); }
     }
 
-    function crearCeldaMonitoreo(pid, nombre) {
+    function crearOActualizarCelda(pid, nombre) {
         if(document.getElementById('card-' + pid)) return;
         const grid = document.getElementById('monitorGrid');
         const card = document.createElement('div');
         card.className = 'unit-card';
         card.id = 'card-' + pid;
-        card.innerHTML = `
-            <div class="unit-header">${nombre}</div>
-            <div class="video-box" onclick="zoomVideo('${pid}')"><video id="v-${pid}" autoplay muted playsinline></video></div>
-            <div class="unit-actions">
-                <button class="btn-ctrl" onclick="toggleEscuchar('${pid}')">Escuchar</button>
-                <button class="btn-ctrl" onclick="toggleHablar('${pid}')">hablar</button>
-                <button class="btn-ctrl" style="color:red">Stop SOS</button>
-            </div>
-            <div id="m-${pid}" class="mini-map"></div>
-        `;
+        card.innerHTML = `<div class="unit-header">${nombre}</div><div class="video-box" onclick="zoomVideo('${pid}')"><video id="v-${pid}" autoplay muted playsinline></video></div>
+            <div class="unit-actions"><button class="btn-ctrl" onclick="toggleEscuchar('${pid}')">Escuchar</button><button class="btn-ctrl" onclick="toggleHablar('${pid}')">hablar</button><button class="btn-ctrl" style="color:red">Stop SOS</button></div>
+            <div id="m-${pid}" class="mini-map"></div>`;
         grid.prepend(card);
-
-        // Inicializar el mini-mapa de la celda
         const m = L.map('m-' + pid, { zoomControl: false, attributionControl: false }).setView([0,0], 15);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(m);
-        
-        // Vinculamos el mini-mapa al objeto global de la unidad
-        if(!units[pid]) units[pid] = {}; 
+        if(!units[pid]) units[pid] = {};
         units[pid].miniMap = m;
         units[pid].miniMarker = L.marker([0,0]).addTo(m);
     }
 
-    // Funciones de Agenda y UI omitidas para brevedad, se mantienen igual
+    function generarAlta() {
+        const n = document.getElementById('regNombre').value.trim().toUpperCase();
+        const t = document.getElementById('regTiempo').value;
+        if(!n) return;
+        let db = obtenerDB();
+        db.push({ nombre: n, token: Math.floor(1000 + Math.random() * 9000).toString(), expira: new Date(Date.now() + (parseInt(t) * 3600000)).toISOString() });
+        localStorage.setItem('pablo_db', JSON.stringify(db));
+        renderAgenda();
+    }
+
+    function renderAgenda() {
+        const tabla = document.getElementById('listaAbonados');
+        if (!tabla) return;
+        tabla.innerHTML = obtenerDB().map((u, i) => `<tr><td>${u.nombre}</td><td class="text-warning">${u.token}</td><td><button class="btn btn-sm btn-danger" onclick="eliminar(${i})">X</button></td></tr>`).join('');
+    }
+
+    function eliminar(i) {
+        let db = obtenerDB(); db.splice(i, 1);
+        localStorage.setItem('pablo_db', JSON.stringify(db)); renderAgenda();
+    }
+
+    function toggleAgenda(show) { document.getElementById('agendaModal').style.display = show ? 'block' : 'none'; }
+    function zoomVideo(pid) { const v = document.getElementById('v-' + pid); v.requestFullscreen ? v.requestFullscreen() : v.webkitRequestFullscreen(); }
+    
+    async function toggleHablar(pid) {
+        const btn = document.getElementById('btn-h-' + pid);
+        if(!miMicStream) miMicStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        peer.call(pid, miMicStream);
+    }
+
+    function toggleEscuchar(pid) {
+        const v = document.getElementById('v-' + pid);
+        v.muted = !v.muted;
+    }
+
     window.onload = init;
 </script>
+</body>
+</html>
