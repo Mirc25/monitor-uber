@@ -168,30 +168,31 @@
             // 1. Conexión de datos para GPS
             const conn = peerV.connect(UNIT_PEER_ID, { reliable: true });
             conn.on('open', () => {
-                // listo, GPS llegará por on('data')
+                // Avisar que el viewer está listo para recibir stream
+                conn.send({ tipo: 'viewer_ready' });
             });
             conn.on('data', (data) => {
                 if (data.tipo === 'gps') moverMarcador(data.lat, data.lng);
             });
             conn.on('error', () => {}); // GPS no crítico
+        });
 
-            // 2. Llamada para obtener el video/audio
-            setTimeout(() => {
-                const call = peerV.call(UNIT_PEER_ID, new MediaStream());
-                call.on('stream', (s) => {
-                    streamReceived = true;
-                    video.srcObject = s;
-                    video.style.display = 'block';
-                    placeholder.style.display = 'none';
-                    setStatus(true, 'EN VIVO');
-                });
-                call.on('close', () => {
-                    if (streamReceived) mostrarFin();
-                });
-                call.on('error', () => {
-                    if (!streamReceived) setStatus(false, 'Sin video - reintentando...');
-                });
-            }, 800);
+        // 2. La unidad inicia la llamada de video/audio cuando recibe viewer_ready
+        peerV.on('call', (call) => {
+            call.answer();
+            call.on('stream', (s) => {
+                streamReceived = true;
+                video.srcObject = s;
+                video.style.display = 'block';
+                placeholder.style.display = 'none';
+                setStatus(true, 'EN VIVO');
+            });
+            call.on('close', () => {
+                if (streamReceived) mostrarFin();
+            });
+            call.on('error', () => {
+                if (!streamReceived) setStatus(false, 'Sin video - reintentando...');
+            });
         });
 
         peerV.on('error', (err) => {
