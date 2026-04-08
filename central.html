@@ -35,7 +35,7 @@
 <body>
 
 <div class="top-bar">
-    <div><b>PABLO SECURITY CENTRAL CHIMBAS</b></div>
+    <div style="font-weight: bold; color: #0f0;">PABLO SECURITY CENTRAL CHIMBAS</div>
     <button class="btn btn-sm btn-success fw-bold" onclick="toggleAgenda(true)">📂 ABRIR AGENDA Y TOKENS</button>
 </div>
 
@@ -47,7 +47,7 @@
             <button class="btn-tool" onclick="toggleCarpetaNegra(true)">carpeta negra</button>
             <button class="btn-tool" id="btn-ia-status">IA DESACTIVADA</button>
             <div style="text-align:center; color:#fff; margin-top:20px;">
-                <div>ia reconocimiento facial</div>
+                <div style="font-size:14px;">ia reconocimiento facial</div>
                 <div id="ia-toggle" style="width:70px; height:30px; background:#444; border-radius:20px; margin:10px auto; position:relative; cursor:pointer;" onclick="toggleIA()">
                     <div id="ia-dot" style="position:absolute; left:5px; top:4px; width:22px; height:22px; background:#ddd; border-radius:50%; transition: 0.3s;"></div>
                 </div>
@@ -60,7 +60,7 @@
 <div id="blackFolderModal">
     <div class="modal-container" style="border-color: #f00;">
         <div class="d-flex justify-content-between mb-3 border-bottom border-danger pb-2">
-            <h4 style="color: #f00;">CARPETA NEGRA - LISTA NEGRA</h4>
+            <h4 style="color: #f00;">CARPETA NEGRA - LISTA NEGRA PERMANENTE</h4>
             <button class="btn btn-sm btn-outline-danger" onclick="toggleCarpetaNegra(false)">CERRAR</button>
         </div>
         <div class="row g-2 mb-4 bg-dark p-3 border border-danger">
@@ -72,13 +72,26 @@
     </div>
 </div>
 
+<div id="agendaModal">
+    <div class="modal-container">
+        <div class="d-flex justify-content-between mb-3 border-bottom border-success pb-2">
+            <h4>GESTIÓN DE TOKENS</h4>
+            <button class="btn btn-sm btn-danger" onclick="toggleAgenda(false)">CERRAR</button>
+        </div>
+        <div id="listaAbonados"></div>
+    </div>
+</div>
+
 <script>
     let peer, mainMap, dbIndexed, iaActiva = false;
     const units = {};
     const CENTRAL_ID = 'PABLO-CENTRAL-MASTER-2026';
+    const alarmSound = new Audio('https://www.soundjay.com/buttons/beep-01a.mp3');
+    
     const carIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', iconSize: [25, 25], className: 'fuchsia-car' });
     const sosIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', iconSize: [30, 30], className: 'sos-car' });
 
+    // Base de datos persistente para Carpeta Negra
     const request = indexedDB.open("PabloSecurity_Folder", 1);
     request.onupgradeneeded = (e) => { e.target.result.createObjectStore("delincuentes", { keyPath: "id", autoIncrement: true }); };
     request.onsuccess = (e) => { dbIndexed = e.target.result; cargarListaNegraVisual(); };
@@ -86,9 +99,12 @@
     async function init() {
         mainMap = L.map('mainMap').setView([-31.5375, -68.5364], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mainMap);
+        
+        // Carga de modelos IA
         await faceapi.nets.tinyFaceDetector.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model');
         await faceapi.nets.faceLandmark68Net.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model');
         await faceapi.nets.faceRecognitionNet.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model');
+        
         conectarCentral();
         setInterval(escanearIA, 3000);
     }
@@ -97,7 +113,7 @@
         peer = new Peer(CENTRAL_ID);
         peer.on('connection', (conn) => {
             conn.on('data', (data) => {
-                if(data.tipo === 'login') crearOActualizarCelda(conn.peer, data.nombre);
+                if(data.tipo === 'login') manejarLogin(conn, data);
                 if(data.tipo === 'gps') actualizarPosicionGlobal(conn.peer, data.lat, data.lng);
             });
         });
@@ -114,12 +130,18 @@
         const pos = [lat, lng];
         if (!units[pid]) units[pid] = {};
         if (!units[pid].mainMarker) {
-            units[pid].mainMarker = L.marker(pos, {icon: carIcon}).addTo(mainMap).bindPopup(pid.replace('PABLO-U-', ''));
+            const nombre = pid.replace('PABLO-U-', '').replace(/-/g, ' ');
+            units[pid].mainMarker = L.marker(pos, {icon: carIcon}).addTo(mainMap).bindPopup(nombre);
         } else { units[pid].mainMarker.setLatLng(pos); }
         if (units[pid].miniMap) {
             units[pid].miniMap.setView(pos);
             if (units[pid].miniMarker) units[pid].miniMarker.setLatLng(pos);
         }
+    }
+
+    function manejarLogin(conn, data) {
+        crearOActualizarCelda(conn.peer, data.nombre);
+        conn.send({ tipo: 'auth_ok' });
     }
 
     function crearOActualizarCelda(pid, nombre) {
@@ -142,25 +164,32 @@
         units[pid].miniMap = m; units[pid].miniMarker = L.marker([0,0]).addTo(m);
     }
 
-    function toggleCarpetaNegra(s) { document.getElementById('blackFolderModal').style.display = s ? 'block' : 'none'; }
+    function toggleCarpetaNegra(show) { document.getElementById('blackFolderModal').style.display = show ? 'block' : 'none'; }
 
     async function guardarDelincuente() {
-        const nom = document.getElementById('nombreDelincuente').value;
+        const nombre = document.getElementById('nombreDelincuente').value;
         const file = document.getElementById('fotoDelincuente').files[0];
-        if(!nom || !file) return alert("Faltan datos");
+        if(!nombre || !file) return alert("Faltan datos");
+
         try {
             const img = await faceapi.bufferToImage(file);
             const desc = await faceapi.computeFaceDescriptor(img);
             if(!desc) return alert("No se detectó rostro");
+
             const tx = dbIndexed.transaction(["delincuentes"], "readwrite");
-            tx.objectStore("delincuentes").add({ nombre: nom.toUpperCase(), descriptor: Array.from(desc), foto: await toBase64(file) });
-            tx.oncomplete = () => { cargarListaNegraVisual(); alert("GUARDADO"); };
+            const store = tx.objectStore("delincuentes");
+            const b64 = await toBase64(file);
+            
+            store.add({ nombre: nombre.toUpperCase(), descriptor: Array.from(desc), foto: b64 });
+            tx.oncomplete = () => { cargarListaNegraVisual(); alert("REGISTRADO EN CARPETA NEGRA"); };
         } catch(e) { alert("Error IA: " + e); }
     }
 
     function cargarListaNegraVisual() {
-        const container = document.getElementById('listaNegra'); container.innerHTML = "";
-        dbIndexed.transaction("delincuentes").objectStore("delincuentes").openCursor().onsuccess = (e) => {
+        const container = document.getElementById('listaNegra');
+        container.innerHTML = "";
+        const store = dbIndexed.transaction("delincuentes").objectStore("delincuentes");
+        store.openCursor().onsuccess = (e) => {
             const cursor = e.target.result;
             if(cursor) {
                 container.innerHTML += `<div class="col-md-3"><div class="card bg-black border-danger p-1"><img src="${cursor.value.foto}" style="height:80px; object-fit:cover;"><div class="small text-center text-danger">${cursor.value.nombre}</div></div></div>`;
@@ -181,33 +210,51 @@
     async function escanearIA() {
         if(!iaActiva) return;
         const videos = document.querySelectorAll('video');
-        const db = await new Promise(res => {
-            const list = [];
-            dbIndexed.transaction("delincuentes").objectStore("delincuentes").openCursor().onsuccess = (e) => {
-                const c = e.target.result; if(c) { list.push(c.value); c.continue(); } else res(list);
-            };
-        });
+        const db = await obtenerTodosDelincuentes();
+        if(db.length === 0) return;
+
         for(let v of videos) {
+            if(v.paused || v.ended) continue;
             try {
-                const det = await faceapi.detectAllFaces(v, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptors();
-                for(let d of det) {
-                    for(let l of db) {
-                        if(faceapi.euclideanDistance(d.descriptor, new Float32Array(l.descriptor)) < 0.5) dispararAlerta(v.id.replace('v-', ''), l.nombre);
+                const detections = await faceapi.detectAllFaces(v, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptors();
+                for(let det of detections) {
+                    for(let del of db) {
+                        const dist = faceapi.euclideanDistance(det.descriptor, new Float32Array(del.descriptor));
+                        if(dist < 0.5) dispararAlerta(v.id.replace('v-', ''), del.nombre);
                     }
                 }
             } catch(e) {}
         }
     }
 
-    function dispararAlerta(pid, nom) {
-        const c = document.getElementById('card-' + pid);
-        if(c && !c.classList.contains('alerta-ia')) {
-            c.classList.add('alerta-ia');
+    function dispararAlerta(pid, delincuente) {
+        const card = document.getElementById('card-' + pid);
+        if(card && !card.classList.contains('alerta-ia')) {
+            card.classList.add('alerta-ia');
+            alarmSound.play();
             if(units[pid].mainMarker) units[pid].mainMarker.setIcon(sosIcon);
-            alert(`¡IA! ${nom} DETECTADO EN UNIDAD ${pid.replace('PABLO-U-','')}`);
+            alert(`¡ALERTA IA! SOSPECHOSO [${delincuente}] DETECTADO EN UNIDAD ${pid.replace('PABLO-U-','')}`);
         }
     }
 
     function pararAlerta(pid) {
-        const c = document.getElementById('card-' + pid);
-        if(c) { c.classList.remove('alerta-ia'); if(units[pid].mainMarker) units
+        const card = document.getElementById('card-' + pid);
+        if(card) { card.classList.remove('alerta-ia'); if(units[pid].mainMarker) units[pid].mainMarker.setIcon(carIcon); }
+    }
+
+    async function obtenerTodosDelincuentes() {
+        return new Promise(res => {
+            const list = [];
+            const tx = dbIndexed.transaction("delincuentes", "readonly");
+            tx.objectStore("delincuentes").openCursor().onsuccess = (e) => {
+                const cursor = e.target.result; if(cursor) { list.push(cursor.value); cursor.continue(); } else res(list);
+            };
+        });
+    }
+
+    function toBase64(file) { return new Promise((res) => { const r = new FileReader(); r.onload = (e) => res(e.target.result); r.readAsDataURL(file); }); }
+    function toggleAgenda(s) { document.getElementById('agendaModal').style.display = s ? 'block' : 'none'; }
+    window.onload = init;
+</script>
+</body>
+</html>
