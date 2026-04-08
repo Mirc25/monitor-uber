@@ -16,7 +16,10 @@
         .unit-card { background: #000; border: 1px solid #333; display: flex; flex-direction: column; height: 320px; position: relative; transition: 0.3s; }
         
         .alerta-ia { border: 5px solid #f00 !important; box-shadow: 0 0 25px #f00; animation: parpadeo-ia 0.4s infinite alternate; z-index: 1000; cursor: pointer; }
-        @keyframes parpadeo-ia { 0% { background: #000; transform: scale(1); } 100% { background: #400; transform: scale(0.98); } }
+        @keyframes parpadeo-ia { 0% { background: #000; } 100% { background: #400; } }
+
+        /* Efecto visual de pausa */
+        .pausa-visual { opacity: 0.6; filter: grayscale(1); }
 
         .unit-header { background: #1a1a1a; font-size: 10px; padding: 2px; text-align: center; color: #0f0; }
         .video-box { height: 110px; background: #222; position: relative; }
@@ -82,7 +85,6 @@
     const carIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', iconSize: [25, 25], className: 'fuchsia-car' });
     const sosIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', iconSize: [30, 30], className: 'sos-car' });
 
-    // indexedDB restaurado
     const request = indexedDB.open("PabloSecurity_Folder", 1);
     request.onupgradeneeded = (e) => { e.target.result.createObjectStore("delincuentes", { keyPath: "id", autoIncrement: true }); };
     request.onsuccess = (e) => { dbIndexed = e.target.result; cargarListaNegraVisual(); };
@@ -110,7 +112,7 @@
     function conectarCentral() {
         peer = new Peer(CENTRAL_ID);
         peer.on('connection', (conn) => {
-            units[conn.peer] = units[conn.peer] || {};
+            if (!units[conn.peer]) units[conn.peer] = { ignoreIA: false };
             units[conn.peer].conn = conn;
             conn.on('data', (data) => {
                 if(data.tipo === 'login') manejarLogin(conn, data);
@@ -126,7 +128,6 @@
         });
     }
 
-    // --- BLOQUE CARPETA NEGRA RESTAURADO ---
     function toggleCarpetaNegra(s) { document.getElementById('blackFolderModal').style.display = s ? 'block' : 'none'; }
 
     async function guardarDelincuente() {
@@ -160,7 +161,6 @@
         tx.oncomplete = () => cargarListaNegraVisual();
     }
 
-    // --- BLOQUE IA RESTAURADO ---
     function toggleIA() {
         iaActiva = !iaActiva;
         document.getElementById('ia-dot').style.left = iaActiva ? "40px" : "5px";
@@ -180,13 +180,17 @@
         });
         if(dbList.length === 0) return;
         for(let v of vids) {
+            const pid = v.id.replace('v-', '');
+            // REGLA DE 3 MINUTOS: Si está marcado para ignorar, saltamos el escaneo
+            if(units[pid] && units[pid].ignoreIA) continue;
+
             if(v.paused || v.ended || v.readyState < 3) continue;
             try {
                 const detections = await faceapi.detectAllFaces(v, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 })).withFaceLandmarks().withFaceDescriptors();
                 for(let det of detections) {
                     for(let del of dbList) {
                         if(faceapi.euclideanDistance(det.descriptor, new Float32Array(del.descriptor)) < 0.6) {
-                            dispararAlerta(v.id.replace('v-', ''));
+                            dispararAlerta(pid);
                         }
                     }
                 }
@@ -208,11 +212,21 @@
         if(c && c.classList.contains('alerta-ia')) {
             c.classList.remove('alerta-ia'); 
             if(units[pid].mainMarker) units[pid].mainMarker.setIcon(carIcon); 
+            
+            // INICIO DE PAUSA DE 3 MINUTOS
+            if(units[pid]) {
+                units[pid].ignoreIA = true;
+                c.classList.add('pausa-visual');
+                setTimeout(() => {
+                    units[pid].ignoreIA = false;
+                    c.classList.remove('pausa-visual');
+                }, 180000); // 180.000 ms = 3 minutos
+            }
+
             if(document.querySelectorAll('.alerta-ia').length === 0) { alarmAudio.pause(); alarmAudio.currentTime = 0; }
         }
     }
 
-    // --- BOTONES DE AUDIO REPARADOS ---
     function iniciarHabla(pid) {
         if(!localStream) return;
         const btn = document.getElementById('btn-hablar-' + pid);
@@ -263,13 +277,13 @@
         grid.prepend(card);
         const m = L.map('m-' + pid, { zoomControl: false, attributionControl: false }).setView([0,0], 15);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(m);
-        if(!units[pid]) units[pid] = {};
+        if(!units[pid]) units[pid] = { ignoreIA: false };
         units[pid].miniMap = m; units[pid].miniMarker = L.marker([0,0]).addTo(m);
     }
 
     function actualizarPosicionGlobal(pid, lat, lng) {
         const pos = [lat, lng];
-        if (!units[pid]) units[pid] = {};
+        if (!units[pid]) units[pid] = { ignoreIA: false };
         if (!units[pid].mainMarker) {
             units[pid].mainMarker = L.marker(pos, {icon: carIcon}).addTo(mainMap).bindPopup(pid);
         } else { units[pid].mainMarker.setLatLng(pos); }
@@ -279,13 +293,13 @@
         }
     }
     function manejarLogin(conn, data) {
-        units[conn.peer] = units[conn.peer] || {};
+        if (!units[conn.peer]) units[conn.peer] = { ignoreIA: false };
         units[conn.peer].conn = conn;
         crearOActualizarCelda(conn.peer, data.nombre);
         conn.send({ tipo: 'auth_ok' });
     }
     function toBase64(f) { return new Promise(res => { const r = new FileReader(); r.onload = e => res(e.target.result); r.readAsDataURL(f); }); }
-    function toggleAgenda(s) { /* Si tenés el modal de agenda, agregá acá el toggle */ }
+    function toggleAgenda(s) { /* Activa el modal si lo tienes definido */ }
     window.onload = init;
 </script>
 </body>
