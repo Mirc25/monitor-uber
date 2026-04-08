@@ -2,73 +2,130 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>PABLO SECURITY - CENTRAL MAESTRA</title>
+    <title>PABLO SECURITY - PANEL 50 UNIDADES</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        body { background: #000; color: #0f0; font-family: 'Courier New', Courier, monospace; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
-        .top-bar { background: #0a0a0a; border-bottom: 2px solid #0f0; padding: 5px 20px; display: flex; justify-content: space-between; align-items: center; height: 50px; }
-        .main-layout { display: flex; flex: 1; overflow: hidden; position: relative; }
-        .grid-fleet { flex: 1; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; padding: 12px; overflow-y: auto; margin-right: 420px; }
-        .unit-card { background: #111; border: 1px solid #333; border-radius: 5px; overflow: hidden; height: 380px; display: flex; flex-direction: column; position: relative; }
-        .unit-header { background: #1a1a1a; font-size: 11px; padding: 6px; text-align: center; border-bottom: 1px solid #0f0; color: #0f0; font-weight: bold; }
-        .video-box { height: 160px; background: #000; position: relative; cursor: zoom-in; }
+        body { background: #000; color: #0f0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; overflow: hidden; display: flex; flex-direction: column; height: 100vh; }
+        
+        .top-bar { background: #0a0a0a; border-bottom: 2px solid #0f0; padding: 5px 15px; display: flex; justify-content: space-between; align-items: center; height: 45px; z-index: 100; }
+
+        .main-layout { display: flex; flex: 1; overflow: hidden; }
+
+        /* CUADRICULA PARA 50 VIDEOS */
+        .grid-fleet { 
+            flex: 1; 
+            display: grid; 
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); /* Celdas más pequeñas */
+            gap: 5px; 
+            padding: 5px; 
+            overflow-y: auto; 
+            background: #050505;
+        }
+
+        /* TARJETA MINIATURA */
+        .unit-card { 
+            background: #111; 
+            border: 1px solid #222; 
+            border-radius: 3px; 
+            display: flex; 
+            flex-direction: column; 
+            height: 220px; /* Altura reducida */
+            position: relative;
+            transition: border 0.3s;
+        }
+        .unit-card:hover { border-color: #0f0; }
+
+        .unit-header { 
+            background: #1a1a1a; 
+            font-size: 9px; 
+            padding: 2px 5px; 
+            text-align: center; 
+            border-bottom: 1px solid #333; 
+            color: #0f0; 
+            white-space: nowrap;
+            overflow: hidden;
+        }
+
+        .video-box { 
+            flex: 1; 
+            background: #000; 
+            position: relative; 
+            overflow: hidden;
+            cursor: pointer;
+        }
         video { width: 100%; height: 100%; object-fit: cover; }
-        .unit-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; padding: 8px; background: #050505; }
-        .btn-ctrl { font-size: 10px; padding: 8px; border: 1px solid #0f0; background: transparent; color: #0f0; cursor: pointer; font-weight: bold; }
-        .btn-active { background: #f00 !important; color: #fff !important; }
-        #mainMap { width: 400px; height: calc(100vh - 50px); border-left: 2px solid #0f0; position: absolute; right: 0; top: 0; z-index: 80; }
-        #agendaModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 1000; padding: 20px; }
-        .agenda-container { max-width: 850px; margin: 0 auto; background: #111; border: 1px solid #0f0; padding: 20px; border-radius: 8px; color: #0f0; }
-        .table { color: #0f0 !important; border-color: #0f0; }
+
+        .unit-actions { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; 
+            gap: 2px; 
+            padding: 2px; 
+            background: #000;
+        }
+        .btn-ctrl { 
+            font-size: 8px; 
+            padding: 3px 0; 
+            border: 1px solid #333; 
+            background: transparent; 
+            color: #0f0; 
+            text-transform: uppercase;
+        }
+        .btn-active { background: #f00 !important; color: #fff !important; border-color: #f00; }
+
+        /* MAPA LATERAL FIJO */
+        #mainMap { width: 350px; border-left: 1px solid #0f0; height: 100%; background: #000; }
+
+        /* MODAL AGENDA */
+        #agendaModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 2000; padding: 40px; }
+        .agenda-container { max-width: 900px; margin: 0 auto; background: #111; border: 1px solid #0f0; padding: 20px; border-radius: 5px; }
+
+        /* SCROLLBAR ESTILO MATRIX */
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: #000; }
+        ::-webkit-scrollbar-thumb { background: #0f0; }
     </style>
 </head>
 <body>
 
 <div class="top-bar">
-    <div><b>PABLO SECURITY</b> <small>CENTRAL CHIMBAS</small></div>
-    <button class="btn btn-sm btn-success fw-bold" onclick="toggleAgenda(true)">📂 ABRIR AGENDA Y TOKENS</button>
+    <div><b style="letter-spacing: 2px;">PABLO SECURITY</b> <span class="badge bg-success ms-2" id="count">0 UNIDADES</span></div>
+    <button class="btn btn-sm btn-outline-success fw-bold" onclick="toggleAgenda(true)">📂 GESTIONAR TOKENS</button>
 </div>
 
 <div class="main-layout">
-    <div class="grid-fleet" id="monitorGrid"></div>
+    <div class="grid-fleet" id="monitorGrid">
+        </div>
     <div id="mainMap"></div>
 </div>
 
 <div id="agendaModal">
     <div class="agenda-container">
-        <div class="d-flex justify-content-between mb-3 border-bottom border-success pb-2">
-            <h4>GESTIÓN DE ABONADOS</h4>
-            <button class="btn btn-sm btn-outline-danger" onclick="toggleAgenda(false)">CERRAR [X]</button>
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h4 class="m-0 text-success">REGISTRO DE CONDUCTORES</h4>
+            <button class="btn btn-sm btn-danger" onclick="toggleAgenda(false)">CERRAR</button>
         </div>
-        <div class="row g-2 mb-4 bg-dark p-3 rounded border border-success">
-            <div class="col-md-5">
-                <label class="small text-success">NOMBRE DEL MÓVIL</label>
-                <input type="text" id="regNombre" class="form-control bg-black text-success border-success" placeholder="MOVIL 1">
+        <div class="row g-2 mb-4">
+            <div class="col-md-6">
+                <input type="text" id="regNombre" class="form-control form-control-sm bg-black text-success border-success" placeholder="NOMBRE/PATENTE">
             </div>
             <div class="col-md-3">
-                <label class="small text-success">DURACIÓN</label>
-                <select id="regTiempo" class="form-select bg-black text-success border-success">
-                    <option value="24">24 HORAS</option>
+                <select id="regTiempo" class="form-select form-select-sm bg-black text-success border-success">
+                    <option value="24">24 HS</option>
                     <option value="168">7 DÍAS</option>
                     <option value="720">30 DÍAS</option>
                 </select>
             </div>
-            <div class="col-md-4 d-flex align-items-end">
-                <button class="btn btn-success w-100 fw-bold" onclick="generarAlta()">+ GENERAR ALTA</button>
+            <div class="col-md-3">
+                <button class="btn btn-sm btn-success w-100" onclick="generarAlta()">+ CREAR TOKEN</button>
             </div>
         </div>
-        <div style="max-height: 400px; overflow-y: auto;">
-            <table class="table table-dark table-hover">
+        <div style="max-height: 50vh; overflow-y: auto;">
+            <table class="table table-dark table-sm border-secondary">
                 <thead>
-                    <tr>
-                        <th>UNIDAD</th>
-                        <th>TOKEN</th>
-                        <th>VENCIMIENTO</th>
-                        <th>ACCIONES</th>
-                    </tr>
+                    <tr><th>MÓVIL</th><th>TOKEN</th><th>VENCE</th><th>-</th></tr>
                 </thead>
                 <tbody id="listaAbonados"></tbody>
             </table>
@@ -77,161 +134,158 @@
 </div>
 
 <script>
-    let peer, mainMap, miMicStream;
+    let peer, mainMap;
     const units = {};
     const CENTRAL_ID = 'PABLO-CENTRAL-MASTER-2026';
 
     function obtenerDB() {
         try {
             const data = localStorage.getItem('pablo_db');
-            const lista = data ? JSON.parse(data) : [];
-            return Array.isArray(lista) ? lista : [];
+            return data ? JSON.parse(data) : [];
         } catch (e) { return []; }
     }
 
     function init() {
         mainMap = L.map('mainMap').setView([-31.5375, -68.5364], 13);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mainMap);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { opacity: 0.7 }).addTo(mainMap);
         conectarCentral();
-        renderAgenda(); 
+        renderAgenda();
     }
 
     function conectarCentral() {
         peer = new Peer(CENTRAL_ID);
+        
         peer.on('connection', (conn) => {
             conn.on('data', (data) => {
-                if(data.tipo === 'login') manejarLogin(conn, data);
-                if(data.tipo === 'gps') actualizarPosicion(conn.peer, data.lat, data.lng);
+                if(data.tipo === 'login') manejarAutenticacion(conn, data);
+                if(data.tipo === 'gps') actualizarGPS(conn.peer, data.lat, data.lng);
             });
         });
+
         peer.on('call', (call) => {
             call.answer();
-            call.on('stream', (s) => {
-                const v = document.getElementById('v-' + call.peer);
-                if(v) {
-                    v.srcObject = s;
-                    // Manejo del error AbortError capturando la promesa
-                    const playPromise = v.play();
+            call.on('stream', (stream) => {
+                const videoElement = document.getElementById('v-' + call.peer);
+                if(videoElement) {
+                    videoElement.srcObject = stream;
+                    // Forzar reproducción en tiempo real manejando promesas
+                    const playPromise = videoElement.play();
                     if (playPromise !== undefined) {
-                        playPromise.catch(() => { /* Silenciar error de interrupción */ });
+                        playPromise.catch(e => console.log("Esperando interacción..."));
                     }
                 }
             });
         });
     }
 
-    function manejarLogin(conn, data) {
-        let db = obtenerDB();
+    function manejarAutenticacion(conn, data) {
+        const db = obtenerDB();
         const user = db.find(u => u.nombre === data.nombre.toUpperCase() && u.token === data.token);
+        
         if(user && Date.now() < new Date(user.expira).getTime()) {
-            crearOActualizarCelda(conn.peer, user.nombre);
+            crearCeldaUnidad(conn.peer, user.nombre);
             conn.send({ tipo: 'auth_ok' });
+            actualizarContador();
         } else {
-            conn.send({ tipo: 'error', msg: 'ACCESO DENEGADO' });
+            conn.send({ tipo: 'error', msg: 'TOKEN INVÁLIDO O VENCIDO' });
         }
     }
 
-    function generarAlta() {
-        const n = document.getElementById('regNombre').value.trim().toUpperCase();
-        const t = document.getElementById('regTiempo').value;
-        if(!n) return alert("Ingresa un nombre");
-
-        let db = obtenerDB();
-        const fechaVencimiento = new Date(Date.now() + (parseInt(t) * 3600000));
-
-        const nuevo = {
-            nombre: n,
-            token: Math.floor(1000 + Math.random() * 9000).toString(),
-            expira: fechaVencimiento.toISOString()
-        };
-
-        db.push(nuevo);
-        localStorage.setItem('pablo_db', JSON.stringify(db));
-        document.getElementById('regNombre').value = "";
-        renderAgenda();
-    }
-
-    function renderAgenda() {
-        const tabla = document.getElementById('listaAbonados');
-        if (!tabla) return;
-        let db = obtenerDB();
-        tabla.innerHTML = db.map((u, i) => `
-            <tr>
-                <td>${u.nombre}</td>
-                <td class="fw-bold text-warning">${u.token}</td>
-                <td>${new Date(u.expira).toLocaleString()}</td>
-                <td><button class="btn btn-sm btn-danger" onclick="eliminarAbonado(${i})">BORRAR</button></td>
-            </tr>
-        `).join('');
-    }
-
-    function eliminarAbonado(i) {
-        let db = obtenerDB();
-        db.splice(i, 1);
-        localStorage.setItem('pablo_db', JSON.stringify(db));
-        renderAgenda();
-    }
-
-    function toggleAgenda(show) { document.getElementById('agendaModal').style.display = show ? 'block' : 'none'; }
-
-    function crearOActualizarCelda(pid, nombre) {
+    function crearCeldaUnidad(pid, nombre) {
         if(document.getElementById('card-' + pid)) return;
+
         const grid = document.getElementById('monitorGrid');
         const card = document.createElement('div');
         card.className = 'unit-card';
         card.id = 'card-' + pid;
         card.innerHTML = `
             <div class="unit-header">${nombre}</div>
-            <div class="video-box" onclick="zoomVideo('${pid}')">
+            <div class="video-box" onclick="expandir('${pid}')">
                 <video id="v-${pid}" autoplay playsinline muted></video>
             </div>
             <div class="unit-actions">
-                <button id="btn-h-${pid}" class="btn-ctrl" onclick="toggleHablar('${pid}')">🎤 HABLAR</button>
-                <button id="btn-e-${pid}" class="btn-ctrl" onclick="toggleEscuchar('${pid}')">🔊 ESCUCHAR</button>
+                <button id="btn-h-${pid}" class="btn-ctrl" onclick="hablar('${pid}')">MIC</button>
+                <button id="btn-e-${pid}" class="btn-ctrl" onclick="escuchar('${pid}')">AUD</button>
             </div>
-            <div id="m-i-${pid}" onclick="zoomGPS('${pid}')" style="height:120px; border-top:1px solid #333; cursor:zoom-in"></div>
         `;
         grid.prepend(card);
-        const mi = L.map('m-i-' + pid, { zoomControl: false, attributionControl: false }).setView([0,0], 15);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mi);
-        units[pid] = { mi, markerInd: L.marker([0,0]).addTo(mi), markerGen: L.marker([0,0]).addTo(mainMap).bindPopup(nombre) };
+
+        // Crear marcador en el mapa principal
+        units[pid] = {
+            marker: L.marker([-31.53, -68.53]).addTo(mainMap).bindPopup(nombre)
+        };
     }
 
-    function zoomVideo(pid) { 
+    function actualizarGPS(pid, lat, lng) {
+        if(units[pid]) {
+            const pos = [lat, lng];
+            units[pid].marker.setLatLng(pos);
+        }
+    }
+
+    function generarAlta() {
+        const n = document.getElementById('regNombre').value.trim().toUpperCase();
+        const t = document.getElementById('regTiempo').value;
+        if(!n) return alert("Falta nombre");
+
+        let db = obtenerDB();
+        db.push({
+            nombre: n,
+            token: Math.floor(1000 + Math.random() * 9000).toString(),
+            expira: new Date(Date.now() + (parseInt(t) * 3600000)).toISOString()
+        });
+        localStorage.setItem('pablo_db', JSON.stringify(db));
+        document.getElementById('regNombre').value = "";
+        renderAgenda();
+    }
+
+    function renderAgenda() {
+        const lista = document.getElementById('listaAbonados');
+        const db = obtenerDB();
+        lista.innerHTML = db.map((u, i) => `
+            <tr>
+                <td class="small">${u.nombre}</td>
+                <td class="text-warning fw-bold">${u.token}</td>
+                <td style="font-size:9px">${new Date(u.expira).toLocaleString()}</td>
+                <td><button class="btn btn-sm btn-outline-danger py-0" onclick="borrarAbonado(${i})">X</button></td>
+            </tr>
+        `).join('');
+    }
+
+    function borrarAbonado(i) {
+        let db = obtenerDB();
+        db.splice(i, 1);
+        localStorage.setItem('pablo_db', JSON.stringify(db));
+        renderAgenda();
+    }
+
+    function expandir(pid) {
         const v = document.getElementById('v-' + pid);
         if (v.requestFullscreen) v.requestFullscreen();
         else if (v.webkitRequestFullscreen) v.webkitRequestFullscreen();
     }
 
-    function zoomGPS(pid) { 
-        if(units[pid]) mainMap.setView(units[pid].markerGen.getLatLng(), 18);
-    }
-
-    async function toggleHablar(pid) {
-        const btn = document.getElementById('btn-h-' + pid);
-        if(btn.classList.contains('btn-active')) { location.reload(); return; }
-        try {
-            if(!miMicStream) miMicStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            peer.call(pid, miMicStream);
-            btn.classList.add('btn-active'); btn.innerText = "🛑 PARAR MIC";
-        } catch(e) { alert("Error Micrófono: " + e); }
-    }
-
-    function toggleEscuchar(pid) {
+    function escuchar(pid) {
         const v = document.getElementById('v-' + pid);
         const btn = document.getElementById('btn-e-' + pid);
         v.muted = !v.muted;
         btn.classList.toggle('btn-active');
-        btn.innerText = v.muted ? "🔊 ESCUCHAR" : "🔇 SILENCIAR";
+        btn.innerText = v.muted ? "AUD" : "MUTE";
     }
 
-    function actualizarPosicion(id, lat, lng) {
-        if(!units[id]) return;
-        const pos = [lat, lng];
-        units[id].mi.setView(pos);
-        units[id].markerInd.setLatLng(pos);
-        units[id].markerGen.setLatLng(pos);
+    async function hablar(pid) {
+        const btn = document.getElementById('btn-h-' + pid);
+        if(btn.classList.contains('btn-active')) { location.reload(); return; }
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            peer.call(pid, stream);
+            btn.classList.add('btn-active');
+            btn.innerText = "AL AIRE";
+        } catch(e) { alert("Error Mic: " + e); }
     }
+
+    function toggleAgenda(show) { document.getElementById('agendaModal').style.display = show ? 'block' : 'none'; }
+    function actualizarContador() { document.getElementById('count').innerText = document.querySelectorAll('.unit-card').length + " UNIDADES"; }
 
     window.onload = init;
 </script>
