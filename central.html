@@ -114,7 +114,8 @@
         const pos = [lat, lng];
         if (!units[pid]) units[pid] = {};
         if (!units[pid].mainMarker) {
-            units[pid].mainMarker = L.marker(pos, {icon: carIcon}).addTo(mainMap).bindPopup(pid.replace('PABLO-U-', ''));
+            const nombre = pid.replace('PABLO-U-', '').replace(/-/g, ' ');
+            units[pid].mainMarker = L.marker(pos, {icon: carIcon}).addTo(mainMap).bindPopup(nombre);
         } else { units[pid].mainMarker.setLatLng(pos); }
         if (units[pid].miniMap) {
             units[pid].miniMap.setView(pos);
@@ -150,14 +151,14 @@
         if(!nom || !file) return alert("Faltan datos");
 
         try {
-            // Procesar IA primero para evitar TransactionInactiveError
+            // IA PRIMERO: No abras la transacción hasta tener el descriptor listo
             const img = await faceapi.bufferToImage(file);
             const desc = await faceapi.computeFaceDescriptor(img);
             if(!desc) return alert("No se detectó rostro claro");
 
             const b64 = await toBase64(file);
             
-            // Abrir transacción después del procesamiento pesado
+            // TRANSACCIÓN DESPUÉS: Abre la base de datos solo para escribir el resultado final
             const tx = dbIndexed.transaction(["delincuentes"], "readwrite");
             const store = tx.objectStore("delincuentes");
             
