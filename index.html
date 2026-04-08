@@ -1,34 +1,121 @@
-// Busca esta sección en tu index.html y reemplázala por esta lógica mejorada:
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PABLO SECURITY - CONDUCTOR</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #000; color: #0f0; font-family: 'Courier New', Courier, monospace; }
+        .container { max-width: 500px; margin-top: 20px; border: 2px solid #0f0; padding: 20px; border-radius: 15px; background-color: #111; }
+        video { width: 100%; border-radius: 10px; border: 1px solid #0f0; background-color: #222; }
+        .btn-pablo { background-color: #0f0; color: #000; font-weight: bold; border: none; }
+        .status-dot { height: 10px; width: 10px; background-color: #f00; border-radius: 50%; display: inline-block; margin-right: 5px; }
+        .status-on { background-color: #0f0; }
+    </style>
+</head>
+<body>
+    <div class="container text-center">
+        <h2 class="mb-4">PABLO SECURITY</h2>
+        <div id="setup">
+            <div class="mb-3 text-start">
+                <label class="small">ID DE UNIDAD / NOMBRE</label>
+                <input type="text" id="unidadId" class="form-control bg-dark text-success border-success" placeholder="Ej: MOVIL 1">
+            </div>
+            <div class="mb-3 text-start">
+                <label class="small">TOKEN DE ACCESO (4 DÍGITOS)</label>
+                <input type="text" id="tokenAcceso" class="form-control bg-dark text-success border-success text-center" placeholder="****" maxlength="4">
+            </div>
+            <button class="btn btn-pablo w-100 py-3" onclick="validarYActivar()">ACTIVAR UNIDAD</button>
+        </div>
 
-async function validarYActivar() {
-    const nom = document.getElementById('unidadId').value.trim().toUpperCase();
-    const tok = document.getElementById('tokenAcceso').value.trim();
-    if (!nom || !tok) return alert("Faltan datos.");
+        <div id="monitor-activo" style="display:none;">
+            <div class="mb-2">
+                <span id="dot" class="status-dot"></span>
+                <span id="statusText">CONECTANDO...</span>
+            </div>
+            <video id="localVideo" autoplay muted playsinline></video>
+            <div class="mt-3">
+                <button class="btn btn-danger w-100 py-2 fw-bold" onclick="enviarSOS()">B O T Ó N - S O S</button>
+            </div>
+        </div>
+    </div>
 
-    try {
-        // Capturamos video y audio del chofer
-        miStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        document.getElementById('localVideo').srcObject = miStream;
-        document.getElementById('setup').style.display = 'none';
-        document.getElementById('monitor-activo').style.display = 'block';
+    <script>
+        let peer, miStream, connCentral;
+        const CENTRAL_PEER_ID = 'PABLO-CENTRAL-MASTER-2026';
 
-        peer = new Peer('PABLO-U-' + nom.replace(/\s+/g, '-'));
+        async function validarYActivar() {
+            const nom = document.getElementById('unidadId').value.trim().toUpperCase();
+            const tok = document.getElementById('tokenAcceso').value.trim();
+            if (!nom || !tok) return alert("Faltan datos.");
 
-        peer.on('open', (id) => {
-            document.getElementById('statusText').innerText = "AUTENTICANDO...";
-            conectarYTransmitir(nom, tok);
-        });
+            try {
+                // Capturamos video y audio del chofer
+                miStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                document.getElementById('localVideo').srcObject = miStream;
+                document.getElementById('setup').style.display = 'none';
+                document.getElementById('monitor-activo').style.display = 'block';
 
-        // RECEPTOR DE LLAMADA DE LA CENTRAL (Para cuando Pablo habla)
-        peer.on('call', (call) => {
-            call.answer(miStream); // Respondemos enviando nuestro stream
-            call.on('stream', (remoteStream) => {
-                // Creamos un elemento de audio invisible para escuchar a la central
-                const audioRemoto = document.createElement('audio');
-                audioRemoto.srcObject = remoteStream;
-                audioRemoto.play();
+                peer = new Peer('PABLO-U-' + nom.replace(/\s+/g, '-'));
+
+                peer.on('open', (id) => {
+                    document.getElementById('statusText').innerText = "AUTENTICANDO...";
+                    conectarYTransmitir(nom, tok);
+                });
+
+                // RECEPTOR DE LLAMADA DE LA CENTRAL (Para cuando Pablo habla desde el monitor)
+                peer.on('call', (call) => {
+                    call.answer(miStream); 
+                    call.on('stream', (remoteStream) => {
+                        const audioRemoto = document.createElement('audio');
+                        audioRemoto.srcObject = remoteStream;
+                        audioRemoto.play();
+                    });
+                });
+
+            } catch (e) { alert("Error de permisos: " + e); location.reload(); }
+        }
+
+        function conectarYTransmitir(nombre, token) {
+            connCentral = peer.connect(CENTRAL_PEER_ID);
+            
+            connCentral.on('open', () => {
+                connCentral.send({ tipo: 'login', nombre: nombre, token: token });
             });
-        });
 
-    } catch (e) { alert("Error de permisos: " + e); }
-}
+            connCentral.on('data', (data) => {
+                if (data.tipo === 'auth_ok') {
+                    document.getElementById('dot').className = 'status-dot status-on';
+                    document.getElementById('statusText').innerText = 'EN LÍNEA';
+                    
+                    // Iniciamos la transmisión de video hacia la central
+                    peer.call(CENTRAL_PEER_ID, miStream);
+
+                    // Iniciamos el seguimiento GPS
+                    navigator.geolocation.watchPosition((pos) => {
+                        if (connCentral.open) {
+                            connCentral.send({ 
+                                tipo: 'gps', 
+                                lat: pos.coords.latitude, 
+                                lng: pos.coords.longitude 
+                            });
+                        }
+                    }, null, { enableHighAccuracy: true });
+                } else if (data.tipo === 'error') {
+                    alert(data.msg);
+                    location.reload();
+                }
+            });
+        }
+
+        function enviarSOS() {
+            if (connCentral && connCentral.open) {
+                connCentral.send({ tipo: 'sos' });
+                alert("¡ALERTA SOS ENVIADA!");
+            }
+        }
+    </script>
+</body>
+</html>
