@@ -240,17 +240,19 @@
 
         // ── LINK DE VIAJE (presión larga en candado flotante) ──
         window.generarLinkViaje = function(tokenForzado) {
-            if (!peer || peer.destroyed || !peer.id) {
-                return null;
-            }
-
             // Token de 6 caracteres alfanuméricos
             const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
             const token = tokenForzado || Array.from({length: 6}, () => chars[Math.floor(Math.random() * chars.length)]).join('');
             viajeTokenActivo = token;
             viewerConns = [];
 
-            const link = 'https://monitor-uber.vercel.app/viewer.html?u=' + encodeURIComponent(peer.id) + '&v=' + token;
+            // Usar peer activo o el último peer cacheado sincronizado a nativo
+            const peerIdForLink = (peer && !peer.destroyed && peer.id) ? peer.id : window.__unitPeerId;
+            if (!peerIdForLink) {
+                return null;
+            }
+
+            const link = 'https://monitor-uber.vercel.app/viewer.html?u=' + encodeURIComponent(peerIdForLink) + '&v=' + token;
 
             // Fallback browser normal
             if (!window.Android) {
