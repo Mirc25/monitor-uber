@@ -11,35 +11,18 @@
         body { background: #000; color: #0f0; font-family: 'Courier New', Courier, monospace; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
         .top-bar { background: #0a0a0a; border-bottom: 2px solid #0f0; padding: 5px 20px; display: flex; justify-content: space-between; align-items: center; height: 50px; }
         .main-layout { display: flex; flex: 1; overflow: hidden; position: relative; }
-        
-        .grid-fleet { 
-            flex: 1; display: grid; 
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); 
-            gap: 12px; padding: 12px; overflow-y: auto;
-            margin-right: 420px; 
-        }
-        
+        .grid-fleet { flex: 1; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; padding: 12px; overflow-y: auto; margin-right: 420px; }
         .unit-card { background: #111; border: 1px solid #333; border-radius: 5px; overflow: hidden; height: 380px; display: flex; flex-direction: column; position: relative; }
         .unit-header { background: #1a1a1a; font-size: 11px; padding: 6px; text-align: center; border-bottom: 1px solid #0f0; color: #0f0; font-weight: bold; }
-        
         .video-box { height: 160px; background: #000; position: relative; cursor: zoom-in; }
         video { width: 100%; height: 100%; object-fit: cover; }
-        
         .unit-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; padding: 8px; background: #050505; }
-        .btn-ctrl { font-size: 10px; padding: 8px; border: 1px solid #0f0; background: transparent; color: #0f0; cursor: pointer; font-weight: bold; text-transform: uppercase; }
-        .btn-ctrl:hover { background: #0f0; color: #000; }
-        .btn-active { background: #f00 !important; color: #fff !important; border-color: #f00; }
-
-        .sos-overlay { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,0,0,0.5); z-index: 60; animation: blink 0.5s infinite; pointer-events: none; }
-        @keyframes blink { 0% { opacity: 0; } 50% { opacity: 1; } }
-
+        .btn-ctrl { font-size: 10px; padding: 8px; border: 1px solid #0f0; background: transparent; color: #0f0; cursor: pointer; font-weight: bold; }
+        .btn-active { background: #f00 !important; color: #fff !important; }
         #mainMap { width: 400px; height: calc(100vh - 50px); border-left: 2px solid #0f0; position: absolute; right: 0; top: 0; z-index: 80; }
-
-        /* MODAL AGENDA CORREGIDO */
-        #agendaModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 1000; padding: 20px; overflow-y: auto; }
-        .agenda-container { max-width: 800px; margin: 0 auto; background: #111; border: 1px solid #0f0; padding: 20px; border-radius: 8px; }
-        .table { color: #0f0; border-color: #333; }
-        .fuchsia-car { filter: invert(19%) sepia(87%) saturate(6011%) hue-rotate(296deg) brightness(101%) contrast(110%); }
+        #agendaModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 1000; padding: 20px; }
+        .agenda-container { max-width: 850px; margin: 0 auto; background: #111; border: 1px solid #0f0; padding: 20px; border-radius: 8px; color: #0f0; }
+        .table { color: #0f0 !important; }
     </style>
 </head>
 <body>
@@ -56,35 +39,40 @@
 
 <div id="agendaModal">
     <div class="agenda-container">
-        <div class="d-flex justify-content-between mb-3">
-            <h4>GESTIÓN DE UNIDADES Y TOKENS</h4>
-            <button class="btn btn-danger btn-sm" onclick="toggleAgenda(false)">CERRAR [X]</button>
+        <div class="d-flex justify-content-between mb-3 border-bottom border-success pb-2">
+            <h4>GESTIÓN DE ABONADOS</h4>
+            <button class="btn btn-sm btn-outline-danger" onclick="toggleAgenda(false)">CERRAR [X]</button>
         </div>
-        
-        <div class="row g-2 mb-4">
-            <div class="col-md-4"><input type="text" id="regNombre" class="form-control bg-dark text-white border-secondary" placeholder="Nombre Chofer/Unidad"></div>
+        <div class="row g-2 mb-4 bg-dark p-3 rounded border border-success">
+            <div class="col-md-5">
+                <label class="small">NOMBRE DEL MÓVIL</label>
+                <input type="text" id="regNombre" class="form-control bg-black text-success border-success">
+            </div>
             <div class="col-md-3">
-                <select id="regTiempo" class="form-select bg-dark text-white border-secondary">
-                    <option value="24">COBERTURA 24H</option>
-                    <option value="168">7 DÍAS (SEMANAL)</option>
-                    <option value="720">30 DÍAS (MENSUAL)</option>
+                <label class="small">DURACIÓN</label>
+                <select id="regTiempo" class="form-select bg-black text-success border-success">
+                    <option value="24">24 HORAS</option>
+                    <option value="168">7 DÍAS</option>
+                    <option value="720">30 DÍAS</option>
                 </select>
             </div>
-            <div class="col-md-3"><button class="btn btn-success w-100" onclick="generarAlta()">GENERAR ALTA</button></div>
+            <div class="col-md-4 d-flex align-items-end">
+                <button class="btn btn-success w-100 fw-bold" onclick="generarAlta()">+ GENERAR ALTA</button>
+            </div>
         </div>
-
-        <table class="table table-dark table-hover">
-            <thead>
-                <tr>
-                    <th>UNIDAD</th>
-                    <th>TOKEN</th>
-                    <th>VENCE</th>
-                    <th>ESTADO</th>
-                    <th>ACCIONES</th>
-                </tr>
-            </thead>
-            <tbody id="listaAbonados"></tbody>
-        </table>
+        <div style="max-height: 400px; overflow-y: auto;">
+            <table class="table table-dark table-hover border-success">
+                <thead>
+                    <tr>
+                        <th>UNIDAD</th>
+                        <th>TOKEN</th>
+                        <th>VENCIMIENTO</th>
+                        <th>ACCIONES</th>
+                    </tr>
+                </thead>
+                <tbody id="listaAbonados"></tbody>
+            </table>
+        </div>
     </div>
 </div>
 
@@ -92,16 +80,15 @@
     let peer, mainMap, miMicStream;
     const units = {};
     const CENTRAL_ID = 'PABLO-CENTRAL-MASTER-2026';
-    const alarm = new Audio('https://www.soundjay.com/buttons/beep-01a.mp3');
-    const carIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', iconSize: [35, 35], className: 'fuchsia-car' });
-
+    
+    // Sincronización de base de datos local
     let dbAbonados = JSON.parse(localStorage.getItem('pablo_db')) || [];
 
     function init() {
         mainMap = L.map('mainMap').setView([-31.5375, -68.5364], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mainMap);
         conectarCentral();
-        renderAgenda();
+        renderAgenda(); // Cargar la tabla al iniciar
     }
 
     function conectarCentral() {
@@ -110,7 +97,6 @@
             conn.on('data', (data) => {
                 if(data.tipo === 'login') manejarLogin(conn, data);
                 if(data.tipo === 'gps') actualizarPosicion(conn.peer, data.lat, data.lng);
-                if(data.tipo === 'sos') activarSOS(conn.peer);
             });
         });
         peer.on('call', (call) => {
@@ -123,26 +109,61 @@
     }
 
     function manejarLogin(conn, data) {
-        const abonado = dbAbonados.find(u => u.nombre === data.nombre && u.token === data.token);
-        if (abonado && new Date(abonado.expira) > new Date()) {
-            crearOActualizarCelda(conn.peer, data.nombre);
-            conn.send({ autoriz: true });
+        const user = dbAbonados.find(u => u.nombre === data.nombre.toUpperCase() && u.token === data.token);
+        if(user && Date.now() < new Date(user.expira).getTime()) {
+            crearOActualizarCelda(conn.peer, user.nombre);
+            conn.send({ tipo: 'auth_ok' });
         } else {
-            conn.send({ autoriz: false, msg: "Token vencido o inválido" });
+            conn.send({ tipo: 'error', msg: 'TOKEN INVÁLIDO O VENCIDO' });
         }
     }
 
-    function crearOActualizarCelda(pid, nombre) {
-        const grid = document.getElementById('monitorGrid');
-        if(document.getElementById('card-' + pid)) return;
+    function generarAlta() {
+        const n = document.getElementById('regNombre').value.trim().toUpperCase();
+        const t = document.getElementById('regTiempo').value;
+        if(!n) return alert("Ingresa un nombre");
 
+        const nuevo = {
+            nombre: n,
+            token: Math.floor(1000 + Math.random() * 9000).toString(),
+            expira: new Date(Date.now() + (parseInt(t) * 3600000)).toISOString()
+        };
+
+        dbAbonados.push(nuevo);
+        localStorage.setItem('pablo_db', JSON.stringify(dbAbonados));
+        document.getElementById('regNombre').value = "";
+        renderAgenda(); // Actualizar la tabla visualmente
+    }
+
+    function renderAgenda() {
+        const tabla = document.getElementById('listaAbonados');
+        tabla.innerHTML = dbAbonados.map((u, i) => `
+            <tr>
+                <td>${u.nombre}</td>
+                <td class="fw-bold text-warning">${u.token}</td>
+                <td>${new Date(u.expira).toLocaleString()}</td>
+                <td><button class="btn btn-sm btn-danger" onclick="eliminarAbonado(${i})">BORRAR</button></td>
+            </tr>
+        `).join('');
+    }
+
+    function eliminarAbonado(i) {
+        dbAbonados.splice(i, 1);
+        localStorage.setItem('pablo_db', JSON.stringify(dbAbonados));
+        renderAgenda();
+    }
+
+    function toggleAgenda(show) { document.getElementById('agendaModal').style.display = show ? 'block' : 'none'; }
+
+    function crearOActualizarCelda(pid, nombre) {
+        if(document.getElementById('card-' + pid)) return;
+        const grid = document.getElementById('monitorGrid');
         const card = document.createElement('div');
         card.className = 'unit-card';
         card.id = 'card-' + pid;
         card.innerHTML = `
             <div class="unit-header">${nombre}</div>
             <div class="video-box" onclick="zoomVideo('${pid}')">
-                <div id="sos-over-${pid}" class="sos-overlay"></div>
                 <video id="v-${pid}" autoplay playsinline muted></video>
             </div>
             <div class="unit-actions">
@@ -152,17 +173,21 @@
             <div id="m-i-${pid}" onclick="zoomGPS('${pid}')" style="height:120px; border-top:1px solid #333; cursor:zoom-in"></div>
         `;
         grid.prepend(card);
-        
         const mi = L.map('m-i-' + pid, { zoomControl: false, attributionControl: false }).setView([0,0], 15);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mi);
-        units[pid] = { 
-            mi, 
-            markerInd: L.marker([0,0]).addTo(mi), 
-            markerGen: L.marker([0,0], {icon: carIcon}).addTo(mainMap).bindPopup(nombre)
-        };
+        units[pid] = { mi, markerInd: L.marker([0,0]).addTo(mi), markerGen: L.marker([0,0]).addTo(mainMap).bindPopup(nombre) };
     }
 
-    // --- CONTROLES DE AUDIO Y ZOOM ---
+    function zoomVideo(pid) { 
+        const v = document.getElementById('v-' + pid);
+        if (v.requestFullscreen) v.requestFullscreen();
+        else if (v.webkitRequestFullscreen) v.webkitRequestFullscreen();
+    }
+
+    function zoomGPS(pid) { 
+        if(units[pid]) mainMap.setView(units[pid].markerGen.getLatLng(), 18); 
+    }
+
     async function toggleHablar(pid) {
         const btn = document.getElementById('btn-h-' + pid);
         if(btn.classList.contains('btn-active')) { location.reload(); return; }
@@ -181,72 +206,12 @@
         btn.innerText = v.muted ? "🔊 ESCUCHAR" : "🔇 SILENCIAR";
     }
 
-    function zoomVideo(pid) {
-        const v = document.getElementById('v-' + pid);
-        v.requestFullscreen ? v.requestFullscreen() : v.webkitRequestFullscreen();
-    }
-
-    function zoomGPS(pid) {
-        if(units[pid]) {
-            const pos = units[pid].markerGen.getLatLng();
-            mainMap.setView(pos, 18);
-            units[pid].markerGen.openPopup();
-        }
-    }
-
     function actualizarPosicion(id, lat, lng) {
         if(!units[id]) return;
         const pos = [lat, lng];
         units[id].mi.setView(pos);
         units[id].markerInd.setLatLng(pos);
         units[id].markerGen.setLatLng(pos);
-    }
-
-    function activarSOS(pid) {
-        const over = document.getElementById('sos-over-' + pid);
-        if(over) over.style.display = 'block';
-        alarm.play();
-    }
-
-    // --- LÓGICA DE AGENDA ---
-    function toggleAgenda(show) { document.getElementById('agendaModal').style.display = show ? 'block' : 'none'; }
-
-    function generarAlta() {
-        const n = document.getElementById('regNombre').value.toUpperCase();
-        const t = document.getElementById('regTiempo').value;
-        if(!n) return alert("Ingresa nombre");
-        
-        const nuevo = {
-            nombre: n,
-            token: Math.floor(1000 + Math.random() * 9000).toString(),
-            expira: new Date(Date.now() + t * 3600000).toISOString()
-        };
-        dbAbonados.push(nuevo);
-        localStorage.setItem('pablo_db', JSON.stringify(dbAbonados));
-        renderAgenda();
-    }
-
-    function renderAgenda() {
-        const b = document.getElementById('listaAbonados');
-        b.innerHTML = '';
-        dbAbonados.forEach((u, i) => {
-            const exp = new Date(u.expira);
-            const activo = exp > new Date();
-            b.innerHTML += `
-                <tr>
-                    <td>${u.nombre}</td>
-                    <td class="text-warning fw-bold">${u.token}</td>
-                    <td>${exp.toLocaleString()}</td>
-                    <td>${activo ? '✅ OK' : '❌ VENCIDO'}</td>
-                    <td><button class="btn btn-danger btn-sm" onclick="eliminar(${i})">BORRAR</button></td>
-                </tr>`;
-        });
-    }
-
-    function eliminar(i) {
-        dbAbonados.splice(i, 1);
-        localStorage.setItem('pablo_db', JSON.stringify(dbAbonados));
-        renderAgenda();
     }
 
     window.onload = init;
