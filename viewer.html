@@ -113,7 +113,7 @@
     // --- Obtener token desde URL ---
     const params = new URLSearchParams(location.search);
     const token = params.get('v');
-    const UNIT_PEER_ID = 'PABLO-VIAJE-' + (token || '');
+    const UNIT_PEER_ID = params.get('u');
 
     const dot       = document.getElementById('dot');
     const statusTxt = document.getElementById('statusText');
@@ -149,7 +149,7 @@
     }
 
     // --- Sin token válido ---
-    if (!token || token.length < 4) {
+    if (!token || token.length < 4 || !UNIT_PEER_ID) {
         setStatus(false, 'Link inválido o expirado.');
         endMsg.style.display = 'flex';
     } else {
@@ -169,10 +169,17 @@
             const conn = peerV.connect(UNIT_PEER_ID, { reliable: true });
             conn.on('open', () => {
                 // Avisar que el viewer está listo para recibir stream
-                conn.send({ tipo: 'viewer_ready' });
+                conn.send({ tipo: 'viewer_ready', token: token });
             });
             conn.on('data', (data) => {
                 if (data.tipo === 'gps') moverMarcador(data.lat, data.lng);
+                if (data.tipo === 'viewer_denied') {
+                    setStatus(false, 'Link inválido o expirado.');
+                    endMsg.style.display = 'flex';
+                }
+                if (data.tipo === 'viewer_ok') {
+                    setStatus(false, 'Conectado, esperando video...');
+                }
             });
             conn.on('error', () => {}); // GPS no crítico
         });
