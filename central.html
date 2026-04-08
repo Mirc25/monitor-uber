@@ -109,8 +109,7 @@
         setInterval(escanearIA, 2500); 
     }
 
-    // --- FUNCIONES DE CARPETA NEGRA (CON ELIMINAR) ---
-
+    // --- CARPETA NEGRA CON BOTÓN ELIMINAR ---
     function toggleCarpetaNegra(s) { document.getElementById('blackFolderModal').style.display = s ? 'block' : 'none'; }
 
     async function guardarDelincuente() {
@@ -133,8 +132,8 @@
                 descriptor: Array.from(detections.descriptor), 
                 foto: b64 
             });
-            tx.oncomplete = () => { cargarListaNegraVisual(); alert("REGISTRADO EXITOSAMENTE"); };
-        } catch(e) { alert("Error IA o modelos no cargados"); }
+            tx.oncomplete = () => { cargarListaNegraVisual(); alert("REGISTRADO"); };
+        } catch(e) { alert("Error IA"); }
     }
 
     function cargarListaNegraVisual() {
@@ -146,13 +145,12 @@
         tx.objectStore("delincuentes").openCursor().onsuccess = (e) => {
             const cursor = e.target.result;
             if(cursor) {
-                const item = cursor.value;
                 cont.innerHTML += `
-                    <div class="col-4 col-md-3 mb-2">
-                        <div class="card bg-black border-danger p-1 h-100">
-                            <img src="${item.foto}" style="height:80px; object-fit:cover; border-radius:4px;">
-                            <div class="small text-center text-danger text-truncate mt-1">${item.nombre}</div>
-                            <button class="btn btn-danger btn-sm w-100 mt-1 fw-bold" style="font-size:10px;" onclick="eliminarSospechoso(${item.id})">ELIMINAR</button>
+                    <div class="col-4 col-md-3 mb-2 text-center">
+                        <div class="card bg-black border-danger p-1">
+                            <img src="${cursor.value.foto}" style="height:80px; object-fit:cover; border-radius:4px;">
+                            <div class="small text-danger mt-1 text-truncate">${cursor.value.nombre}</div>
+                            <button class="btn btn-danger btn-sm w-100 mt-1 fw-bold" style="font-size:10px;" onclick="eliminarSospechoso(${cursor.value.id})">ELIMINAR</button>
                         </div>
                     </div>`;
                 cursor.continue();
@@ -161,19 +159,13 @@
     }
 
     function eliminarSospechoso(id) {
-        if(!confirm("¿Deseas eliminar a esta persona de la lista negra?")) return;
-        
+        if(!confirm("¿Borrar de la lista negra?")) return;
         const tx = dbIndexed.transaction(["delincuentes"], "readwrite");
-        const store = tx.objectStore("delincuentes");
-        store.delete(id);
-        tx.oncomplete = () => {
-            console.log("Sospechoso eliminado");
-            cargarListaNegraVisual();
-        };
+        tx.objectStore("delincuentes").delete(id);
+        tx.oncomplete = () => cargarListaNegraVisual();
     }
 
-    // --- RESTO DEL CÓDIGO ESTABLE ---
-
+    // --- LÓGICA ESTABLE ---
     function conectarCentral() {
         peer = new Peer(CENTRAL_ID);
         peer.on('connection', (conn) => {
