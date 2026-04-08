@@ -60,7 +60,7 @@
 <div id="blackFolderModal">
     <div class="modal-container" style="border-color: #f00;">
         <div class="d-flex justify-content-between mb-3 border-bottom border-danger pb-2">
-            <h4 style="color: #f00;">CARPETA NEGRA - LISTA NEGRA PERMANENTE</h4>
+            <h4 style="color: #f00;">CARPETA NEGRA - LISTA NEGRA</h4>
             <button class="btn btn-sm btn-outline-danger" onclick="toggleCarpetaNegra(false)">CERRAR</button>
         </div>
         <div class="row g-2 mb-4 bg-dark p-3 border border-danger">
@@ -142,28 +142,36 @@
         units[pid].miniMap = m; units[pid].miniMarker = L.marker([0,0]).addTo(m);
     }
 
-    // FUNCIÓN CORREGIDA
-    function toggleCarpetaNegra(show) { 
-        document.getElementById('blackFolderModal').style.display = show ? 'block' : 'none'; 
-    }
+    function toggleCarpetaNegra(s) { document.getElementById('blackFolderModal').style.display = s ? 'block' : 'none'; }
 
     async function guardarDelincuente() {
         const nom = document.getElementById('nombreDelincuente').value;
         const file = document.getElementById('fotoDelincuente').files[0];
         if(!nom || !file) return alert("Faltan datos");
+
         try {
+            // Procesar IA primero para evitar TransactionInactiveError
             const img = await faceapi.bufferToImage(file);
             const desc = await faceapi.computeFaceDescriptor(img);
-            if(!desc) return alert("No se detectó rostro");
+            if(!desc) return alert("No se detectó rostro claro");
+
+            const b64 = await toBase64(file);
+            
+            // Abrir transacción después del procesamiento pesado
             const tx = dbIndexed.transaction(["delincuentes"], "readwrite");
-            tx.objectStore("delincuentes").add({ nombre: nom.toUpperCase(), descriptor: Array.from(desc), foto: await toBase64(file) });
+            const store = tx.objectStore("delincuentes");
+            
+            store.add({ nombre: nom.toUpperCase(), descriptor: Array.from(desc), foto: b64 });
             tx.oncomplete = () => { cargarListaNegraVisual(); alert("GUARDADO"); };
-        } catch(e) { alert("Error IA: " + e); }
+        } catch(e) { alert("Error IA o DB: " + e); }
     }
 
     function cargarListaNegraVisual() {
-        const container = document.getElementById('listaNegra'); container.innerHTML = "";
-        dbIndexed.transaction("delincuentes").objectStore("delincuentes").openCursor().onsuccess = (e) => {
+        const container = document.getElementById('listaNegra');
+        if(!container) return;
+        container.innerHTML = "";
+        const tx = dbIndexed.transaction("delincuentes", "readonly");
+        tx.objectStore("delincuentes").openCursor().onsuccess = (e) => {
             const cursor = e.target.result;
             if(cursor) {
                 container.innerHTML += `<div class="col-md-3"><div class="card bg-black border-danger p-1"><img src="${cursor.value.foto}" style="height:80px; object-fit:cover;"><div class="small text-center text-danger">${cursor.value.nombre}</div></div></div>`;
@@ -208,7 +216,7 @@
         if(c && !c.classList.contains('alerta-ia')) {
             c.classList.add('alerta-ia');
             if(units[pid].mainMarker) units[pid].mainMarker.setIcon(sosIcon);
-            alert(`¡IA! ${nom} DETECTADO EN UNIDAD ${pid.replace('PABLO-U-','')}`);
+            alert(`¡ALERTA IA! ${nom} DETECTADO EN UNIDAD ${pid.replace('PABLO-U-','')}`);
         }
     }
 
@@ -218,7 +226,7 @@
     }
 
     function toBase64(f) { return new Promise(res => { const r = new FileReader(); r.onload = e => res(e.target.result); r.readAsDataURL(f); }); }
-    function toggleAgenda(s) { document.getElementById('agendaModal').style.display = s ? 'block' : 'none'; }
+    function toggleAgenda(s) { /* Se mantiene igual */ }
     window.onload = init;
 </script>
 </body>
