@@ -13,33 +13,33 @@
         .top-bar { background: #000; border-bottom: 1px solid #0f0; padding: 5px 15px; display: flex; justify-content: space-between; align-items: center; height: 45px; }
         .main-layout { display: flex; flex: 1; overflow: hidden; }
         
-        /* Grid optimizado: tarjetas más pequeñas para que entren más */
-        .grid-fleet { flex: 1; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; padding: 10px; overflow-y: auto; background: #111; }
+        /* Grid optimizado para que entren muchos */
+        .grid-fleet { flex: 1; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; padding: 8px; overflow-y: auto; background: #111; }
         
-        .unit-card { background: #000; border: 1px solid #333; display: flex; flex-direction: column; height: 280px; position: relative; transition: 0.3s; overflow: hidden; border-radius: 4px; }
+        /* Tarjeta compacta pero funcional */
+        .unit-card { background: #000; border: 1px solid #333; display: flex; flex-direction: column; height: 350px; position: relative; transition: 0.3s; border-radius: 4px; overflow: hidden; }
         
-        .alerta-ia { border: 4px solid #f00 !important; box-shadow: 0 0 20px #f00; animation: parpadeo-ia 0.4s infinite alternate; z-index: 1000; cursor: pointer; }
+        .alerta-ia { border: 4px solid #f00 !important; box-shadow: 0 0 15px #f00; animation: parpadeo-ia 0.4s infinite alternate; z-index: 1000; }
         @keyframes parpadeo-ia { 0% { background: #000; } 100% { background: #400; } }
         
         .pausa-ia { border-bottom: 4px solid #00f !important; }
 
-        .unit-header { background: #1a1a1a; font-size: 11px; padding: 4px; text-align: center; color: #0f0; font-weight: bold; border-bottom: 1px solid #333; }
+        .unit-header { background: #1a1a1a; font-size: 10px; padding: 3px; text-align: center; color: #0f0; font-weight: bold; }
         
-        /* Video Box: Reducido para ganar espacio */
-        .video-box { flex: 1; background: #000; position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        /* Streaming vertical corregido */
+        .video-box { height: 160px; background: #000; display: flex; justify-content: center; align-items: center; overflow: hidden; }
         video { height: 100%; width: auto; object-fit: contain; }
 
-        /* Mapa Flotante: Solo se ve cuando activas el botón GPS */
-        .mini-map { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; display: none; background: #000; }
-        .map-visible { display: block !important; }
+        /* Minimapa pequeño debajo del video */
+        .mini-map { height: 80px; background: #222; border-top: 1px solid #333; pointer-events: none; }
 
-        .unit-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; padding: 2px; background: #222; }
-        .btn-ctrl { font-size: 9px; padding: 6px 0; background: #fff; color: #000; border: none; font-weight: bold; cursor: pointer; text-transform: uppercase; }
-        .btn-gps { background: #0dcaf0; color: #000; } /* Color cyan para GPS */
+        .unit-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; padding: 2px; background: #000; }
+        .btn-ctrl { font-size: 8px; padding: 5px 0; background: #fff; color: #000; border: none; font-weight: bold; cursor: pointer; text-transform: uppercase; }
         .btn-talking { background: #f0f !important; color: #fff !important; }
         .btn-active { background: #0f0 !important; color: #000 !important; }
+        .btn-block { background: #ffc107; grid-column: span 2; font-size: 9px; margin-top: 1px; }
 
-        .side-panel { width: 280px; background: #222; display: flex; flex-direction: column; border-left: 2px solid #0f0; }
+        .side-panel { width: 260px; background: #222; display: flex; flex-direction: column; border-left: 2px solid #0f0; }
         #mainMap { height: 200px; border-bottom: 2px solid #0f0; }
         .modales { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.96); z-index: 2000; padding: 25px; }
         .modal-container { max-width: 800px; margin: 0 auto; background: #111; border: 1px solid #0f0; padding: 20px; color: #0f0; border-radius: 8px; }
@@ -48,10 +48,10 @@
 <body>
 
 <div class="top-bar">
-    <div style="font-weight: bold; color: #0f0;">PABLO SECURITY - CENTRAL MASTER</div>
+    <div style="font-weight: bold; color: #0f0;">PABLO SECURITY MASTER</div>
     <div>
-        <button class="btn btn-sm btn-info fw-bold me-2" id="btn-micro-global" onclick="activarMicrofonoCentral()">🎤 ACTIVAR MICRO</button>
-        <button class="btn btn-sm btn-success fw-bold" onclick="toggleAgenda(true)">📂 AGENDA Y TOKENS</button>
+        <button class="btn btn-sm btn-info fw-bold me-2" id="btn-micro-global" onclick="activarMicrofonoCentral()">🎤 MICRO</button>
+        <button class="btn btn-sm btn-success fw-bold" onclick="toggleAgenda(true)">📂 AGENDA</button>
     </div>
 </div>
 
@@ -60,16 +60,16 @@
     <div class="side-panel">
         <div id="mainMap"></div>
         <div class="p-3">
-            <button class="btn btn-danger w-100 mb-3 fw-bold" onclick="toggleCarpetaNegra(true)">👤 CARPETA NEGRA</button>
-            <div id="ia-toggle" style="width:70px; height:30px; background:#444; border-radius:20px; margin:10px auto; position:relative; cursor:pointer;" onclick="toggleIA()">
-                <div id="ia-dot" style="position:absolute; left:5px; top:4px; width:22px; height:22px; background:#ddd; border-radius:50%; transition: 0.3s;"></div>
+            <button class="btn btn-danger w-100 mb-3 fw-bold btn-sm" onclick="toggleCarpetaNegra(true)">👤 CARPETA NEGRA</button>
+            <div id="ia-toggle" style="width:60px; height:25px; background:#444; border-radius:20px; margin:5px auto; position:relative; cursor:pointer;" onclick="toggleIA()">
+                <div id="ia-dot" style="position:absolute; left:5px; top:3px; width:18px; height:18px; background:#ddd; border-radius:50%; transition: 0.3s;"></div>
             </div>
-            <div id="ia-text" style="font-weight:bold; font-size:12px; color:#555; text-align:center;">IA DESACTIVADA</div>
+            <div id="ia-text" style="font-weight:bold; font-size:11px; color:#555; text-align:center;">IA OFF</div>
         </div>
     </div>
 </div>
 
-<div id="agendaModal" class="modales"><div class="modal-container"><h4>GESTIÓN ABONADOS</h4><button class="btn btn-sm btn-danger float-end" onclick="toggleAgenda(false)">X</button><div id="listaAbonadosVisual" class="bg-black p-2 mt-4"></div></div></div>
+<div id="agendaModal" class="modales"><div class="modal-container"><h4>ABONADOS</h4><button class="btn btn-sm btn-danger float-end" onclick="toggleAgenda(false)">X</button><div id="listaAbonadosVisual" class="mt-4"></div></div></div>
 <div id="blackFolderModal" class="modales"><div class="modal-container"><h4>CARPETA NEGRA</h4><button class="btn btn-sm btn-danger float-end" onclick="toggleCarpetaNegra(false)">X</button><div id="listaNegra" class="row g-2 mt-4"></div></div></div>
 
 <script>
@@ -80,8 +80,8 @@
     const alarmAudio = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
     alarmAudio.loop = true;
 
-    const carIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', iconSize: [25, 25], className: 'fuchsia-car' });
-    const sosIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', iconSize: [30, 30], className: 'sos-car' });
+    const carIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', iconSize: [20, 20], className: 'fuchsia-car' });
+    const sosIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', iconSize: [25, 25], className: 'sos-car' });
 
     const request = indexedDB.open("PabloSecurity_Folder", 1);
     request.onupgradeneeded = (e) => { e.target.result.createObjectStore("delincuentes", { keyPath: "id", autoIncrement: true }); };
@@ -116,46 +116,7 @@
         });
     }
 
-    // --- FUNCIÓN GPS TOGGLE ---
-    function toggleMapaUnidad(pid) {
-        const m = document.getElementById('m-' + pid);
-        const btn = document.getElementById('btn-gps-' + pid);
-        const isVisible = m.classList.toggle('map-visible');
-        btn.classList.toggle('btn-active', isVisible);
-        if(isVisible) {
-            setTimeout(() => units[pid].miniMap.invalidateSize(), 100);
-        }
-    }
-
-    function crearOActualizarCelda(pid, nombre) {
-        if(document.getElementById('card-' + pid)) return;
-        const grid = document.getElementById('monitorGrid');
-        const card = document.createElement('div');
-        card.className = 'unit-card'; card.id = 'card-' + pid;
-        card.onclick = function() { if(this.classList.contains('alerta-ia')) pararAlerta(pid); };
-        
-        card.innerHTML = `
-            <div class="unit-header">${nombre}</div>
-            <div class="video-box">
-                <video id="v-${pid}" autoplay playsinline muted crossorigin="anonymous"></video>
-                <div id="m-${pid}" class="mini-map"></div>
-            </div>
-            <div class="unit-actions">
-                <button id="btn-hablar-${pid}" class="btn-ctrl" onmousedown="iniciarHabla('${pid}')" onmouseup="detenerHabla('${pid}')">🎙️ Hablar</button>
-                <button id="btn-escuchar-${pid}" class="btn-ctrl" onclick="event.stopPropagation(); toggleEscucha('${pid}')">🔈 Escuchar</button>
-                <button id="btn-gps-${pid}" class="btn-ctrl btn-gps" onclick="event.stopPropagation(); toggleMapaUnidad('${pid}')">📍 GPS</button>
-                <button class="btn-ctrl btn-danger text-white" onclick="event.stopPropagation(); pararAlerta('${pid}')">SOS</button>
-                <button class="btn-ctrl" style="background:#ffc107; grid-column: span 2;" onclick="event.stopPropagation(); bloquearPantalla('${pid}')">🔒 Bloquear Pantalla</button>
-            </div>`;
-        grid.prepend(card);
-        
-        const m = L.map('m-' + pid, { zoomControl: false, attributionControl: false }).setView([0,0], 15);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(m);
-        units[pid] = units[pid] || { ignoreIA: false };
-        units[pid].miniMap = m; units[pid].miniMarker = L.marker([0,0]).addTo(m);
-    }
-
-    // --- MOTOR IA (SIN TOCAR LÓGICA) ---
+    // --- MOTOR IA (EL QUE ANDA BIEN) ---
     async function escanearIA() {
         if(!iaActiva) return;
         const tx = dbIndexed.transaction("delincuentes", "readonly");
@@ -189,7 +150,7 @@
 
     function pararAlerta(pid) {
         const c = document.getElementById('card-' + pid);
-        if(c) {
+        if(c && c.classList.contains('alerta-ia')) {
             c.classList.remove('alerta-ia');
             if(units[pid].mainMarker) units[pid].mainMarker.setIcon(carIcon);
             units[pid].ignoreIA = true;
@@ -199,16 +160,39 @@
         }
     }
 
-    // RESTO DE FUNCIONES (Audio, GPS, Agenda)
-    function activarMicrofonoCentral() { navigator.mediaDevices.getUserMedia({ audio: true }).then(s => { localStream = s; document.getElementById('btn-micro-global').className="btn btn-sm btn-success fw-bold me-2"; }).catch(e => alert("Error micro")); }
+    function crearOActualizarCelda(pid, nombre) {
+        if(document.getElementById('card-' + pid)) return;
+        const grid = document.getElementById('monitorGrid');
+        const card = document.createElement('div');
+        card.className = 'unit-card'; card.id = 'card-' + pid;
+        card.onclick = function() { if(this.classList.contains('alerta-ia')) pararAlerta(pid); };
+        
+        card.innerHTML = `
+            <div class="unit-header">${nombre}</div>
+            <div class="video-box"><video id="v-${pid}" autoplay playsinline muted crossorigin="anonymous"></video></div>
+            <div id="m-${pid}" class="mini-map"></div>
+            <div class="unit-actions">
+                <button id="btn-hablar-${pid}" class="btn-ctrl" onmousedown="iniciarHabla('${pid}')" onmouseup="detenerHabla('${pid}')">🎙️ Hablar</button>
+                <button id="btn-escuchar-${pid}" class="btn-ctrl" onclick="event.stopPropagation(); toggleEscucha('${pid}')">🔈 Escuchar</button>
+                <button class="btn-ctrl btn-block" onclick="event.stopPropagation(); bloquearPantalla('${pid}')">🔒 Bloquear Pantalla</button>
+            </div>`;
+        grid.prepend(card);
+        const m = L.map('m-' + pid, { zoomControl: false, attributionControl: false }).setView([0,0], 15);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(m);
+        units[pid] = units[pid] || { ignoreIA: false };
+        units[pid].miniMap = m; units[pid].miniMarker = L.marker([0,0]).addTo(m);
+    }
+
+    // FUNCIONES BASE
+    function activarMicrofonoCentral() { navigator.mediaDevices.getUserMedia({ audio: true }).then(s => { localStream = s; document.getElementById('btn-micro-global').innerText = "🎤 OK"; document.getElementById('btn-micro-global').className="btn btn-sm btn-success fw-bold me-2"; }).catch(e => alert("Error micro")); }
     function iniciarHabla(pid) { if(!localStream) return; llamadaActual = peer.call(pid, localStream); document.getElementById('btn-hablar-'+pid).classList.add('btn-talking'); }
     function detenerHabla(pid) { if(llamadaActual) { llamadaActual.close(); llamadaActual = null; } document.getElementById('btn-hablar-'+pid).classList.remove('btn-talking'); }
     function toggleEscucha(pid) { const v = document.getElementById('v-'+pid); v.muted = !v.muted; document.getElementById('btn-escuchar-'+pid).innerText = v.muted ? "🔈 ESCUCHAR" : "🔊 ON"; document.getElementById('btn-escuchar-'+pid).classList.toggle('btn-active'); }
     function bloquearPantalla(pid) { if(units[pid].conn) units[pid].conn.send({ tipo: 'comando', accion: 'bloquear' }); }
-    function toggleIA() { iaActiva = !iaActiva; document.getElementById('ia-dot').style.left = iaActiva ? "40px" : "5px"; document.getElementById('ia-toggle').style.background = iaActiva ? "#0f0" : "#444"; document.getElementById('ia-text').innerText = iaActiva ? "ACTIVA" : "DESACTIVADA"; }
+    function toggleIA() { iaActiva = !iaActiva; document.getElementById('ia-dot').style.left = iaActiva ? "35px" : "5px"; document.getElementById('ia-toggle').style.background = iaActiva ? "#0f0" : "#444"; document.getElementById('ia-text').innerText = iaActiva ? "IA ON" : "IA OFF"; }
     function toggleAgenda(s) { document.getElementById('agendaModal').style.display = s ? 'block' : 'none'; }
     function toggleCarpetaNegra(s) { document.getElementById('blackFolderModal').style.display = s ? 'block' : 'none'; }
-    function actualizarPosicionGlobal(pid, lat, lng) { const pos = [lat, lng]; if(!units[pid]) units[pid] = {ignoreIA: false}; if(!units[pid].mainMarker) { units[pid].mainMarker = L.marker(pos, {icon: carIcon}).addTo(mainMap).bindPopup(pid); } else { units[pid].mainMarker.setLatLng(pos); } if(units[pid].miniMap) { units[pid].miniMap.setView(pos); if(units[pid].miniMarker) units[pid].miniMarker.setLatLng(pos); } }
+    function actualizarPosicionGlobal(pid, lat, lng) { const pos = [lat, lng]; if(!units[pid]) units[pid] = {ignoreIA: false}; if(!units[pid].mainMarker) { units[pid].mainMarker = L.marker(pos, {icon: carIcon}).addTo(mainMap).bindPopup(pid); } else { units[pid].mainMarker.setLatLng(pos); } if(units[pid].miniMap) { units[pid].miniMap.setView(pos); if(units[pid].miniMarker) units[pid].miniMarker.setLatLng(pos); units[pid].miniMap.invalidateSize(); } }
     function toBase64(f) { return new Promise(res => { const r = new FileReader(); r.onload = e => res(e.target.result); r.readAsDataURL(f); }); }
     window.onload = init;
 </script>
