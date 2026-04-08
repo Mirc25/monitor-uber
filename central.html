@@ -93,7 +93,6 @@
     const carIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', iconSize: [25, 25], className: 'fuchsia-car' });
     const sosIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', iconSize: [30, 30], className: 'sos-car' });
 
-    // DB Carpeta Negra con IndexedDB
     const request = indexedDB.open("PabloSecurity_Folder", 1);
     request.onupgradeneeded = (e) => { e.target.result.createObjectStore("delincuentes", { keyPath: "id", autoIncrement: true }); };
     request.onsuccess = (e) => { dbIndexed = e.target.result; cargarListaNegraVisual(); };
@@ -103,16 +102,16 @@
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mainMap);
         
         try {
-            const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
-            await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
-            await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
-            await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
-            console.log("IA Modelos Cargados");
-        } catch(e) { console.error("Error cargando modelos IA", e); }
+            const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
+            await faceapi.loadTinyFaceDetectorModel(MODEL_URL);
+            await faceapi.loadFaceLandmarkModel(MODEL_URL);
+            await faceapi.loadFaceRecognitionModel(MODEL_URL);
+            console.log("IA LISTA");
+        } catch(e) { console.error("Error modelos IA"); }
 
         conectarCentral();
         renderAgenda();
-        setInterval(escanearIA, 2500);
+        setInterval(escanearIA, 2000); 
     }
 
     function conectarCentral() {
@@ -135,9 +134,8 @@
     function actualizarPosicionGlobal(pid, lat, lng) {
         const pos = [lat, lng];
         if (!units[pid]) units[pid] = {};
-        
         if (!units[pid].mainMarker) {
-            units[pid].mainMarker = L.marker(pos, {icon: carIcon}).addTo(mainMap).bindPopup(pid);
+            units[pid].mainMarker = L.marker(pos, {icon: carIcon}).addTo(mainMap).bindPopup(pid.replace('PABLO-U-', ''));
         } else { units[pid].mainMarker.setLatLng(pos); }
 
         if (units[pid].miniMap) {
@@ -197,21 +195,24 @@
         const nom = document.getElementById('nombreDelincuente').value;
         const file = document.getElementById('fotoDelincuente').files[0];
         if(!nom || !file) return alert("Faltan datos");
+
         try {
-            // IA Procesa primero antes de abrir transacción
             const img = await faceapi.bufferToImage(file);
-            const desc = await faceapi.computeFaceDescriptor(img);
-            if(!desc) return alert("No se detectó rostro");
+            const detections = await faceapi.detectSingleFace(img, new faceapi.TinyFaceDetectorOptions({ inputSize: 224 }))
+                                           .withFaceLandmarks()
+                                           .withFaceDescriptor();
             
+            if(!detections) return alert("No se detectó rostro en la foto.");
+
             const b64 = await toBase64(file);
             const tx = dbIndexed.transaction(["delincuentes"], "readwrite");
             tx.objectStore("delincuentes").add({ 
                 nombre: nom.toUpperCase(), 
-                descriptor: Array.from(desc), 
+                descriptor: Array.from(detections.descriptor), 
                 foto: b64 
             });
-            tx.oncomplete = () => { cargarListaNegraVisual(); alert("GUARDADO EXITOSO"); };
-        } catch(e) { alert("Error al procesar: " + e); }
+            tx.oncomplete = () => { cargarListaNegraVisual(); alert("REGISTRADO"); };
+        } catch(e) { alert("Error IA: Espere a que carguen los modelos"); }
     }
 
     function cargarListaNegraVisual() {
@@ -239,7 +240,6 @@
         if(!iaActiva) return;
         const vids = document.querySelectorAll('video');
         
-        // Obtener lista negra de la DB
         const dbList = await new Promise(res => {
             const list = [];
             const tx = dbIndexed.transaction("delincuentes", "readonly");
@@ -250,16 +250,17 @@
         if(dbList.length === 0) return;
 
         for(let v of vids) {
-            if(v.paused || v.ended || v.readyState < 2) continue;
+            if(v.paused || v.ended || v.readyState < 3) continue;
             try {
-                const detections = await faceapi.detectAllFaces(v, new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.4 }))
+                const detections = await faceapi.detectAllFaces(v, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
                                                .withFaceLandmarks()
                                                .withFaceDescriptors();
                 
                 for(let det of detections) {
                     for(let del of dbList) {
-                        const dist = faceapi.euclideanDistance(det.descriptor, new Float32Array(del.descriptor));
-                        if(dist < 0.6) dispararAlerta(v.id.replace('v-', ''), del.nombre);
+                        if(faceapi.euclideanDistance(det.descriptor, new Float32Array(del.descriptor)) < 0.6) {
+                            dispararAlerta(v.id.replace('v-', ''), del.nombre);
+                        }
                     }
                 }
             } catch(e) {}
@@ -273,7 +274,6 @@
             if(units[pid].mainMarker) units[pid].mainMarker.setIcon(sosIcon);
             const beep = new Audio('https://www.soundjay.com/buttons/beep-01a.mp3');
             beep.play().catch(()=>{});
-            console.log("DETECTADO: " + nom);
         }
     }
 
