@@ -80,7 +80,7 @@
 
 <script>
     let peer, mainMap, miMicStream;
-    const units = {};
+    const units = {}; 
     const CENTRAL_ID = 'PABLO-CENTRAL-MASTER-2026';
     const carIcon = L.icon({ 
         iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', 
@@ -106,7 +106,8 @@
         peer.on('connection', (conn) => {
             conn.on('data', (data) => {
                 if(data.tipo === 'login') manejarLogin(conn, data);
-                if(data.tipo === 'gps') actualizarPosicionGlobal(conn.peer, data.lat, data.lng);
+                // GPS SIEMPRE ACTIVO PARA EL MAPA GLOBAL
+                if(data.tipo === 'gps') actualizarPosicionGlobal(conn.peer, data.lat, data.lng); 
             });
         });
         peer.on('call', (call) => {
@@ -120,14 +121,26 @@
 
     function actualizarPosicionGlobal(pid, lat, lng) {
         const pos = [lat, lng];
+        
+        // Inicializar objeto de unidad si no existe
         if (!units[pid]) {
-            units[pid] = { mainMarker: L.marker(pos, {icon: carIcon}).addTo(mainMap).bindPopup(pid.replace('PABLO-U-', '')) };
+            units[pid] = {};
+        }
+
+        // 1. Manejar el marcador en el mapa grande (Derecha)
+        if (!units[pid].mainMarker) {
+            const nombre = pid.replace('PABLO-U-', '').replace(/-/g, ' ');
+            units[pid].mainMarker = L.marker(pos, {icon: carIcon}).addTo(mainMap).bindPopup(nombre);
         } else {
             units[pid].mainMarker.setLatLng(pos);
         }
+
+        // 2. Manejar el mini-mapa de la celda (si la celda existe)
         if (units[pid].miniMap) {
             units[pid].miniMap.setView(pos);
-            units[pid].miniMarker.setLatLng(pos);
+            if (units[pid].miniMarker) {
+                units[pid].miniMarker.setLatLng(pos);
+            }
         }
     }
 
@@ -150,13 +163,16 @@
             <div class="unit-actions"><button class="btn-ctrl" onclick="toggleEscuchar('${pid}')">Escuchar</button><button class="btn-ctrl" onclick="toggleHablar('${pid}')">hablar</button><button class="btn-ctrl" style="color:red">Stop SOS</button></div>
             <div id="m-${pid}" class="mini-map"></div>`;
         grid.prepend(card);
+        
         const m = L.map('m-' + pid, { zoomControl: false, attributionControl: false }).setView([0,0], 15);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(m);
+        
         if(!units[pid]) units[pid] = {};
         units[pid].miniMap = m;
         units[pid].miniMarker = L.marker([0,0]).addTo(m);
     }
 
+    // Funciones de Agenda y UI
     function generarAlta() {
         const n = document.getElementById('regNombre').value.trim().toUpperCase();
         const t = document.getElementById('regTiempo').value;
@@ -182,7 +198,6 @@
     function zoomVideo(pid) { const v = document.getElementById('v-' + pid); v.requestFullscreen ? v.requestFullscreen() : v.webkitRequestFullscreen(); }
     
     async function toggleHablar(pid) {
-        const btn = document.getElementById('btn-h-' + pid);
         if(!miMicStream) miMicStream = await navigator.mediaDevices.getUserMedia({ audio: true });
         peer.call(pid, miMicStream);
     }
