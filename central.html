@@ -14,22 +14,22 @@
         .main-layout { display: flex; flex: 1; overflow: hidden; }
         .grid-fleet { flex: 1; display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; padding: 5px; overflow-y: auto; background: #111; }
         
-        .unit-card { background: #000; border: 1px solid #333; display: flex; flex-direction: column; height: 280px; position: relative; transition: 0.3s; }
+        .unit-card { background: #000; border: 1px solid #333; display: flex; flex-direction: column; height: 280px; position: relative; transition: 0.3s; cursor: pointer; }
         
-        /* EFECTO TITILANTE DE ALERTA */
+        /* ALERTA TITILANTE */
         .alerta-ia { 
             border: 5px solid #f00 !important; 
-            box-shadow: 0 0 20px #f00;
-            animation: parpadeo-extremo 0.4s infinite alternate; 
-            z-index: 100; 
+            box-shadow: 0 0 25px #f00;
+            animation: parpadeo-ia 0.4s infinite alternate; 
+            z-index: 1000; 
         }
-        @keyframes parpadeo-extremo { 
-            0% { opacity: 1; transform: scale(1); } 
-            100% { opacity: 0.7; transform: scale(0.98); background: #300; } 
+        @keyframes parpadeo-ia { 
+            0% { background: #000; transform: scale(1); } 
+            100% { background: #400; transform: scale(0.98); } 
         }
 
         .unit-header { background: #1a1a1a; font-size: 10px; padding: 2px; text-align: center; color: #0f0; }
-        .video-box { height: 110px; background: #222; position: relative; cursor: zoom-in; }
+        .video-box { height: 110px; background: #222; position: relative; pointer-events: none; }
         video { width: 100%; height: 100%; object-fit: cover; }
         .unit-actions { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 2px; padding: 2px; background: #000; border-top: 1px solid #0f0; }
         .btn-ctrl { font-size: 10px; padding: 4px 0; background: #fff; color: #000; border: none; font-weight: bold; cursor: pointer; }
@@ -72,7 +72,7 @@
 <div id="blackFolderModal">
     <div class="modal-container" style="border-color: #f00;">
         <div class="d-flex justify-content-between mb-3 border-bottom border-danger pb-2">
-            <h4 style="color: #f00;">CARPETA NEGRA</h4>
+            <h4>CARPETA NEGRA</h4>
             <button class="btn btn-sm btn-outline-danger" onclick="toggleCarpetaNegra(false)">CERRAR</button>
         </div>
         <div class="row g-2 mb-4 bg-dark p-2 rounded">
@@ -87,14 +87,10 @@
 <div id="agendaModal">
     <div class="modal-container">
         <div class="d-flex justify-content-between mb-3 border-bottom border-success pb-2">
-            <h4>GESTIÓN DE ABONADOS</h4>
+            <h4>ABONADOS</h4>
             <button class="btn btn-sm btn-danger" onclick="toggleAgenda(false)">CERRAR</button>
         </div>
-        <div class="row g-2 mb-3">
-            <div class="col-7"><input type="text" id="regNombre" class="form-control bg-dark text-white" placeholder="NOMBRE"></div>
-            <div class="col-5"><button class="btn btn-success w-100" onclick="generarAlta()">GENERAR</button></div>
-        </div>
-        <div id="listaAbonadosVisual" style="max-height: 300px; overflow-y: auto;"></div>
+        <div id="listaAbonadosVisual"></div>
     </div>
 </div>
 
@@ -103,9 +99,9 @@
     const units = {};
     const CENTRAL_ID = 'PABLO-CENTRAL-MASTER-2026';
     
-    // Configuración de Sonido
+    // Configuración Audio
     const alarmAudio = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
-    alarmAudio.loop = true; // Que suene hasta que lo paremos
+    alarmAudio.loop = true;
 
     const carIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', iconSize: [25, 25], className: 'fuchsia-car' });
     const sosIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', iconSize: [30, 30], className: 'sos-car' });
@@ -124,10 +120,9 @@
             await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
             await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
             console.log("IA LISTA");
-        } catch(e) { console.error("Error modelos IA"); }
+        } catch(e) { console.error("Error modelos"); }
 
         conectarCentral();
-        renderAgenda();
         setInterval(escanearIA, 2000); 
     }
 
@@ -170,15 +165,21 @@
         const grid = document.getElementById('monitorGrid');
         const card = document.createElement('div');
         card.className = 'unit-card'; card.id = 'card-' + pid;
+        
+        // ACCIÓN: CLIC EN EL RECUADRO PARA PARAR ALERTA
+        card.onclick = function() { pararAlerta(pid); };
+
         card.innerHTML = `
             <div class="unit-header">${nombre}</div>
             <div class="video-box"><video id="v-${pid}" autoplay muted playsinline crossorigin="anonymous"></video></div>
             <div class="unit-actions">
-                <button class="btn-ctrl">Escuchar</button><button class="btn-ctrl">hablar</button>
-                <button class="btn-ctrl" style="color:red" onclick="pararAlerta('${pid}')">STOP SOS</button>
+                <button class="btn-ctrl" onclick="event.stopPropagation()">Escuchar</button>
+                <button class="btn-ctrl" onclick="event.stopPropagation()">Hablar</button>
+                <button class="btn-ctrl" style="color:red" onclick="event.stopPropagation(); pararAlerta('${pid}')">SOS</button>
             </div>
             <div id="m-${pid}" class="mini-map"></div>`;
         grid.prepend(card);
+        
         const m = L.map('m-' + pid, { zoomControl: false, attributionControl: false }).setView([0,0], 15);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(m);
         if(!units[pid]) units[pid] = {};
@@ -190,24 +191,23 @@
     async function guardarDelincuente() {
         const nom = document.getElementById('nombreDelincuente').value;
         const file = document.getElementById('fotoDelincuente').files[0];
-        if(!nom || !file) return alert("Faltan datos");
+        if(!nom || !file) return;
         try {
             const img = await faceapi.bufferToImage(file);
-            const detections = await faceapi.detectSingleFace(img, new faceapi.TinyFaceDetectorOptions({ inputSize: 224 }))
-                                           .withFaceLandmarks().withFaceDescriptor();
-            if(!detections) return alert("IA: No se detectó rostro.");
+            const detections = await faceapi.detectSingleFace(img, new faceapi.TinyFaceDetectorOptions({ inputSize: 224 })).withFaceLandmarks().withFaceDescriptor();
+            if(!detections) return alert("IA no detectó rostro");
             const tx = dbIndexed.transaction(["delincuentes"], "readwrite");
             tx.objectStore("delincuentes").add({ nombre: nom.toUpperCase(), descriptor: Array.from(detections.descriptor), foto: await toBase64(file) });
-            tx.oncomplete = () => { cargarListaNegraVisual(); alert("REGISTRADO"); };
+            tx.oncomplete = () => { cargarListaNegraVisual(); alert("GUARDADO"); };
         } catch(e) { alert("Error IA"); }
     }
 
     function cargarListaNegraVisual() {
         const cont = document.getElementById('listaNegra'); if(!cont) return;
         cont.innerHTML = "";
-        dbIndexed.transaction("delincuentes").objectStore("delincuentes").openCursor().onsuccess = (e) => {
+        dbIndexed.transaction("delincuentes", "readonly").objectStore("delincuentes").openCursor().onsuccess = (e) => {
             const c = e.target.result; if(c) {
-                cont.innerHTML += `<div class="col-4 col-md-3 mb-2 text-center"><div class="card bg-black border-danger p-1"><img src="${c.value.foto}" style="height:80px; object-fit:cover; border-radius:4px;"><div class="small text-danger mt-1">${c.value.nombre}</div><button class="btn btn-danger btn-sm w-100 mt-1" onclick="eliminarSospechoso(${c.value.id})">ELIMINAR</button></div></div>`;
+                cont.innerHTML += `<div class="col-4 col-md-3 mb-2 text-center"><div class="card bg-black border-danger p-1"><img src="${c.value.foto}" style="height:80px; object-fit:cover; border-radius:4px;"><div class="small text-danger mt-1">${c.value.nombre}</div><button class="btn btn-danger btn-sm w-100 mt-1" onclick="eliminarSospechoso(${c.value.id})">BORRAR</button></div></div>`;
                 c.continue();
             }
         };
@@ -241,12 +241,11 @@
         for(let v of vids) {
             if(v.paused || v.ended || v.readyState < 3) continue;
             try {
-                const detections = await faceapi.detectAllFaces(v, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
-                                               .withFaceLandmarks().withFaceDescriptors();
+                const detections = await faceapi.detectAllFaces(v, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 })).withFaceLandmarks().withFaceDescriptors();
                 for(let det of detections) {
                     for(let del of dbList) {
                         if(faceapi.euclideanDistance(det.descriptor, new Float32Array(del.descriptor)) < 0.6) {
-                            dispararAlerta(v.id.replace('v-', ''), del.nombre);
+                            dispararAlerta(v.id.replace('v-', ''));
                         }
                     }
                 }
@@ -254,37 +253,31 @@
         }
     }
 
-    function dispararAlerta(pid, nom) {
+    function dispararAlerta(pid) {
         const c = document.getElementById('card-' + pid);
         if(c && !c.classList.contains('alerta-ia')) {
             c.classList.add('alerta-ia');
             if(units[pid].mainMarker) units[pid].mainMarker.setIcon(sosIcon);
-            
-            // Iniciar sonido de alarma
-            alarmAudio.play().catch(e => console.log("Permiso de audio requerido"));
-            console.log("ALERTA: " + nom);
+            alarmAudio.play().catch(()=>{});
         }
     }
 
     function pararAlerta(pid) {
         const c = document.getElementById('card-' + pid);
-        if(c) { 
+        if(c && c.classList.contains('alerta-ia')) {
             c.classList.remove('alerta-ia'); 
             if(units[pid].mainMarker) units[pid].mainMarker.setIcon(carIcon); 
-        }
-        
-        // Si ya no quedan cuadros en alerta, apagar el sonido
-        const alertasActivas = document.querySelectorAll('.alerta-ia').length;
-        if(alertasActivas === 0) {
-            alarmAudio.pause();
-            alarmAudio.currentTime = 0;
+            
+            // Si no hay más alertas, apagar audio
+            if(document.querySelectorAll('.alerta-ia').length === 0) {
+                alarmAudio.pause();
+                alarmAudio.currentTime = 0;
+            }
         }
     }
 
     function toBase64(f) { return new Promise(res => { const r = new FileReader(); r.onload = e => res(e.target.result); r.readAsDataURL(f); }); }
     function toggleAgenda(s) { document.getElementById('agendaModal').style.display = s ? 'block' : 'none'; }
-    function generarAlta() { /* Se mantiene de versiones previas */ }
-    function renderAgenda() { /* Se mantiene de versiones previas */ }
     window.onload = init;
 </script>
 </body>
