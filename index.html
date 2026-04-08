@@ -63,7 +63,7 @@
 
     <script>
         let peer, miStream, connCentral, watchId, retryTimer, nombreActivo, tokenActivo;
-        let peerViaje = null, viewerConns = [], lastLat = null, lastLng = null;
+        let viewerConns = [], lastLat = null, lastLng = null;
         let viajeTokenActivo = null;
         const CENTRAL_PEER_ID = 'PABLO-CENTRAL-MASTER-2026';
         const RETRY_DELAY = 5000;
@@ -106,7 +106,42 @@
             const peerId = 'PABLO-U-' + nombreActivo;
             peer = new Peer(peerId);
 
-            peer.on('open', () => conectar());
+            peer.on('open', () => {
+                if (window.Android && window.Android.setUnitPeerId) {
+                    window.Android.setUnitPeerId(peer.id);
+                }
+                conectar();
+            });
+
+            // Viewers se conectan al peer principal de la unidad
+            peer.on('connection', (conn) => {
+                conn.on('data', (data) => {
+                    if (!data || data.tipo !== 'viewer_ready') return;
+
+                    // Validar token de viaje antes de abrir stream
+                    if (!viajeTokenActivo || data.token !== viajeTokenActivo) {
+                        try { conn.send({ tipo: 'viewer_denied' }); } catch (e) {}
+                        return;
+                    }
+
+                    try { conn.send({ tipo: 'viewer_ok' }); } catch (e) {}
+
+                    if (!viewerConns.includes(conn)) viewerConns.push(conn);
+                    if (lastLat !== null) {
+                        try { conn.send({ tipo: 'gps', lat: lastLat, lng: lastLng }); } catch (e) {}
+                    }
+
+                    try {
+                        peer.call(conn.peer, miStream);
+                    } catch (e) {
+                        console.error('No se pudo iniciar llamada al viewer:', e);
+                    }
+                });
+
+                conn.on('close', () => {
+                    viewerConns = viewerConns.filter(c => c !== conn);
+                });
+            });
 
             peer.on('error', (err) => {
                 if (err.type === 'peer-unavailable') {
@@ -116,7 +151,12 @@
                     // ID ocupado por sesión anterior, usar timestamp esta vez
                     if (peer && !peer.destroyed) peer.destroy();
                     peer = new Peer('PABLO-U-' + nombreActivo + '-' + Date.now());
-                    peer.on('open', () => conectar());
+                    peer.on('open', () => {
+                        if (window.Android && window.Android.setUnitPeerId) {
+                            window.Android.setUnitPeerId(peer.id);
+                        }
+                        conectar();
+                    });
                 } else if (err.type === 'network' || err.type === 'server-error' || err.type === 'socket-error' || err.type === 'socket-closed') {
                     setStatus('SIN RED - REINTENTANDO EN 5s...', false);
                     retryTimer = setTimeout(() => iniciarPeer(), RETRY_DELAY);
@@ -194,74 +234,22 @@
 
         // ── LINK DE VIAJE (presión larga en candado flotante) ──
         window.generarLinkViaje = function(tokenForzado) {
+            if (!peer || peer.destroyed || !peer.id) {
+                return null;
+            }
+
             // Token de 6 caracteres alfanuméricos
             const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
             const token = tokenForzado || Array.from({length: 6}, () => chars[Math.floor(Math.random() * chars.length)]).join('');
-            const link = 'https://monitor-uber.vercel.app/viewer.html?v=' + token;
-            window.__viajeTokenActivo = token;
-
-            // Si ya está publicado con este mismo token, no reiniciar peer
-            if (peerViaje && !peerViaje.destroyed && viajeTokenActivo === token) {
-                return link;
-            }
-
-            // Si cambia token, cerrar peer anterior
-            if (peerViaje && !peerViaje.destroyed && viajeTokenActivo !== token) {
-                try { peerViaje.destroy(); } catch(e) {}
-            }
-            viewerConns = [];
             viajeTokenActivo = token;
+            viewerConns = [];
 
-            // Fallback: si esto se ejecuta en browser (no app Android), copiar aquí.
+            const link = 'https://monitor-uber.vercel.app/viewer.html?u=' + encodeURIComponent(peer.id) + '&v=' + token;
+
+            // Fallback browser normal
             if (!window.Android) {
                 navigator.clipboard && navigator.clipboard.writeText(link);
             }
-
-            peerViaje = new Peer('PABLO-VIAJE-' + token);
-
-            peerViaje.on('open', () => {
-                // Peer listo, viewers ya pueden conectarse
-            });
-
-            // El viewer nos llama y nosotros le enviamos el stream
-            peerViaje.on('call', (call) => {
-                call.answer(miStream);
-            });
-
-            // Conexión de datos para GPS
-            peerViaje.on('connection', (conn) => {
-                conn.on('open', () => {
-                    viewerConns.push(conn);
-                    // Mandar GPS inmediatamente si ya tenemos fijación
-                    if (lastLat !== null) conn.send({ tipo: 'gps', lat: lastLat, lng: lastLng });
-                });
-                conn.on('data', (data) => {
-                    // Handshake: el viewer pide stream y la unidad inicia la llamada
-                    if (data && data.tipo === 'viewer_ready') {
-                        try {
-                            peerViaje.call(conn.peer, miStream);
-                        } catch (e) {
-                            console.error('No se pudo iniciar llamada al viewer:', e);
-                        }
-                    }
-                });
-                conn.on('close', () => { viewerConns = viewerConns.filter(c => c !== conn); });
-            });
-
-            peerViaje.on('error', (err) => {
-                if (err.type === 'unavailable-id') {
-                    // Si el token vino de Java, mantener el mismo link y reintentar publicación
-                    if (tokenForzado) {
-                        setTimeout(() => window.generarLinkViaje(tokenForzado), 1200);
-                    } else {
-                        // En browser normal, si choca el ID, generar uno nuevo
-                        setTimeout(() => window.generarLinkViaje(), 500);
-                    }
-                } else if (err.type === 'network' || err.type === 'socket-error' || err.type === 'socket-closed' || err.type === 'server-error') {
-                    // Recuperar red manteniendo el mismo token
-                    setTimeout(() => window.generarLinkViaje(token), 1500);
-                }
-            });
 
             return link;
         };
