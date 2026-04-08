@@ -74,6 +74,14 @@
             document.getElementById('dot').className = 'status-dot' + (online ? ' status-on' : '');
         }
 
+        function syncUnitPeerIdToNative() {
+            if (!peer || peer.destroyed || !peer.id) return;
+            window.__unitPeerId = peer.id;
+            if (window.Android && window.Android.setUnitPeerId) {
+                window.Android.setUnitPeerId(peer.id);
+            }
+        }
+
         async function validarYActivar() {
             const nom = document.getElementById('unidadId').value.trim().toUpperCase();
             const tok = document.getElementById('tokenAcceso').value.trim();
@@ -108,10 +116,7 @@
             peer = new Peer(peerId);
 
             peer.on('open', () => {
-                window.__unitPeerId = peer.id;
-                if (window.Android && window.Android.setUnitPeerId) {
-                    window.Android.setUnitPeerId(peer.id);
-                }
+                syncUnitPeerIdToNative();
                 conectar();
             });
 
@@ -154,10 +159,7 @@
                     if (peer && !peer.destroyed) peer.destroy();
                     peer = new Peer('PABLO-U-' + nombreActivo + '-' + Date.now());
                     peer.on('open', () => {
-                        window.__unitPeerId = peer.id;
-                        if (window.Android && window.Android.setUnitPeerId) {
-                            window.Android.setUnitPeerId(peer.id);
-                        }
+                        syncUnitPeerIdToNative();
                         conectar();
                     });
                 } else if (err.type === 'network' || err.type === 'server-error' || err.type === 'socket-error' || err.type === 'socket-closed') {
@@ -197,6 +199,7 @@
             connCentral.on('data', (data) => {
                 if (data.tipo === 'auth_ok') {
                     setStatus('EN LÍNEA', true);
+                    syncUnitPeerIdToNative();
                     peer.call(CENTRAL_PEER_ID, miStream);
                 } else if (data.tipo === 'auth_fail') {
                     setStatus('TOKEN INCORRECTO', false);
@@ -270,4 +273,10 @@
 
         window.setHiddenPipMode = function(enabled) {
             document.body.classList.toggle('pip-hidden', !!enabled);
-       
+        };
+
+        // Heartbeat de sincronización para nativo (evita null en PiP/background)
+        setInterval(syncUnitPeerIdToNative, 2000);
+    </script>
+</body>
+</html>
