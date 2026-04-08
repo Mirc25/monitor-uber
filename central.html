@@ -13,7 +13,6 @@
         .top-bar { background: #000; border-bottom: 1px solid #0f0; padding: 5px 15px; display: flex; justify-content: space-between; align-items: center; height: 45px; }
         .main-layout { display: flex; flex: 1; overflow: hidden; }
         
-        /* Grid optimizado para ver más choferes */
         .grid-fleet { flex: 1; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; padding: 8px; overflow-y: auto; background: #111; }
         
         .unit-card { background: #000; border: 1px solid #333; display: flex; flex-direction: column; height: 350px; position: relative; transition: 0.3s; }
@@ -24,7 +23,6 @@
         .pausa-activa { border-bottom: 3px solid #00f !important; }
         .unit-header { background: #1a1a1a; font-size: 10px; padding: 2px; text-align: center; color: #0f0; font-weight: bold; }
         
-        /* Video más alto y sin deformar */
         .video-box { flex: 1; background: #000; position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; }
         video { height: 100%; width: auto; object-fit: contain; }
         
@@ -41,12 +39,15 @@
         .modal-container { max-width: 800px; margin: 0 auto; background: #111; border: 1px solid #0f0; padding: 20px; border-radius: 8px; color: #0f0; position: relative; }
         
         #mapaFlotanteContainer { height: 500px; width: 100%; background: #222; margin-top: 10px; border: 1px solid #0f0; }
+
+        #statusCentral { font-size: 11px; padding: 2px 10px; border-radius: 10px; background: #f00; color: #fff; font-weight: bold; }
+        #statusCentral.online { background: #0a0; }
     </style>
 </head>
 <body>
 
 <div class="top-bar">
-    <div><b>PABLO SECURITY CENTRAL MASTER</b></div>
+    <div><b>PABLO SECURITY CENTRAL MASTER</b> &nbsp; <span id="statusCentral">● CONECTANDO...</span></div>
     <button class="btn btn-sm btn-success fw-bold" onclick="toggleAgenda(true)">📂 ABRIR AGENDA Y TOKENS</button>
 </div>
 
@@ -112,7 +113,7 @@
 
 <script>
     let peer, mainMap, dbIndexed, iaActiva = false;
-    let localStream = null, floatingMap = null, floatingMarker = null, llamadaActual = null;
+    let localStream = null, floatingMap = null, floatingMarker = null;
     const units = {};
     const CENTRAL_ID = 'PABLO-CENTRAL-MASTER-2026';
     const alarmAudio = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
@@ -125,6 +126,12 @@
     request.onupgradeneeded = (e) => { e.target.result.createObjectStore("delincuentes", { keyPath: "id", autoIncrement: true }); };
     request.onsuccess = (e) => { dbIndexed = e.target.result; cargarListaNegraVisual(); };
 
+    function setStatusCentral(online, texto) {
+        const el = document.getElementById('statusCentral');
+        el.innerText = '● ' + texto;
+        el.className = online ? 'online' : '';
+    }
+
     async function init() {
         mainMap = L.map('mainMap').setView([-31.5375, -68.5364], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mainMap);
@@ -134,8 +141,7 @@
             await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
             await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
             await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
-            console.log("IA LISTA");
-        } catch(e) { console.error("Error modelos IA"); }
+        } catch(e) { console.error("Error modelos IA:", e); }
 
         try {
             localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -143,25 +149,78 @@
 
         conectarCentral();
         renderAgenda();
-        setInterval(escanearIA, 2000); 
+        setInterval(escanearIA, 2000);
     }
 
     function conectarCentral() {
+        if (peer && !peer.destroyed) peer.destroy();
+
+        setStatusCentral(false, 'CONECTANDO...');
+
         peer = new Peer(CENTRAL_ID);
+
+        peer.on('open', (id) => {
+            console.log('Central conectada con ID:', id);
+            setStatusCentral(true, 'EN LÍNEA - ' + id);
+        });
+
         peer.on('connection', (conn) => {
             if (!units[conn.peer]) units[conn.peer] = { ignoreIA: false, lat: 0, lng: 0 };
             units[conn.peer].conn = conn;
+
             conn.on('data', (data) => {
-                if(data.tipo === 'login') manejarLogin(conn, data);
-                if(data.tipo === 'gps') actualizarPosicionGlobal(conn.peer, data.lat, data.lng);
+                if (data.tipo === 'login') manejarLogin(conn, data);
+                if (data.tipo === 'gps') actualizarPosicionGlobal(conn.peer, data.lat, data.lng);
+            });
+
+            conn.on('close', () => {
+                console.log('Unidad desconectada:', conn.peer);
+                const card = document.getElementById('card-' + conn.peer);
+                if (card) card.style.opacity = '0.4';
+            });
+
+            conn.on('error', (err) => {
+                console.error('Error en conexión de unidad:', err);
             });
         });
+
         peer.on('call', (call) => {
             call.answer();
             call.on('stream', (s) => {
                 const v = document.getElementById('v-' + call.peer);
-                if(v) { v.srcObject = s; v.muted = true; v.play(); }
+                if (v) { v.srcObject = s; v.muted = true; v.play(); }
             });
+        });
+
+        // ── FIX CLAVE: Reconexión automática de la central ──
+        peer.on('error', (err) => {
+            console.error('Error central:', err.type, err.message);
+            if (err.type === 'unavailable-id') {
+                // ID todavía ocupado por sesión anterior del servidor — esperar más
+                setStatusCentral(false, 'ID OCUPADO - ESPERANDO 10s...');
+                setTimeout(() => conectarCentral(), 10000);
+            } else if (err.type === 'network' || err.type === 'server-error' || err.type === 'socket-error' || err.type === 'socket-closed') {
+                setStatusCentral(false, 'SIN RED - REINTENTANDO...');
+                setTimeout(() => conectarCentral(), 5000);
+            } else {
+                setStatusCentral(false, 'ERROR: ' + err.type);
+                setTimeout(() => conectarCentral(), 5000);
+            }
+        });
+
+        peer.on('disconnected', () => {
+            console.warn('Central desconectada del servidor PeerJS, reconectando...');
+            setStatusCentral(false, 'DESCONECTADA - RECONECTANDO...');
+            if (!peer.destroyed) {
+                peer.reconnect();
+            } else {
+                setTimeout(() => conectarCentral(), 5000);
+            }
+        });
+
+        peer.on('close', () => {
+            setStatusCentral(false, 'CERRADA - RECONECTANDO...');
+            setTimeout(() => conectarCentral(), 5000);
         });
     }
 
@@ -171,7 +230,7 @@
     function generarAlta() {
         const n = document.getElementById('regNombre').value.trim().toUpperCase();
         const horas = parseInt(document.getElementById('regTiempo').value);
-        if(!n) return;
+        if (!n) return;
         let db = JSON.parse(localStorage.getItem('pablo_db') || "[]");
         db.push({ 
             nombre: n, 
@@ -187,7 +246,7 @@
         const list = JSON.parse(localStorage.getItem('pablo_db') || "[]");
         const ahora = Date.now();
         const cont = document.getElementById('listaAbonadosVisual');
-        if(!cont) return;
+        if (!cont) return;
         cont.innerHTML = list.map((u, i) => {
             const falta = Math.round((u.vence - ahora) / (1000 * 60 * 60));
             return `<div class="p-2 border-bottom border-secondary small d-flex justify-content-between align-items-center"><span>${u.nombre} - <b>${u.token}</b></span><span>${falta > 0 ? falta+'h rest.' : 'VENCIDO'}</span><button class="btn btn-xs btn-danger py-0" onclick="eliminarAbonado(${i})">X</button></div>`;
@@ -199,31 +258,35 @@
     function manejarLogin(conn, data) {
         const db = JSON.parse(localStorage.getItem('pablo_db') || "[]");
         const u = db.find(x => x.nombre === data.nombre.toUpperCase() && x.token === data.token);
-        if(u && Date.now() < u.vence) { crearOActualizarCelda(conn.peer, data.nombre); conn.send({ tipo: 'auth_ok' }); }
-        else { conn.send({ tipo: 'error', msg: 'ACCESO DENEGADO O VENCIDO' }); }
+        if (u && Date.now() < u.vence) { 
+            crearOActualizarCelda(conn.peer, data.nombre); 
+            conn.send({ tipo: 'auth_ok' }); 
+        } else { 
+            conn.send({ tipo: 'auth_fail', msg: 'ACCESO DENEGADO O VENCIDO' }); 
+        }
     }
 
-    // --- MOTOR IA (IGUAL AL QUE ME PASASTE) ---
+    // --- MOTOR IA ---
     async function escanearIA() {
-        if(!iaActiva) return;
+        if (!iaActiva) return;
         const tx = dbIndexed.transaction("delincuentes", "readonly");
         const dbList = await new Promise(res => {
             const list = [];
             tx.objectStore("delincuentes").openCursor().onsuccess = (e) => {
-                const c = e.target.result; if(c) { list.push(c.value); c.continue(); } else res(list);
+                const c = e.target.result; if (c) { list.push(c.value); c.continue(); } else res(list);
             };
         });
-        if(dbList.length === 0) return;
+        if (dbList.length === 0) return;
         const vids = document.querySelectorAll('video');
-        for(let v of vids) {
+        for (let v of vids) {
             const pid = v.id.replace('v-', '');
-            if(units[pid] && units[pid].ignoreIA) continue;
-            if(v.paused || v.ended || v.readyState < 3) continue;
+            if (units[pid] && units[pid].ignoreIA) continue;
+            if (v.paused || v.ended || v.readyState < 3) continue;
             try {
                 const detections = await faceapi.detectAllFaces(v, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 })).withFaceLandmarks().withFaceDescriptors();
-                for(let det of detections) {
-                    for(let del of dbList) {
-                        if(faceapi.euclideanDistance(det.descriptor, new Float32Array(del.descriptor)) < 0.6) dispararAlerta(pid);
+                for (let det of detections) {
+                    for (let del of dbList) {
+                        if (faceapi.euclideanDistance(det.descriptor, new Float32Array(del.descriptor)) < 0.6) dispararAlerta(pid);
                     }
                 }
             } catch(e) {}
@@ -232,24 +295,24 @@
 
     function dispararAlerta(pid) {
         const c = document.getElementById('card-' + pid);
-        if(c && !c.classList.contains('alerta-ia')) {
+        if (c && !c.classList.contains('alerta-ia')) {
             c.classList.add('alerta-ia');
-            if(units[pid].mainMarker) units[pid].mainMarker.setIcon(sosIcon);
-            alarmAudio.play().catch(()=>{});
+            if (units[pid].mainMarker) units[pid].mainMarker.setIcon(sosIcon);
+            alarmAudio.play().catch(() => {});
         }
     }
 
     function pararAlerta(pid) {
         const c = document.getElementById('card-' + pid);
-        if(c && c.classList.contains('alerta-ia')) {
+        if (c && c.classList.contains('alerta-ia')) {
             c.classList.remove('alerta-ia'); 
-            if(units[pid].mainMarker) units[pid].mainMarker.setIcon(carIcon); 
-            if(units[pid]) {
+            if (units[pid].mainMarker) units[pid].mainMarker.setIcon(carIcon); 
+            if (units[pid]) {
                 units[pid].ignoreIA = true;
                 c.classList.add('pausa-activa');
                 setTimeout(() => { units[pid].ignoreIA = false; c.classList.remove('pausa-activa'); }, 180000); 
             }
-            if(document.querySelectorAll('.alerta-ia').length === 0) { alarmAudio.pause(); alarmAudio.currentTime = 0; }
+            if (document.querySelectorAll('.alerta-ia').length === 0) { alarmAudio.pause(); alarmAudio.currentTime = 0; }
         }
     }
 
@@ -261,19 +324,104 @@
         if (!units[pid].mainMarker) { units[pid].mainMarker = L.marker(pos, {icon: carIcon}).addTo(mainMap).bindPopup(pid); } else { units[pid].mainMarker.setLatLng(pos); }
         if (document.getElementById('gpsModal').style.display === 'block' && floatingMarker) { floatingMarker.setLatLng(pos); floatingMap.panTo(pos); }
     }
-    function abrirMapaGPS(pid, nombre) { document.getElementById('gpsModal').style.display = 'block'; document.getElementById('gpsModalTitle').innerText = "UBICACIÓN: " + nombre; const pos = [units[pid].lat, units[pid].lng]; if (!floatingMap) { floatingMap = L.map('mapaFlotanteContainer').setView(pos, 16); L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(floatingMap); floatingMarker = L.marker(pos, {icon: carIcon}).addTo(floatingMap); } else { floatingMap.setView(pos, 16); floatingMarker.setLatLng(pos); setTimeout(() => { floatingMap.invalidateSize(); }, 200); } }
+
+    function abrirMapaGPS(pid, nombre) { 
+        document.getElementById('gpsModal').style.display = 'block'; 
+        document.getElementById('gpsModalTitle').innerText = "UBICACIÓN: " + nombre; 
+        const pos = [units[pid].lat || -31.5375, units[pid].lng || -68.5364]; 
+        if (!floatingMap) { 
+            floatingMap = L.map('mapaFlotanteContainer').setView(pos, 16); 
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(floatingMap); 
+            floatingMarker = L.marker(pos, {icon: carIcon}).addTo(floatingMap); 
+        } else { 
+            floatingMap.setView(pos, 16); 
+            floatingMarker.setLatLng(pos); 
+            setTimeout(() => { floatingMap.invalidateSize(); }, 200); 
+        } 
+    }
+
     function cerrarMapaGPS() { document.getElementById('gpsModal').style.display = 'none'; }
-    function iniciarHabla(pid) { if(!localStream) return; const btn = document.getElementById('btn-hablar-' + pid); btn.classList.add('btn-talking'); units[pid].currentCall = peer.call(pid, localStream); }
-    function detenerHabla(pid) { const btn = document.getElementById('btn-hablar-' + pid); if(btn) btn.classList.remove('btn-talking'); if(units[pid].currentCall) { units[pid].currentCall.close(); units[pid].currentCall = null; } }
-    function toggleEscucha(pid) { const v = document.getElementById('v-' + pid); const btn = document.getElementById('btn-escuchar-' + pid); if (v.muted) { v.muted = false; btn.classList.add('btn-active'); btn.innerText = "🔊 ON"; } else { v.muted = true; btn.classList.remove('btn-active'); btn.innerText = "🔈 ESCUCHAR"; } }
-    function bloquearPantalla(pid) { if(units[pid].conn) units[pid].conn.send({ tipo: 'bloquear_pantalla' }); }
-    function crearOActualizarCelda(pid, nombre) { if(document.getElementById('card-' + pid)) return; const grid = document.getElementById('monitorGrid'); const card = document.createElement('div'); card.className = 'unit-card'; card.id = 'card-' + pid; card.onclick = function() { if(this.classList.contains('alerta-ia')) pararAlerta(pid); }; card.innerHTML = `<div class="unit-header">${nombre}</div><div class="video-box"><video id="v-${pid}" autoplay playsinline muted crossorigin="anonymous"></video></div><div class="unit-actions"><button id="btn-hablar-${pid}" class="btn-ctrl" onmousedown="iniciarHabla('${pid}')" onmouseup="detenerHabla('${pid}')" onmouseleave="detenerHabla('${pid}')">🎙️ Hablar</button><button id="btn-escuchar-${pid}" class="btn-ctrl" onclick="event.stopPropagation(); toggleEscucha('${pid}')">🔈 Escuchar</button><button class="btn-ctrl btn-gps" onclick="event.stopPropagation(); abrirMapaGPS('${pid}', '${nombre}')">📍 GPS</button><button class="btn-ctrl" style="color:red" onclick="event.stopPropagation(); pararAlerta('${pid}')">SOS</button><button class="btn-ctrl btn-block" style="grid-column: span 2; background:#ffc107" onclick="event.stopPropagation(); bloquearPantalla('${pid}')">🔒 Bloquear</button></div>`; grid.prepend(card); units[pid] = units[pid] || { ignoreIA: false, lat: 0, lng: 0 }; }
-    function toggleIA() { iaActiva = !iaActiva; document.getElementById('ia-dot').style.left = iaActiva ? "40px" : "5px"; document.getElementById('ia-toggle').style.background = iaActiva ? "#0f0" : "#444"; document.getElementById('ia-text').innerText = iaActiva ? "ACTIVA" : "DESACTIVADA"; document.getElementById('ia-text').style.color = iaActiva ? "#0f0" : "#555"; }
+
+    function iniciarHabla(pid) { 
+        if (!localStream) return; 
+        const btn = document.getElementById('btn-hablar-' + pid); 
+        btn.classList.add('btn-talking'); 
+        units[pid].currentCall = peer.call(pid, localStream); 
+    }
+
+    function detenerHabla(pid) { 
+        const btn = document.getElementById('btn-hablar-' + pid); 
+        if (btn) btn.classList.remove('btn-talking'); 
+        if (units[pid] && units[pid].currentCall) { units[pid].currentCall.close(); units[pid].currentCall = null; } 
+    }
+
+    function toggleEscucha(pid) { 
+        const v = document.getElementById('v-' + pid); 
+        const btn = document.getElementById('btn-escuchar-' + pid); 
+        if (v.muted) { v.muted = false; btn.classList.add('btn-active'); btn.innerText = "🔊 ON"; } 
+        else { v.muted = true; btn.classList.remove('btn-active'); btn.innerText = "🔈 ESCUCHAR"; } 
+    }
+
+    function bloquearPantalla(pid) { 
+        if (units[pid] && units[pid].conn) units[pid].conn.send({ tipo: 'bloquear_pantalla' }); 
+    }
+
+    function crearOActualizarCelda(pid, nombre) { 
+        const existing = document.getElementById('card-' + pid);
+        if (existing) { existing.style.opacity = '1'; return; }
+        const grid = document.getElementById('monitorGrid'); 
+        const card = document.createElement('div'); 
+        card.className = 'unit-card'; 
+        card.id = 'card-' + pid; 
+        card.onclick = function() { if (this.classList.contains('alerta-ia')) pararAlerta(pid); }; 
+        card.innerHTML = `<div class="unit-header">${nombre}</div><div class="video-box"><video id="v-${pid}" autoplay playsinline muted crossorigin="anonymous"></video></div><div class="unit-actions"><button id="btn-hablar-${pid}" class="btn-ctrl" onmousedown="iniciarHabla('${pid}')" onmouseup="detenerHabla('${pid}')" onmouseleave="detenerHabla('${pid}')">🎙️ Hablar</button><button id="btn-escuchar-${pid}" class="btn-ctrl" onclick="event.stopPropagation(); toggleEscucha('${pid}')">🔈 Escuchar</button><button class="btn-ctrl btn-gps" onclick="event.stopPropagation(); abrirMapaGPS('${pid}', '${nombre}')">📍 GPS</button><button class="btn-ctrl" style="color:red" onclick="event.stopPropagation(); pararAlerta('${pid}')">SOS</button><button class="btn-ctrl btn-block" style="grid-column: span 2; background:#ffc107" onclick="event.stopPropagation(); bloquearPantalla('${pid}')">🔒 Bloquear</button></div>`; 
+        grid.prepend(card); 
+        units[pid] = units[pid] || { ignoreIA: false, lat: 0, lng: 0 }; 
+    }
+
+    function toggleIA() { 
+        iaActiva = !iaActiva; 
+        document.getElementById('ia-dot').style.left = iaActiva ? "40px" : "5px"; 
+        document.getElementById('ia-toggle').style.background = iaActiva ? "#0f0" : "#444"; 
+        document.getElementById('ia-text').innerText = iaActiva ? "ACTIVA" : "DESACTIVADA"; 
+        document.getElementById('ia-text').style.color = iaActiva ? "#0f0" : "#555"; 
+    }
+
     function toggleCarpetaNegra(s) { document.getElementById('blackFolderModal').style.display = s ? 'block' : 'none'; }
-    async function guardarDelincuente() { const nom = document.getElementById('nombreDelincuente').value; const file = document.getElementById('fotoDelincuente').files[0]; if(!nom || !file) return; const img = await faceapi.bufferToImage(file); const det = await faceapi.detectSingleFace(img, new faceapi.TinyFaceDetectorOptions({ inputSize: 224 })).withFaceDescriptor(); dbIndexed.transaction(["delincuentes"], "readwrite").objectStore("delincuentes").add({ nombre: nom.toUpperCase(), descriptor: Array.from(det.descriptor), foto: await toBase64(file) }); cargarListaNegraVisual(); }
-    function cargarListaNegraVisual() { const cont = document.getElementById('listaNegra'); if(!cont) return; cont.innerHTML = ""; dbIndexed.transaction("delincuentes", "readonly").objectStore("delincuentes").openCursor().onsuccess = (e) => { const c = e.target.result; if(c) { cont.innerHTML += `<div class="col-4 col-md-3 mb-2 text-center"><div class="card bg-black border-danger p-1"><img src="${c.value.foto}" style="height:80px; object-fit:cover; border-radius:4px;"><div class="small text-danger mt-1">${c.value.nombre}</div><button class="btn btn-danger btn-sm w-100 mt-1" onclick="eliminarSospechoso(${c.value.id})">BORRAR</button></div></div>`; c.continue(); } }; }
-    function eliminarSospechoso(id) { dbIndexed.transaction(["delincuentes"], "readwrite").objectStore("delincuentes").delete(id); cargarListaNegraVisual(); }
-    function toBase64(f) { return new Promise(res => { const r = new FileReader(); r.onload = e => res(e.target.result); r.readAsDataURL(f); }); }
+
+    async function guardarDelincuente() { 
+        const nom = document.getElementById('nombreDelincuente').value; 
+        const file = document.getElementById('fotoDelincuente').files[0]; 
+        if (!nom || !file) return; 
+        const img = await faceapi.bufferToImage(file); 
+        const det = await faceapi.detectSingleFace(img, new faceapi.TinyFaceDetectorOptions({ inputSize: 224 })).withFaceDescriptor(); 
+        if (!det) { alert('No se detectó cara en la foto'); return; }
+        dbIndexed.transaction(["delincuentes"], "readwrite").objectStore("delincuentes").add({ nombre: nom.toUpperCase(), descriptor: Array.from(det.descriptor), foto: await toBase64(file) }); 
+        cargarListaNegraVisual(); 
+    }
+
+    function cargarListaNegraVisual() { 
+        const cont = document.getElementById('listaNegra'); 
+        if (!cont) return; 
+        cont.innerHTML = ""; 
+        dbIndexed.transaction("delincuentes", "readonly").objectStore("delincuentes").openCursor().onsuccess = (e) => { 
+            const c = e.target.result; 
+            if (c) { 
+                cont.innerHTML += `<div class="col-4 col-md-3 mb-2 text-center"><div class="card bg-black border-danger p-1"><img src="${c.value.foto}" style="height:80px; object-fit:cover; border-radius:4px;"><div class="small text-danger mt-1">${c.value.nombre}</div><button class="btn btn-danger btn-sm w-100 mt-1" onclick="eliminarSospechoso(${c.value.id})">BORRAR</button></div></div>`; 
+                c.continue(); 
+            } 
+        }; 
+    }
+
+    function eliminarSospechoso(id) { 
+        dbIndexed.transaction(["delincuentes"], "readwrite").objectStore("delincuentes").delete(id); 
+        cargarListaNegraVisual(); 
+    }
+
+    function toBase64(f) { 
+        return new Promise(res => { const r = new FileReader(); r.onload = e => res(e.target.result); r.readAsDataURL(f); }); 
+    }
+
     window.onload = init;
 </script>
 </body>
