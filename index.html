@@ -52,8 +52,14 @@
             if (!nom || !tok) return alert("Faltan datos.");
 
             try {
-                // Capturamos video y audio del chofer
+                // SOLICITUD DE PERMISOS DE ENTRADA (Cámara, Micrófono y GPS)
+                // Esto hará que el APK pida los permisos al usuario de inmediato
                 miStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                
+                await new Promise((resolve, reject) => {
+                    navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true });
+                });
+
                 document.getElementById('localVideo').srcObject = miStream;
                 document.getElementById('setup').style.display = 'none';
                 document.getElementById('monitor-activo').style.display = 'block';
@@ -65,7 +71,6 @@
                     conectarYTransmitir(nom, tok);
                 });
 
-                // RECEPTOR DE LLAMADA DE LA CENTRAL (Para cuando Pablo habla desde el monitor)
                 peer.on('call', (call) => {
                     call.answer(miStream); 
                     call.on('stream', (remoteStream) => {
@@ -75,7 +80,10 @@
                     });
                 });
 
-            } catch (e) { alert("Error de permisos: " + e); location.reload(); }
+            } catch (e) { 
+                alert("DEBES ACEPTAR LOS PERMISOS DE CÁMARA Y UBICACIÓN PARA CONTINUAR"); 
+                console.error(e);
+            }
         }
 
         function conectarYTransmitir(nombre, token) {
@@ -89,11 +97,8 @@
                 if (data.tipo === 'auth_ok') {
                     document.getElementById('dot').className = 'status-dot status-on';
                     document.getElementById('statusText').innerText = 'EN LÍNEA';
-                    
-                    // Iniciamos la transmisión de video hacia la central
                     peer.call(CENTRAL_PEER_ID, miStream);
 
-                    // Iniciamos el seguimiento GPS
                     navigator.geolocation.watchPosition((pos) => {
                         if (connCentral.open) {
                             connCentral.send({ 
@@ -106,6 +111,17 @@
                 } else if (data.tipo === 'error') {
                     alert(data.msg);
                     location.reload();
+                }
+                
+                // LÓGICA DE BLOQUEO REMOTO
+                if (data.tipo === 'comando' && data.accion === 'bloquear') {
+                    document.body.innerHTML = `
+                        <div style="background:black; color:red; height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:99999;">
+                            <h1 style="font-size:2rem; text-align:center;">EQUIPO BLOQUEADO</h1>
+                            <p>PABLO SECURITY - PROTOCOLO ANTI-ROBO</p>
+                            <div style="font-size:80px;">🔒</div>
+                        </div>`;
+                    if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
                 }
             });
         }
