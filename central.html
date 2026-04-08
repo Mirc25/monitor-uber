@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>PABLO SECURITY - CENTRAL MASTER</title>
+    <title>PABLO SECURITY - CENTRAL MAESTRA IA</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -13,83 +13,67 @@
         .top-bar { background: #000; border-bottom: 1px solid #0f0; padding: 5px 15px; display: flex; justify-content: space-between; align-items: center; height: 45px; }
         .main-layout { display: flex; flex: 1; overflow: hidden; }
         .grid-fleet { flex: 1; display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; padding: 5px; overflow-y: auto; background: #111; }
-        .unit-card { background: #000; border: 1px solid #333; display: flex; flex-direction: column; height: 340px; position: relative; transition: 0.3s; }
+        .unit-card { background: #000; border: 1px solid #333; display: flex; flex-direction: column; height: 320px; position: relative; transition: 0.3s; }
         
         .alerta-ia { border: 5px solid #f00 !important; box-shadow: 0 0 25px #f00; animation: parpadeo-ia 0.4s infinite alternate; z-index: 1000; cursor: pointer; }
-        @keyframes parpadeo-ia { 0% { background: #000; } 100% { background: #400; } }
-        
-        .pausa-ia { opacity: 0.7; border: 2px solid #00f !important; }
-        .pausa-ia::after { content: "IA PAUSADA 3M"; position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); background: #00f; color: #fff; padding: 5px; font-weight: bold; border-radius: 5px; z-index: 20; font-size: 12px; }
+        @keyframes parpadeo-ia { 0% { background: #000; transform: scale(1); } 100% { background: #400; transform: scale(0.98); } }
 
         .unit-header { background: #1a1a1a; font-size: 10px; padding: 2px; text-align: center; color: #0f0; }
-        .video-box { height: 110px; background: #222; }
+        .video-box { height: 110px; background: #222; position: relative; }
         video { width: 100%; height: 100%; object-fit: cover; }
-        .unit-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 2px; background: #000; border-top: 1px solid #0f0; }
-        .btn-ctrl { font-size: 9px; padding: 8px 0; background: #fff; color: #000; border: none; font-weight: bold; cursor: pointer; text-transform: uppercase; }
-        .btn-talking { background: #f0f !important; color: #fff !important; }
+        
+        .unit-actions { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 2px; padding: 2px; background: #000; border-top: 1px solid #0f0; }
+        .btn-ctrl { font-size: 9px; padding: 6px 0; background: #fff; color: #000; border: none; font-weight: bold; cursor: pointer; text-transform: uppercase; user-select: none; }
         .btn-active { background: #0f0 !important; color: #000 !important; }
+        .btn-talking { background: #f0f !important; color: #fff !important; }
 
-        .mini-map { flex: 1; background: #333; pointer-events: none; }
+        .mini-map { flex: 1; background: #333; border-top: 1px solid #333; pointer-events: none; }
         .side-panel { width: 320px; background: #222; display: flex; flex-direction: column; border-left: 2px solid #0f0; }
-        #mainMap { height: 260px; border-bottom: 2px solid #0f0; }
-        .modales { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.96); z-index: 2000; padding: 25px; }
-        .modal-container { max-width: 800px; margin: 0 auto; background: #111; border: 1px solid #0f0; padding: 20px; color: #0f0; border-radius: 8px; }
+        #mainMap { height: 280px; border-bottom: 2px solid #0f0; background: #111; }
+        
+        #agendaModal, #blackFolderModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.96); z-index: 2000; padding: 25px; }
+        .modal-container { max-width: 800px; margin: 0 auto; background: #111; border: 1px solid #0f0; padding: 20px; border-radius: 8px; color: #0f0; }
     </style>
 </head>
 <body>
 
 <div class="top-bar">
-    <div style="font-weight: bold; color: #0f0;">PABLO SECURITY CENTRAL MASTER</div>
-    <div>
-        <button class="btn btn-sm btn-info fw-bold me-2" id="btn-micro-global" onclick="activarMicrofonoCentral()">🎤 ACTIVAR MICRO</button>
-        <button class="btn btn-sm btn-success fw-bold" onclick="toggleAgenda(true)">📂 AGENDA Y TOKENS</button>
-    </div>
+    <div><b>PABLO SECURITY CENTRAL MASTER</b></div>
+    <button class="btn btn-sm btn-success fw-bold" onclick="toggleAgenda(true)">📂 ABRIR AGENDA Y TOKENS</button>
 </div>
 
 <div class="main-layout">
     <div class="grid-fleet" id="monitorGrid"></div>
     <div class="side-panel">
         <div id="mainMap"></div>
-        <div class="p-3">
-            <button class="btn btn-danger w-100 mb-3 fw-bold" onclick="toggleCarpetaNegra(true)">👤 CARPETA NEGRA</button>
+        <div class="tools-area p-3">
+            <button class="btn btn-danger w-100 fw-bold mb-3" onclick="toggleCarpetaNegra(true)">👤 CARPETA NEGRA</button>
             <div id="ia-toggle" style="width:70px; height:30px; background:#444; border-radius:20px; margin:10px auto; position:relative; cursor:pointer;" onclick="toggleIA()">
                 <div id="ia-dot" style="position:absolute; left:5px; top:4px; width:22px; height:22px; background:#ddd; border-radius:50%; transition: 0.3s;"></div>
             </div>
-            <div id="ia-text" style="font-weight:bold; font-size:12px; color:#555; text-align:center;">IA DESACTIVADA</div>
+            <div id="ia-text" style="font-weight:bold; font-size:13px; color:#555; text-align:center;">IA DESACTIVADA</div>
         </div>
     </div>
 </div>
 
-<div id="agendaModal" class="modales">
-    <div class="modal-container">
-        <div class="d-flex justify-content-between mb-3">
-            <h4>GESTIÓN DE ABONADOS</h4>
-            <button class="btn btn-sm btn-danger" onclick="toggleAgenda(false)">CERRAR</button>
+<div id="blackFolderModal">
+    <div class="modal-container" style="border-color: #f00;">
+        <div class="d-flex justify-content-between mb-3 border-bottom border-danger pb-2">
+            <h4>CARPETA NEGRA</h4>
+            <button class="btn btn-sm btn-outline-danger" onclick="toggleCarpetaNegra(false)">CERRAR</button>
         </div>
-        <div class="row g-2 mb-3">
-            <div class="col-7"><input type="text" id="regNombre" class="form-control bg-dark text-white border-success" placeholder="NOMBRE"></div>
-            <div class="col-5"><button class="btn btn-success w-100" onclick="generarAlta()">DAR DE ALTA</button></div>
-        </div>
-        <div id="listaAbonadosVisual" class="bg-black p-2" style="max-height: 350px; overflow-y: auto;"></div>
-    </div>
-</div>
-
-<div id="blackFolderModal" class="modales">
-    <div class="modal-container">
-        <h4>CARPETA NEGRA</h4>
-        <button class="btn btn-sm btn-danger float-end" onclick="toggleCarpetaNegra(false)">CERRAR</button>
-        <div class="row g-2 my-4">
-            <div class="col-md-5"><input type="file" id="fotoDelincuente" class="form-control bg-black text-danger border-danger"></div>
+        <div class="row g-2 mb-4 bg-dark p-2 rounded">
+            <div class="col-md-5"><input type="file" id="fotoDelincuente" class="form-control bg-black text-danger border-danger" accept="image/*"></div>
             <div class="col-md-4"><input type="text" id="nombreDelincuente" class="form-control bg-black text-danger border-danger" placeholder="ALIAS"></div>
             <div class="col-md-3"><button class="btn btn-danger w-100 fw-bold" onclick="guardarDelincuente()">AÑADIR</button></div>
         </div>
-        <div id="listaNegra" class="row g-2"></div>
+        <div id="listaNegra" class="row g-2" style="max-height: 400px; overflow-y: auto;"></div>
     </div>
 </div>
 
 <script>
     let peer, mainMap, dbIndexed, iaActiva = false;
-    let localStream = null, llamadaActual = null;
+    let localStream = null;
     const units = {};
     const CENTRAL_ID = 'PABLO-CENTRAL-MASTER-2026';
     const alarmAudio = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
@@ -98,7 +82,7 @@
     const carIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', iconSize: [25, 25], className: 'fuchsia-car' });
     const sosIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', iconSize: [30, 30], className: 'sos-car' });
 
-    // DB
+    // indexedDB restaurado
     const request = indexedDB.open("PabloSecurity_Folder", 1);
     request.onupgradeneeded = (e) => { e.target.result.createObjectStore("delincuentes", { keyPath: "id", autoIncrement: true }); };
     request.onsuccess = (e) => { dbIndexed = e.target.result; cargarListaNegraVisual(); };
@@ -107,20 +91,26 @@
         mainMap = L.map('mainMap').setView([-31.5375, -68.5364], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mainMap);
         
-        const URL = 'https://justadudewhohacks.github.io/face-api.js/models';
-        await faceapi.nets.tinyFaceDetector.loadFromUri(URL);
-        await faceapi.nets.faceLandmark68Net.loadFromUri(URL);
-        await faceapi.nets.faceRecognitionNet.loadFromUri(URL);
-        
+        try {
+            const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
+            await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+            await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
+            await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
+            console.log("IA LISTA");
+        } catch(e) { console.error("Error modelos IA"); }
+
+        try {
+            localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        } catch(e) { console.log("Permiso micro central denegado"); }
+
         conectarCentral();
-        renderAgenda();
-        setInterval(escanearIA, 1500);
+        setInterval(escanearIA, 2000); 
     }
 
     function conectarCentral() {
         peer = new Peer(CENTRAL_ID);
         peer.on('connection', (conn) => {
-            units[conn.peer] = units[conn.peer] || { ignoreIA: false };
+            units[conn.peer] = units[conn.peer] || {};
             units[conn.peer].conn = conn;
             conn.on('data', (data) => {
                 if(data.tipo === 'login') manejarLogin(conn, data);
@@ -136,28 +126,68 @@
         });
     }
 
-    // --- MOTOR IA (EL QUE ANDABA BIEN) ---
+    // --- BLOQUE CARPETA NEGRA RESTAURADO ---
+    function toggleCarpetaNegra(s) { document.getElementById('blackFolderModal').style.display = s ? 'block' : 'none'; }
+
+    async function guardarDelincuente() {
+        const nom = document.getElementById('nombreDelincuente').value;
+        const file = document.getElementById('fotoDelincuente').files[0];
+        if(!nom || !file) return alert("Faltan datos");
+        try {
+            const img = await faceapi.bufferToImage(file);
+            const detections = await faceapi.detectSingleFace(img, new faceapi.TinyFaceDetectorOptions({ inputSize: 224 })).withFaceLandmarks().withFaceDescriptor();
+            if(!detections) return alert("No se detectó rostro");
+            const tx = dbIndexed.transaction(["delincuentes"], "readwrite");
+            tx.objectStore("delincuentes").add({ nombre: nom.toUpperCase(), descriptor: Array.from(detections.descriptor), foto: await toBase64(file) });
+            tx.oncomplete = () => { cargarListaNegraVisual(); alert("GUARDADO"); };
+        } catch(e) { alert("Error IA"); }
+    }
+
+    function cargarListaNegraVisual() {
+        const cont = document.getElementById('listaNegra'); if(!cont) return;
+        cont.innerHTML = "";
+        dbIndexed.transaction("delincuentes", "readonly").objectStore("delincuentes").openCursor().onsuccess = (e) => {
+            const c = e.target.result; if(c) {
+                cont.innerHTML += `<div class="col-4 col-md-3 mb-2 text-center"><div class="card bg-black border-danger p-1"><img src="${c.value.foto}" style="height:80px; object-fit:cover; border-radius:4px;"><div class="small text-danger mt-1">${c.value.nombre}</div><button class="btn btn-danger btn-sm w-100 mt-1" onclick="eliminarSospechoso(${c.value.id})">BORRAR</button></div></div>`;
+                c.continue();
+            }
+        };
+    }
+
+    function eliminarSospechoso(id) {
+        const tx = dbIndexed.transaction(["delincuentes"], "readwrite");
+        tx.objectStore("delincuentes").delete(id);
+        tx.oncomplete = () => cargarListaNegraVisual();
+    }
+
+    // --- BLOQUE IA RESTAURADO ---
+    function toggleIA() {
+        iaActiva = !iaActiva;
+        document.getElementById('ia-dot').style.left = iaActiva ? "40px" : "5px";
+        document.getElementById('ia-toggle').style.background = iaActiva ? "#0f0" : "#444";
+        document.getElementById('ia-text').innerText = iaActiva ? "ACTIVA" : "DESACTIVADA";
+        document.getElementById('ia-text').style.color = iaActiva ? "#0f0" : "#555";
+    }
+
     async function escanearIA() {
         if(!iaActiva) return;
-        const tx = dbIndexed.transaction("delincuentes", "readonly");
+        const vids = document.querySelectorAll('video');
         const dbList = await new Promise(res => {
             const list = [];
-            tx.objectStore("delincuentes").openCursor().onsuccess = (e) => {
+            dbIndexed.transaction("delincuentes", "readonly").objectStore("delincuentes").openCursor().onsuccess = (e) => {
                 const c = e.target.result; if(c) { list.push(c.value); c.continue(); } else res(list);
             };
         });
         if(dbList.length === 0) return;
-
-        const vids = document.querySelectorAll('video');
         for(let v of vids) {
-            const pid = v.id.replace('v-', '');
-            if(units[pid]?.ignoreIA || v.readyState < 3) continue;
-            
+            if(v.paused || v.ended || v.readyState < 3) continue;
             try {
-                const det = await faceapi.detectAllFaces(v, new faceapi.TinyFaceDetectorOptions()).withFaceDescriptors();
-                for(let d of det) {
+                const detections = await faceapi.detectAllFaces(v, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 })).withFaceLandmarks().withFaceDescriptors();
+                for(let det of detections) {
                     for(let del of dbList) {
-                        if(faceapi.euclideanDistance(d.descriptor, new Float32Array(del.descriptor)) < 0.6) dispararAlerta(pid);
+                        if(faceapi.euclideanDistance(det.descriptor, new Float32Array(del.descriptor)) < 0.6) {
+                            dispararAlerta(v.id.replace('v-', ''));
+                        }
                     }
                 }
             } catch(e) {}
@@ -166,7 +196,7 @@
 
     function dispararAlerta(pid) {
         const c = document.getElementById('card-' + pid);
-        if(c && !c.classList.contains('alerta-ia') && !units[pid].ignoreIA) {
+        if(c && !c.classList.contains('alerta-ia')) {
             c.classList.add('alerta-ia');
             if(units[pid].mainMarker) units[pid].mainMarker.setIcon(sosIcon);
             alarmAudio.play().catch(()=>{});
@@ -175,54 +205,40 @@
 
     function pararAlerta(pid) {
         const c = document.getElementById('card-' + pid);
-        if(c) {
-            c.classList.remove('alerta-ia');
-            if(units[pid].mainMarker) units[pid].mainMarker.setIcon(carIcon);
-            units[pid].ignoreIA = true;
-            c.classList.add('pausa-ia');
-            setTimeout(() => { units[pid].ignoreIA = false; c.classList.remove('pausa-ia'); }, 180000);
+        if(c && c.classList.contains('alerta-ia')) {
+            c.classList.remove('alerta-ia'); 
+            if(units[pid].mainMarker) units[pid].mainMarker.setIcon(carIcon); 
             if(document.querySelectorAll('.alerta-ia').length === 0) { alarmAudio.pause(); alarmAudio.currentTime = 0; }
         }
     }
 
-    // --- CARPETA Y AGENDA ---
-    async function guardarDelincuente() {
-        const nom = document.getElementById('nombreDelincuente').value;
-        const file = document.getElementById('fotoDelincuente').files[0];
-        if(!nom || !file) return;
-        const img = await faceapi.bufferToImage(file);
-        const det = await faceapi.detectSingleFace(img, new faceapi.TinyFaceDetectorOptions()).withFaceDescriptor();
-        if(!det) return alert("No detecto cara");
-        dbIndexed.transaction(["delincuentes"], "readwrite").objectStore("delincuentes").add({ nombre: nom.toUpperCase(), descriptor: Array.from(det.descriptor), foto: await toBase64(file) });
-        cargarListaNegraVisual();
+    // --- BOTONES DE AUDIO REPARADOS ---
+    function iniciarHabla(pid) {
+        if(!localStream) return;
+        const btn = document.getElementById('btn-hablar-' + pid);
+        btn.classList.add('btn-talking');
+        units[pid].currentCall = peer.call(pid, localStream);
     }
 
-    function cargarListaNegraVisual() {
-        const cont = document.getElementById('listaNegra'); if(!cont) return;
-        cont.innerHTML = "";
-        dbIndexed.transaction("delincuentes", "readonly").objectStore("delincuentes").openCursor().onsuccess = (e) => {
-            const c = e.target.result; if(c) {
-                cont.innerHTML += `<div class="col-4 mb-2 text-center"><div class="card bg-black border-danger p-1"><img src="${c.value.foto}" style="height:60px; object-fit:cover;"><button class="btn btn-danger btn-sm mt-1" onclick="eliminarSospechoso(${c.value.id})">X</button></div></div>`;
-                c.continue();
-            }
-        };
+    function detenerHabla(pid) {
+        const btn = document.getElementById('btn-hablar-' + pid);
+        if(btn) btn.classList.remove('btn-talking');
+        if(units[pid].currentCall) { units[pid].currentCall.close(); units[pid].currentCall = null; }
     }
 
-    function eliminarSospechoso(id) { dbIndexed.transaction(["delincuentes"], "readwrite").objectStore("delincuentes").delete(id); setTimeout(cargarListaNegraVisual, 100); }
-    function toggleAgenda(s) { document.getElementById('agendaModal').style.display = s ? 'block' : 'none'; }
-    function toggleCarpetaNegra(s) { document.getElementById('blackFolderModal').style.display = s ? 'block' : 'none'; }
-    function generarAlta() { const n = document.getElementById('regNombre').value.toUpperCase(); if(!n) return; let db = JSON.parse(localStorage.getItem('pablo_db') || "[]"); db.push({ nombre: n, token: Math.floor(1000 + Math.random() * 9000).toString() }); localStorage.setItem('pablo_db', JSON.stringify(db)); renderAgenda(); }
-    function renderAgenda() { const list = JSON.parse(localStorage.getItem('pablo_db') || "[]"); document.getElementById('listaAbonadosVisual').innerHTML = list.map((u, i) => `<div class="p-1 border-bottom border-secondary small d-flex justify-content-between"><span>${u.nombre} - <b>${u.token}</b></span><button class="btn btn-xs btn-danger py-0" onclick="eliminarAbonado(${i})">X</button></div>`).join(''); }
-    function eliminarAbonado(i) { let db = JSON.parse(localStorage.getItem('pablo_db') || "[]"); db.splice(i, 1); localStorage.setItem('pablo_db', JSON.stringify(db)); renderAgenda(); }
-    function manejarLogin(conn, data) { const db = JSON.parse(localStorage.getItem('pablo_db') || "[]"); const user = db.find(u => u.nombre === data.nombre.toUpperCase() && u.token === data.token); if(user) { crearOActualizarCelda(conn.peer, data.nombre); conn.send({ tipo: 'auth_ok' }); } else { conn.send({ tipo: 'error', msg: 'DENEGADO' }); } }
+    function toggleEscucha(pid) {
+        const v = document.getElementById('v-' + pid);
+        const btn = document.getElementById('btn-escuchar-' + pid);
+        if (v.muted) {
+            v.muted = false; btn.classList.add('btn-active'); btn.innerText = "🔊 ON";
+        } else {
+            v.muted = true; btn.classList.remove('btn-active'); btn.innerText = "🔈 ESCUCHAR";
+        }
+    }
 
-    // --- AUDIO Y CONTROLES ---
-    function activarMicrofonoCentral() { navigator.mediaDevices.getUserMedia({ audio: true }).then(s => { localStream = s; document.getElementById('btn-micro-global').classList.replace('btn-info', 'btn-success'); document.getElementById('btn-micro-global').innerText = "🎤 MICRO OK"; }).catch(e => alert("Error micro")); }
-    function iniciarHabla(pid) { if(!localStream) return alert("Activa micro"); llamadaActual = peer.call(pid, localStream); document.getElementById('btn-hablar-'+pid).classList.add('btn-talking'); }
-    function detenerHabla(pid) { if(llamadaActual) { llamadaActual.close(); llamadaActual = null; } document.getElementById('btn-hablar-'+pid).classList.remove('btn-talking'); }
-    function toggleEscucha(pid) { const v = document.getElementById('v-'+pid); v.muted = !v.muted; document.getElementById('btn-escuchar-'+pid).innerText = v.muted ? "🔈 ESCUCHAR" : "🔊 ON"; document.getElementById('btn-escuchar-'+pid).classList.toggle('btn-active'); }
-    function bloquearPantalla(pid) { if(units[pid].conn) units[pid].conn.send({ tipo: 'comando', accion: 'bloquear' }); }
-    function toggleIA() { iaActiva = !iaActiva; document.getElementById('ia-dot').style.left = iaActiva ? "40px" : "5px"; document.getElementById('ia-toggle').style.background = iaActiva ? "#0f0" : "#444"; document.getElementById('ia-text').innerText = iaActiva ? "IA ACTIVA" : "IA DESACTIVADA"; document.getElementById('ia-text').style.color = iaActiva ? "#0f0" : "#555"; }
+    function bloquearPantalla(pid) {
+        if(units[pid].conn) units[pid].conn.send({ tipo: 'bloquear_pantalla' });
+    }
 
     function crearOActualizarCelda(pid, nombre) {
         if(document.getElementById('card-' + pid)) return;
@@ -230,15 +246,46 @@
         const card = document.createElement('div');
         card.className = 'unit-card'; card.id = 'card-' + pid;
         card.onclick = function() { if(this.classList.contains('alerta-ia')) pararAlerta(pid); };
-        card.innerHTML = `<div class="unit-header">${nombre}</div><div class="video-box"><video id="v-${pid}" autoplay playsinline muted crossorigin="anonymous"></video></div><div class="unit-actions"><button id="btn-hablar-${pid}" class="btn-ctrl" onmousedown="iniciarHabla('${pid}')" onmouseup="detenerHabla('${pid}')" onmouseleave="detenerHabla('${pid}')">🎙️ Hablar</button><button id="btn-escuchar-${pid}" class="btn-ctrl" onclick="event.stopPropagation(); toggleEscucha('${pid}')">🔈 Escuchar</button><button class="btn-ctrl" style="background:#ffc107" onclick="event.stopPropagation(); bloquearPantalla('${pid}')">🔒 Bloquear</button><button class="btn-ctrl" style="color:red" onclick="event.stopPropagation(); pararAlerta('${pid}')">SOS</button></div><div id="m-${pid}" class="mini-map"></div>`;
+
+        card.innerHTML = `
+            <div class="unit-header">${nombre}</div>
+            <div class="video-box"><video id="v-${pid}" autoplay playsinline muted crossorigin="anonymous"></video></div>
+            <div class="unit-actions">
+                <button id="btn-hablar-${pid}" class="btn-ctrl" 
+                    onmousedown="iniciarHabla('${pid}')" onmouseup="detenerHabla('${pid}')" 
+                    onmouseleave="detenerHabla('${pid}')" ontouchstart="iniciarHabla('${pid}')" 
+                    ontouchend="detenerHabla('${pid}')">🎙️ Hablar</button>
+                <button id="btn-escuchar-${pid}" class="btn-ctrl" onclick="event.stopPropagation(); toggleEscucha('${pid}')">🔈 Escuchar</button>
+                <button class="btn-ctrl btn-block" onclick="event.stopPropagation(); bloquearPantalla('${pid}')">🔒 Bloquear</button>
+                <button class="btn-ctrl" style="color:red" onclick="event.stopPropagation(); pararAlerta('${pid}')">SOS</button>
+            </div>
+            <div id="m-${pid}" class="mini-map"></div>`;
         grid.prepend(card);
         const m = L.map('m-' + pid, { zoomControl: false, attributionControl: false }).setView([0,0], 15);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(m);
-        units[pid] = units[pid] || { ignoreIA: false };
+        if(!units[pid]) units[pid] = {};
         units[pid].miniMap = m; units[pid].miniMarker = L.marker([0,0]).addTo(m);
     }
-    function actualizarPosicionGlobal(pid, lat, lng) { const pos = [lat, lng]; if(!units[pid]) units[pid] = {ignoreIA: false}; if(!units[pid].mainMarker) { units[pid].mainMarker = L.marker(pos, {icon: carIcon}).addTo(mainMap).bindPopup(pid); } else { units[pid].mainMarker.setLatLng(pos); } if(units[pid].miniMap) { units[pid].miniMap.setView(pos); if(units[pid].miniMarker) units[pid].miniMarker.setLatLng(pos); } }
+
+    function actualizarPosicionGlobal(pid, lat, lng) {
+        const pos = [lat, lng];
+        if (!units[pid]) units[pid] = {};
+        if (!units[pid].mainMarker) {
+            units[pid].mainMarker = L.marker(pos, {icon: carIcon}).addTo(mainMap).bindPopup(pid);
+        } else { units[pid].mainMarker.setLatLng(pos); }
+        if (units[pid].miniMap) {
+            units[pid].miniMap.setView(pos);
+            if (units[pid].miniMarker) units[pid].miniMarker.setLatLng(pos);
+        }
+    }
+    function manejarLogin(conn, data) {
+        units[conn.peer] = units[conn.peer] || {};
+        units[conn.peer].conn = conn;
+        crearOActualizarCelda(conn.peer, data.nombre);
+        conn.send({ tipo: 'auth_ok' });
+    }
     function toBase64(f) { return new Promise(res => { const r = new FileReader(); r.onload = e => res(e.target.result); r.readAsDataURL(f); }); }
+    function toggleAgenda(s) { /* Si tenés el modal de agenda, agregá acá el toggle */ }
     window.onload = init;
 </script>
 </body>
