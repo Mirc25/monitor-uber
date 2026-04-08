@@ -156,7 +156,7 @@
         iniciarViewer();
     }
 
-    function iniciarViewer() {
+    function iniciarViewer(retryCount = 0) {
         // Peer con ID aleatorio para el viewer
         const viewerPeerId = 'VWR-' + Math.random().toString(36).substr(2, 8).toUpperCase();
         let peerV = new Peer(viewerPeerId);
@@ -196,11 +196,19 @@
 
         peerV.on('error', (err) => {
             if (err.type === 'peer-unavailable') {
-                setStatus(false, 'Unidad no disponible. ¿El link ya expiró?');
-                endMsg.style.display = 'flex';
+                if (retryCount < 8) {
+                    setStatus(false, 'Unidad preparando enlace... reintentando');
+                    setTimeout(() => {
+                        try { peerV.destroy(); } catch(e) {}
+                        iniciarViewer(retryCount + 1);
+                    }, 2000);
+                } else {
+                    setStatus(false, 'Unidad no disponible. ¿El link ya expiró?');
+                    endMsg.style.display = 'flex';
+                }
             } else if (err.type === 'network' || err.type === 'socket-error' || err.type === 'socket-closed') {
                 setStatus(false, 'Sin conexión - reintentando...');
-                setTimeout(() => { peerV.destroy(); iniciarViewer(); }, 5000);
+                setTimeout(() => { peerV.destroy(); iniciarViewer(retryCount + 1); }, 5000);
             }
         });
 
@@ -210,7 +218,7 @@
 
         peerV.on('close', () => {
             if (streamReceived) mostrarFin();
-            else { setTimeout(() => iniciarViewer(), 5000); }
+            else { setTimeout(() => iniciarViewer(retryCount + 1), 5000); }
         });
     }
 
