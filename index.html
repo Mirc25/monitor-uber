@@ -65,6 +65,7 @@
         let peer, miStream, connCentral, watchId, retryTimer, nombreActivo, tokenActivo;
         let viewerConns = [], lastLat = null, lastLng = null;
         let viajeTokenActivo = null;
+        window.__unitPeerId = null;
         const CENTRAL_PEER_ID = 'PABLO-CENTRAL-MASTER-2026';
         const RETRY_DELAY = 5000;
 
@@ -107,6 +108,7 @@
             peer = new Peer(peerId);
 
             peer.on('open', () => {
+                window.__unitPeerId = peer.id;
                 if (window.Android && window.Android.setUnitPeerId) {
                     window.Android.setUnitPeerId(peer.id);
                 }
@@ -152,6 +154,7 @@
                     if (peer && !peer.destroyed) peer.destroy();
                     peer = new Peer('PABLO-U-' + nombreActivo + '-' + Date.now());
                     peer.on('open', () => {
+                        window.__unitPeerId = peer.id;
                         if (window.Android && window.Android.setUnitPeerId) {
                             window.Android.setUnitPeerId(peer.id);
                         }
@@ -267,7 +270,4 @@
 
         window.setHiddenPipMode = function(enabled) {
             document.body.classList.toggle('pip-hidden', !!enabled);
-        };
-    </script>
-</body>
-</html>
+       
