@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>PABLO SECURITY - CENTRAL MASTER</title>
+    <title>PABLO SECURITY - CENTRAL MASTER 2026</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -10,31 +10,40 @@
     <script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
     <style>
         body { background: #000; color: #0f0; font-family: sans-serif; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
-        .top-bar { background: #000; border-bottom: 1px solid #0f0; padding: 5px 15px; display: flex; justify-content: space-between; align-items: center; height: 40px; }
+        .top-bar { background: #000; border-bottom: 1px solid #0f0; padding: 5px 15px; display: flex; justify-content: space-between; align-items: center; height: 45px; }
         .main-layout { display: flex; flex: 1; overflow: hidden; }
         .grid-fleet { flex: 1; display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; padding: 5px; overflow-y: auto; background: #111; }
         .unit-card { background: #000; border: 1px solid #333; display: flex; flex-direction: column; height: 340px; position: relative; transition: 0.3s; }
-        .alerta-ia { border: 5px solid #f00 !important; animation: parpadeo-ia 0.4s infinite alternate; z-index: 1000; }
+        
+        /* Alerta IA Titilante */
+        .alerta-ia { border: 5px solid #f00 !important; box-shadow: 0 0 25px #f00; animation: parpadeo-ia 0.4s infinite alternate; z-index: 1000; cursor: pointer; }
         @keyframes parpadeo-ia { 0% { background: #000; } 100% { background: #400; } }
+
         .unit-header { background: #1a1a1a; font-size: 10px; padding: 2px; text-align: center; color: #0f0; }
-        .video-box { height: 110px; background: #222; }
+        .video-box { height: 110px; background: #222; overflow: hidden; }
         video { width: 100%; height: 100%; object-fit: cover; }
+        
         .unit-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 2px; background: #000; border-top: 1px solid #0f0; }
         .btn-ctrl { font-size: 9px; padding: 8px 0; background: #fff; color: #000; border: none; font-weight: bold; cursor: pointer; text-transform: uppercase; user-select: none; }
         .btn-active { background: #0f0 !important; color: #000 !important; }
-        .btn-talking { background: #f0f !important; color: #fff !important; } /* Fucsia mientras hablas */
+        .btn-talking { background: #f0f !important; color: #fff !important; } 
+
         .mini-map { flex: 1; background: #333; pointer-events: none; }
         .side-panel { width: 320px; background: #222; display: flex; flex-direction: column; border-left: 2px solid #0f0; }
-        #mainMap { height: 280px; border-bottom: 2px solid #0f0; }
-        #blackFolderModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.96); z-index: 2000; padding: 25px; }
-        .modal-container { max-width: 800px; margin: 0 auto; background: #111; border: 1px solid #0f0; padding: 20px; color: #0f0; }
+        #mainMap { height: 260px; border-bottom: 2px solid #0f0; }
+        
+        .modales { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.96); z-index: 2000; padding: 25px; }
+        .modal-container { max-width: 800px; margin: 0 auto; background: #111; border: 1px solid #0f0; padding: 20px; color: #0f0; border-radius: 8px; }
     </style>
 </head>
 <body>
 
 <div class="top-bar">
-    <div style="font-weight: bold;">PABLO SECURITY CENTRAL</div>
-    <button class="btn btn-sm btn-outline-info fw-bold" onclick="activarMicrofonoCentral()">1. ACTIVAR MICRO CENTRAL</button>
+    <div style="font-weight: bold;">PABLO SECURITY CENTRAL MASTER</div>
+    <div>
+        <button class="btn btn-sm btn-info fw-bold me-2" onclick="activarMicrofonoCentral()">🎤 ACTIVAR MICRO CENTRAL</button>
+        <button class="btn btn-sm btn-success fw-bold" onclick="toggleAgenda(true)">📂 ABRIR AGENDA Y TOKENS</button>
+    </div>
 </div>
 
 <div class="main-layout">
@@ -42,7 +51,7 @@
     <div class="side-panel">
         <div id="mainMap"></div>
         <div class="p-3">
-            <button class="btn btn-success w-100 mb-3 fw-bold" onclick="toggleCarpetaNegra(true)">📂 CARPETA NEGRA</button>
+            <button class="btn btn-danger w-100 mb-3 fw-bold" onclick="toggleCarpetaNegra(true)">👤 CARPETA NEGRA</button>
             <div id="ia-toggle" style="width:70px; height:30px; background:#444; border-radius:20px; margin:10px auto; position:relative; cursor:pointer;" onclick="toggleIA()">
                 <div id="ia-dot" style="position:absolute; left:5px; top:4px; width:22px; height:22px; background:#ddd; border-radius:50%; transition: 0.3s;"></div>
             </div>
@@ -51,14 +60,28 @@
     </div>
 </div>
 
-<div id="blackFolderModal">
-    <div class="modal-container">
-        <h4>LISTA NEGRA</h4>
+<div id="agendaModal" class="modales">
+    <div class="modal-container" style="border-color: #0f0;">
+        <div class="d-flex justify-content-between mb-3 border-bottom border-success pb-2">
+            <h4>GESTIÓN DE ABONADOS Y TOKENS</h4>
+            <button class="btn btn-sm btn-danger" onclick="toggleAgenda(false)">CERRAR</button>
+        </div>
+        <div class="row g-2 mb-3">
+            <div class="col-7"><input type="text" id="regNombre" class="form-control bg-dark text-white border-success" placeholder="NOMBRE DEL CHOFER"></div>
+            <div class="col-5"><button class="btn btn-success w-100" onclick="generarAlta()">DAR DE ALTA</button></div>
+        </div>
+        <div id="listaAbonadosVisual" class="bg-black p-2" style="max-height: 400px; overflow-y: auto; border: 1px solid #333;"></div>
+    </div>
+</div>
+
+<div id="blackFolderModal" class="modales">
+    <div class="modal-container" style="border-color: #f00;">
+        <h4>LISTA NEGRA DE SOSPECHOSOS</h4>
         <button class="btn btn-sm btn-danger float-end" onclick="toggleCarpetaNegra(false)">CERRAR</button>
         <div class="row g-2 my-4">
-            <div class="col-md-5"><input type="file" id="fotoDelincuente" class="form-control bg-dark text-white border-success"></div>
-            <div class="col-md-4"><input type="text" id="nombreDelincuente" class="form-control bg-dark text-white border-success" placeholder="ALIAS"></div>
-            <div class="col-md-3"><button class="btn btn-success w-100" onclick="guardarDelincuente()">AÑADIR</button></div>
+            <div class="col-md-5"><input type="file" id="fotoDelincuente" class="form-control bg-dark text-white border-danger" accept="image/*"></div>
+            <div class="col-md-4"><input type="text" id="nombreDelincuente" class="form-control bg-dark text-white border-danger" placeholder="ALIAS"></div>
+            <div class="col-md-3"><button class="btn btn-danger w-100" onclick="guardarDelincuente()">AÑADIR</button></div>
         </div>
         <div id="listaNegra" class="row g-2"></div>
     </div>
@@ -76,16 +99,17 @@
     const carIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', iconSize: [25, 25], className: 'fuchsia-car' });
     const sosIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', iconSize: [30, 30], className: 'sos-car' });
 
-    async function activarMicrofonoCentral() {
-        try {
-            miStreamAudio = await navigator.mediaDevices.getUserMedia({ audio: true });
-            alert("Micro central listo.");
-        } catch (e) { alert("Error de micro."); }
-    }
-
+    // --- INICIALIZACIÓN ---
     const request = indexedDB.open("PabloSecurity_Folder", 1);
     request.onupgradeneeded = (e) => { e.target.result.createObjectStore("delincuentes", { keyPath: "id", autoIncrement: true }); };
     request.onsuccess = (e) => { dbIndexed = e.target.result; cargarListaNegraVisual(); };
+
+    async function activarMicrofonoCentral() {
+        try {
+            miStreamAudio = await navigator.mediaDevices.getUserMedia({ audio: true });
+            alert("🎤 Micrófono central activado correctamente.");
+        } catch (e) { alert("Error al activar micro."); }
+    }
 
     async function init() {
         mainMap = L.map('mainMap').setView([-31.5375, -68.5364], 13);
@@ -94,8 +118,9 @@
             const URL = 'https://justadudewhohacks.github.io/face-api.js/models';
             await faceapi.nets.tinyFaceDetector.loadFromUri(URL);
             await faceapi.nets.faceRecognitionNet.loadFromUri(URL);
-        } catch(e) {}
+        } catch(e) { console.log("IA no disponible"); }
         conectarCentral();
+        renderAgenda();
         setInterval(escanearIA, 2000);
     }
 
@@ -105,7 +130,7 @@
             units[conn.peer] = units[conn.peer] || {};
             units[conn.peer].conn = conn;
             conn.on('data', (data) => {
-                if(data.tipo === 'login') crearOActualizarCelda(conn.peer, data.nombre);
+                if(data.tipo === 'login') manejarLogin(conn, data);
                 if(data.tipo === 'gps') actualizarPosicionGlobal(conn.peer, data.lat, data.lng);
             });
         });
@@ -118,11 +143,49 @@
         });
     }
 
-    // --- LÓGICA DE BOTONES (HABLAR Y ESCUCHAR) ---
+    // --- AGENDA Y TOKENS ---
+    function toggleAgenda(s) { document.getElementById('agendaModal').style.display = s ? 'block' : 'none'; }
+    
+    function generarAlta() {
+        const n = document.getElementById('regNombre').value.toUpperCase();
+        if(!n) return;
+        let db = JSON.parse(localStorage.getItem('pablo_db') || "[]");
+        const token = Math.floor(1000 + Math.random() * 9000).toString();
+        db.push({ nombre: n, token: token });
+        localStorage.setItem('pablo_db', JSON.stringify(db));
+        document.getElementById('regNombre').value = "";
+        renderAgenda();
+    }
 
-    // PTT: Hablar al celular (Presionar para hablar)
+    function renderAgenda() {
+        const list = JSON.parse(localStorage.getItem('pablo_db') || "[]");
+        document.getElementById('listaAbonadosVisual').innerHTML = list.map((u, index) => `
+            <div class="d-flex justify-content-between p-2 border-bottom border-secondary small">
+                <span>${u.nombre} - <b>Token: ${u.token}</b></span>
+                <button class="btn btn-xs btn-danger p-0 px-1" onclick="eliminarAbonado(${index})">X</button>
+            </div>
+        `).join('');
+    }
+
+    function eliminarAbonado(index) {
+        let db = JSON.parse(localStorage.getItem('pablo_db') || "[]");
+        db.splice(index, 1);
+        localStorage.setItem('pablo_db', JSON.stringify(db));
+        renderAgenda();
+    }
+
+    function manejarLogin(conn, data) {
+        const db = JSON.parse(localStorage.getItem('pablo_db') || "[]");
+        const user = db.find(u => u.nombre === data.nombre.toUpperCase() && u.token === data.token);
+        if(user) {
+            crearOActualizarCelda(conn.peer, data.nombre);
+            conn.send({ tipo: 'auth_ok' });
+        } else { conn.send({ tipo: 'error', msg: 'ACCESO DENEGADO' }); }
+    }
+
+    // --- COMANDOS MÓVILES (HABLAR / ESCUCHAR / BLOQUEAR) ---
     function iniciarHabla(pid) {
-        if(!miStreamAudio) return alert("Activa el micro central arriba");
+        if(!miStreamAudio) return alert("Activa el micro central primero");
         const btn = document.getElementById('btn-hablar-' + pid);
         btn.classList.add('btn-talking');
         llamadaActual = peer.call(pid, miStreamAudio);
@@ -130,33 +193,31 @@
 
     function detenerHabla(pid) {
         const btn = document.getElementById('btn-hablar-' + pid);
-        btn.classList.remove('btn-talking');
-        if(llamadaActual) {
-            llamadaActual.close();
-            llamadaActual = null;
-        }
+        if(btn) btn.classList.remove('btn-talking');
+        if(llamadaActual) { llamadaActual.close(); llamadaActual = null; }
     }
 
-    // Toggle: Escuchar el mic del celular
     function toggleEscucha(pid) {
         const video = document.getElementById('v-' + pid);
         const btn = document.getElementById('btn-escuchar-' + pid);
-        
         if(video.muted) {
             video.muted = false;
             btn.classList.add('btn-active');
-            btn.innerText = "🔊 ESCUCHANDO";
+            btn.innerText = "🔊 ON";
             if(units[pid].conn) units[pid].conn.send({ tipo: 'comando', accion: 'mic_on' });
         } else {
             video.muted = true;
             btn.classList.remove('btn-active');
-            btn.innerText = "🔈 ESCUCHAR";
+            btn.innerText = "🔈 OFF";
             if(units[pid].conn) units[pid].conn.send({ tipo: 'comando', accion: 'mic_off' });
         }
     }
 
     function bloquearPantalla(pid) {
-        if(units[pid].conn) units[pid].conn.send({ tipo: 'comando', accion: 'bloquear' });
+        if(units[pid].conn) {
+            units[pid].conn.send({ tipo: 'comando', accion: 'bloquear' });
+            alert("Comando de bloqueo enviado.");
+        }
     }
 
     function crearOActualizarCelda(pid, nombre) {
@@ -171,14 +232,12 @@
             <div class="video-box"><video id="v-${pid}" autoplay playsinline muted></video></div>
             <div class="unit-actions">
                 <button id="btn-hablar-${pid}" class="btn-ctrl" 
-                    onmousedown="iniciarHabla('${pid}')" 
-                    onmouseup="detenerHabla('${pid}')"
-                    onmouseleave="detenerHabla('${pid}')"
-                    ontouchstart="iniciarHabla('${pid}')"
+                    onmousedown="iniciarHabla('${pid}')" onmouseup="detenerHabla('${pid}')"
+                    onmouseleave="detenerHabla('${pid}')" ontouchstart="iniciarHabla('${pid}')"
                     ontouchend="detenerHabla('${pid}')">🎙️ HABLAR</button>
                 <button id="btn-escuchar-${pid}" class="btn-ctrl" onclick="event.stopPropagation(); toggleEscucha('${pid}')">🔈 ESCUCHAR</button>
                 <button class="btn-ctrl" style="background:#ffc107" onclick="event.stopPropagation(); bloquearPantalla('${pid}')">🔒 BLOQUEAR</button>
-                <button class="btn-ctrl" style="color:red" onclick="event.stopPropagation(); pararAlerta('${pid}')">STOP SOS</button>
+                <button class="btn-ctrl" style="color:red" onclick="event.stopPropagation(); pararAlerta('${pid}')">SOS</button>
             </div>
             <div id="m-${pid}" class="mini-map"></div>`;
         grid.prepend(card);
@@ -188,7 +247,7 @@
         units[pid].miniMap = m; units[pid].miniMarker = L.marker([0,0]).addTo(m);
     }
 
-    // GPS e IA estables
+    // --- LÓGICA GPS / IA / CARPETA (ESTABLE) ---
     function actualizarPosicionGlobal(pid, lat, lng) {
         const pos = [lat, lng];
         if (!units[pid]) units[pid] = {};
@@ -204,8 +263,8 @@
         iaActiva = !iaActiva;
         document.getElementById('ia-dot').style.left = iaActiva ? "40px" : "5px";
         document.getElementById('ia-toggle').style.background = iaActiva ? "#0f0" : "#444";
-        document.getElementById('ia-text').style.color = iaActiva ? "#0f0" : "#555";
         document.getElementById('ia-text').innerText = iaActiva ? "IA ACTIVA" : "IA DESACTIVADA";
+        document.getElementById('ia-text').style.color = iaActiva ? "#0f0" : "#555";
     }
     async function escanearIA() {
         if(!iaActiva) return;
