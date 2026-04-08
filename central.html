@@ -57,18 +57,32 @@
     </div>
 </div>
 
+<div id="agendaModal">
+    <div class="modal-container">
+        <div class="d-flex justify-content-between mb-3 border-bottom border-success pb-2">
+            <h4>GESTIÓN DE ABONADOS</h4>
+            <button class="btn btn-sm btn-danger" onclick="toggleAgenda(false)">CERRAR</button>
+        </div>
+        <div class="row g-2 mb-3">
+            <div class="col-7"><input type="text" id="regNombre" class="form-control bg-dark text-white" placeholder="NOMBRE"></div>
+            <div class="col-5"><button class="btn btn-success w-100" onclick="generarAlta()">GENERAR</button></div>
+        </div>
+        <div id="listaAbonadosVisual" style="max-height: 300px; overflow-y: auto;"></div>
+    </div>
+</div>
+
 <div id="blackFolderModal">
     <div class="modal-container" style="border-color: #f00;">
         <div class="d-flex justify-content-between mb-3 border-bottom border-danger pb-2">
-            <h4 style="color: #f00;">CARPETA NEGRA - LISTA NEGRA</h4>
+            <h4 style="color: #f00;">CARPETA NEGRA</h4>
             <button class="btn btn-sm btn-outline-danger" onclick="toggleCarpetaNegra(false)">CERRAR</button>
         </div>
-        <div class="row g-2 mb-4 bg-dark p-3 border border-danger">
+        <div class="row g-2 mb-4">
             <div class="col-md-6"><input type="file" id="fotoDelincuente" class="form-control bg-black text-danger border-danger" accept="image/*"></div>
-            <div class="col-md-4"><input type="text" id="nombreDelincuente" class="form-control bg-black text-danger border-danger" placeholder="ALIAS/DELITO"></div>
-            <div class="col-md-2"><button class="btn btn-danger w-100 fw-bold" onclick="guardarDelincuente()">AÑADIR</button></div>
+            <div class="col-md-4"><input type="text" id="nombreDelincuente" class="form-control bg-black text-danger border-danger" placeholder="ALIAS"></div>
+            <div class="col-md-2"><button class="btn btn-danger w-100" onclick="guardarDelincuente()">AÑADIR</button></div>
         </div>
-        <div id="listaNegra" class="row g-2" style="max-height: 400px; overflow-y: auto;"></div>
+        <div id="listaNegra" class="row g-2" style="max-height: 300px; overflow-y: auto;"></div>
     </div>
 </div>
 
@@ -79,6 +93,7 @@
     const carIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', iconSize: [25, 25], className: 'fuchsia-car' });
     const sosIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', iconSize: [30, 30], className: 'sos-car' });
 
+    // DB Carpeta Negra
     const request = indexedDB.open("PabloSecurity_Folder", 1);
     request.onupgradeneeded = (e) => { e.target.result.createObjectStore("delincuentes", { keyPath: "id", autoIncrement: true }); };
     request.onsuccess = (e) => { dbIndexed = e.target.result; cargarListaNegraVisual(); };
@@ -86,10 +101,15 @@
     async function init() {
         mainMap = L.map('mainMap').setView([-31.5375, -68.5364], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mainMap);
-        await faceapi.nets.tinyFaceDetector.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model');
-        await faceapi.nets.faceLandmark68Net.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model');
-        await faceapi.nets.faceRecognitionNet.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model');
+        
+        try {
+            await faceapi.nets.tinyFaceDetector.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model');
+            await faceapi.nets.faceLandmark68Net.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model');
+            await faceapi.nets.faceRecognitionNet.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model');
+        } catch(e) { console.log("Error cargando modelos IA"); }
+
         conectarCentral();
+        renderAgenda();
         setInterval(escanearIA, 3000);
     }
 
@@ -97,7 +117,7 @@
         peer = new Peer(CENTRAL_ID);
         peer.on('connection', (conn) => {
             conn.on('data', (data) => {
-                if(data.tipo === 'login') crearOActualizarCelda(conn.peer, data.nombre);
+                if(data.tipo === 'login') manejarLogin(conn, data);
                 if(data.tipo === 'gps') actualizarPosicionGlobal(conn.peer, data.lat, data.lng);
             });
         });
@@ -113,14 +133,26 @@
     function actualizarPosicionGlobal(pid, lat, lng) {
         const pos = [lat, lng];
         if (!units[pid]) units[pid] = {};
+        
+        // Mapa grande
         if (!units[pid].mainMarker) {
-            const nombre = pid.replace('PABLO-U-', '').replace(/-/g, ' ');
-            units[pid].mainMarker = L.marker(pos, {icon: carIcon}).addTo(mainMap).bindPopup(nombre);
+            units[pid].mainMarker = L.marker(pos, {icon: carIcon}).addTo(mainMap).bindPopup(pid);
         } else { units[pid].mainMarker.setLatLng(pos); }
+
+        // Mini mapa individual RESTAURADO
         if (units[pid].miniMap) {
             units[pid].miniMap.setView(pos);
             if (units[pid].miniMarker) units[pid].miniMarker.setLatLng(pos);
         }
+    }
+
+    function manejarLogin(conn, data) {
+        const db = JSON.parse(localStorage.getItem('pablo_db') || "[]");
+        const user = db.find(u => u.nombre === data.nombre.toUpperCase() && u.token === data.token);
+        if(user) {
+            crearOActualizarCelda(conn.peer, data.nombre);
+            conn.send({ tipo: 'auth_ok' });
+        } else { conn.send({ tipo: 'error', msg: 'DENEGADO' }); }
     }
 
     function crearOActualizarCelda(pid, nombre) {
@@ -137,97 +169,81 @@
             </div>
             <div id="m-${pid}" class="mini-map"></div>`;
         grid.prepend(card);
+        
+        // Inicialización correcta del mini-mapa
         const m = L.map('m-' + pid, { zoomControl: false, attributionControl: false }).setView([0,0], 15);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(m);
         if(!units[pid]) units[pid] = {};
-        units[pid].miniMap = m; units[pid].miniMarker = L.marker([0,0]).addTo(m);
+        units[pid].miniMap = m;
+        units[pid].miniMarker = L.marker([0,0]).addTo(m);
     }
 
-    function toggleCarpetaNegra(s) { document.getElementById('blackFolderModal').style.display = s ? 'block' : 'none'; }
+    // GESTIÓN AGENDA RESTAURADA
+    function toggleAgenda(s) { document.getElementById('agendaModal').style.display = s ? 'block' : 'none'; }
+    function generarAlta() {
+        const n = document.getElementById('regNombre').value.toUpperCase();
+        if(!n) return;
+        let db = JSON.parse(localStorage.getItem('pablo_db') || "[]");
+        db.push({ nombre: n, token: Math.floor(1000 + Math.random() * 9000).toString() });
+        localStorage.setItem('pablo_db', JSON.stringify(db));
+        renderAgenda();
+    }
+    function renderAgenda() {
+        const list = JSON.parse(localStorage.getItem('pablo_db') || "[]");
+        document.getElementById('listaAbonadosVisual').innerHTML = list.map(u => `<div class="p-1 border-bottom border-success small">${u.nombre} - <b>${u.token}</b></div>`).join('');
+    }
 
+    // CARPETA NEGRA
+    function toggleCarpetaNegra(s) { document.getElementById('blackFolderModal').style.display = s ? 'block' : 'none'; }
     async function guardarDelincuente() {
         const nom = document.getElementById('nombreDelincuente').value;
         const file = document.getElementById('fotoDelincuente').files[0];
-        if(!nom || !file) return alert("Faltan datos");
-
+        if(!nom || !file) return;
         try {
-            // IA PRIMERO: No abras la transacción hasta tener el descriptor listo
             const img = await faceapi.bufferToImage(file);
             const desc = await faceapi.computeFaceDescriptor(img);
-            if(!desc) return alert("No se detectó rostro claro");
-
-            const b64 = await toBase64(file);
-            
-            // TRANSACCIÓN DESPUÉS: Abre la base de datos solo para escribir el resultado final
             const tx = dbIndexed.transaction(["delincuentes"], "readwrite");
-            const store = tx.objectStore("delincuentes");
-            
-            store.add({ nombre: nom.toUpperCase(), descriptor: Array.from(desc), foto: b64 });
+            tx.objectStore("delincuentes").add({ nombre: nom.toUpperCase(), descriptor: Array.from(desc), foto: await toBase64(file) });
             tx.oncomplete = () => { cargarListaNegraVisual(); alert("GUARDADO"); };
-        } catch(e) { alert("Error IA o DB: " + e); }
+        } catch(e) { alert("Error"); }
     }
-
     function cargarListaNegraVisual() {
-        const container = document.getElementById('listaNegra');
-        if(!container) return;
-        container.innerHTML = "";
-        const tx = dbIndexed.transaction("delincuentes", "readonly");
-        tx.objectStore("delincuentes").openCursor().onsuccess = (e) => {
-            const cursor = e.target.result;
-            if(cursor) {
-                container.innerHTML += `<div class="col-md-3"><div class="card bg-black border-danger p-1"><img src="${cursor.value.foto}" style="height:80px; object-fit:cover;"><div class="small text-center text-danger">${cursor.value.nombre}</div></div></div>`;
-                cursor.continue();
+        const cont = document.getElementById('listaNegra'); if(!cont) return;
+        cont.innerHTML = "";
+        dbIndexed.transaction("delincuentes").objectStore("delincuentes").openCursor().onsuccess = (e) => {
+            const c = e.target.result; if(c) {
+                cont.innerHTML += `<div class="col-3 text-center"><img src="${c.value.foto}" class="img-fluid rounded"><div class="small text-danger">${c.value.nombre}</div></div>`;
+                c.continue();
             }
         };
     }
 
+    // IA
     function toggleIA() {
         iaActiva = !iaActiva;
         document.getElementById('ia-dot').style.left = iaActiva ? "40px" : "5px";
         document.getElementById('ia-toggle').style.background = iaActiva ? "#0f0" : "#444";
-        document.getElementById('ia-text').innerText = iaActiva ? "ACTIVA" : "DESACTIVADA";
-        document.getElementById('ia-text').style.color = iaActiva ? "#0f0" : "#555";
         document.getElementById('btn-ia-status').innerText = iaActiva ? "IA ESCANEANDO" : "IA DESACTIVADA";
     }
-
     async function escanearIA() {
         if(!iaActiva) return;
-        const videos = document.querySelectorAll('video');
-        const db = await new Promise(res => {
-            const list = [];
-            const tx = dbIndexed.transaction("delincuentes", "readonly");
-            tx.objectStore("delincuentes").openCursor().onsuccess = (e) => {
-                const c = e.target.result; if(c) { list.push(c.value); c.continue(); } else res(list);
-            };
-        });
-        for(let v of videos) {
+        const vids = document.querySelectorAll('video');
+        for(let v of vids) {
             try {
-                const det = await faceapi.detectAllFaces(v, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptors();
-                for(let d of det) {
-                    for(let l of db) {
-                        if(faceapi.euclideanDistance(d.descriptor, new Float32Array(l.descriptor)) < 0.5) dispararAlerta(v.id.replace('v-', ''), l.nombre);
-                    }
-                }
+                const det = await faceapi.detectAllFaces(v, new faceapi.TinyFaceDetectorOptions()).withFaceDescriptors();
+                if(det.length > 0) dispararAlerta(v.id.replace('v-', ''), "SOSPECHOSO");
             } catch(e) {}
         }
     }
-
     function dispararAlerta(pid, nom) {
         const c = document.getElementById('card-' + pid);
-        if(c && !c.classList.contains('alerta-ia')) {
-            c.classList.add('alerta-ia');
-            if(units[pid].mainMarker) units[pid].mainMarker.setIcon(sosIcon);
-            alert(`¡ALERTA IA! ${nom} DETECTADO EN UNIDAD ${pid.replace('PABLO-U-','')}`);
-        }
+        if(c) { c.classList.add('alerta-ia'); if(units[pid].mainMarker) units[pid].mainMarker.setIcon(sosIcon); }
     }
-
     function pararAlerta(pid) {
         const c = document.getElementById('card-' + pid);
         if(c) { c.classList.remove('alerta-ia'); if(units[pid].mainMarker) units[pid].mainMarker.setIcon(carIcon); }
     }
-
     function toBase64(f) { return new Promise(res => { const r = new FileReader(); r.onload = e => res(e.target.result); r.readAsDataURL(f); }); }
-    function toggleAgenda(s) { /* Se mantiene igual */ }
     window.onload = init;
 </script>
 </body>
