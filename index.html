@@ -3,157 +3,273 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PABLO SECURITY - CONDUCTOR</title>
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <title>PABLO SECURITY</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.2/peerjs.min.js"></script>
+    <script src="https://unpkg.com/@capacitor/core@latest/dist/capacitor.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        body { background-color: #000; color: #0f0; font-family: 'Courier New', Courier, monospace; overflow: hidden; }
-        .container { max-width: 500px; margin-top: 20px; border: 2px solid #0f0; padding: 20px; border-radius: 15px; background-color: #111; }
-        video { width: 100%; border-radius: 10px; border: 1px solid #0f0; background-color: #222; }
-        .btn-pablo { background-color: #0f0; color: #000; font-weight: bold; border: none; }
-        .status-dot { height: 10px; width: 10px; background-color: #f00; border-radius: 50%; display: inline-block; margin-right: 5px; }
-        .status-on { background-color: #0f0; }
-        #blockScreen { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 99999; color: red; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+        body { background-color: #000; color: #0f0; font-family: 'Courier New', monospace; overflow: hidden; }
+        .container { max-width: 500px; margin-top: 20px; border: 2px solid #0f0; padding: 20px; border-radius: 15px; background: #111; }
+        video { width: 100%; border-radius: 10px; border: 1px solid #0f0; transform: scaleX(-1); }
+        .btn-pablo { background: #0f0; color: #000; font-weight: bold; border: none; }
+        .status-dot { height: 10px; width: 10px; background: #f00; border-radius: 50%; display: inline-block; }
+        .status-on { background: #0f0; }
+        #pipBadge {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #000;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+        #pipBadge .pip-dot {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: #0f0;
+            box-shadow: 0 0 10px #0f0, 0 0 20px #0f0;
+        }
+        body.pip-hidden {
+            background: #000;
+            overflow: hidden;
+            margin: 0;
+            padding: 0;
+        }
+        body.pip-hidden .container {
+            display: none !important;
+        }
+        body.pip-hidden #pipBadge {
+            display: flex;
+        }
     </style>
 </head>
 <body>
+    <div id="pipBadge"><div class="pip-dot"></div></div>
     <div id="app-content" class="container text-center">
-        <h2 class="mb-4">PABLO SECURITY</h2>
+        <h2>PABLO SECURITY</h2>
         <div id="setup">
-            <div class="mb-3 text-start">
-                <label class="small">ID DE UNIDAD / NOMBRE</label>
-                <input type="text" id="unidadId" class="form-control bg-dark text-success border-success" placeholder="Ej: MOVIL 1">
-            </div>
-            <div class="mb-3 text-start">
-                <label class="small">TOKEN DE ACCESO (4 DÍGITOS)</label>
-                <input type="text" id="tokenAcceso" class="form-control bg-dark text-success border-success text-center" placeholder="****" maxlength="4">
-            </div>
-            <button class="btn btn-pablo w-100 py-3" onclick="validarYActivar()">ACTIVAR UNIDAD</button>
+            <input type="text" id="unidadId" class="form-control bg-dark text-success mb-2" placeholder="ID UNIDAD">
+            <input type="text" id="tokenAcceso" class="form-control bg-dark text-success mb-2" placeholder="TOKEN" maxlength="4">
+            <button class="btn btn-pablo w-100" onclick="validarYActivar()">ACTIVAR</button>
         </div>
-
         <div id="monitor-activo" style="display:none;">
-            <div class="mb-2">
-                <span id="dot" class="status-dot"></span>
-                <span id="statusText">CONECTANDO...</span>
-            </div>
+            <div><span id="dot" class="status-dot"></span> <span id="statusText">CONECTANDO...</span></div>
             <video id="localVideo" autoplay muted playsinline></video>
-            <div class="mt-3">
-                <button class="btn btn-danger w-100 py-2 fw-bold" onclick="enviarSOS()">B O T Ó N - S O S</button>
-            </div>
         </div>
-    </div>
-
-    <div id="blockScreen">
-        <h1 style="font-size: 3rem;">⚠️ EQUIPO BLOQUEADO</h1>
-        <p style="font-size: 1.2rem;">PROTOCOLO DE SEGURIDAD ACTIVADO</p>
-        <div style="font-size: 100px;">🔒</div>
     </div>
 
     <script>
-        let peer, miStream, connCentral;
+        let peer, miStream, connCentral, watchId, retryTimer, nombreActivo, tokenActivo;
+        let peerViaje = null, viewerConns = [], lastLat = null, lastLng = null;
+        let viajeTokenActivo = null;
         const CENTRAL_PEER_ID = 'PABLO-CENTRAL-MASTER-2026';
-        const sirena = new Audio('https://actions.google.com/sounds/v1/alarms/mechanical_clock_ring.ogg');
-        sirena.loop = true;
+        const RETRY_DELAY = 5000;
+
+        function setStatus(texto, online) {
+            document.getElementById('statusText').innerText = texto;
+            document.getElementById('dot').className = 'status-dot' + (online ? ' status-on' : '');
+        }
 
         async function validarYActivar() {
             const nom = document.getElementById('unidadId').value.trim().toUpperCase();
             const tok = document.getElementById('tokenAcceso').value.trim();
-            if (!nom || !tok) return alert("Faltan datos.");
+            if (!nom || !tok) { alert('Completá ID y TOKEN'); return; }
+
+            nombreActivo = nom;
+            tokenActivo = tok;
 
             try {
-                // Forzar solicitud de permisos (Cámara y Mic)
-                miStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-                
-                // Forzar solicitud de GPS
-                await new Promise((resolve, reject) => {
-                    navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true });
-                });
-
-                document.getElementById('localVideo').srcObject = miStream;
-                document.getElementById('setup').style.display = 'none';
-                document.getElementById('monitor-activo').style.display = 'block';
-
-                peer = new Peer('PABLO-U-' + nom.replace(/\s+/g, '-'));
-
-                peer.on('open', (id) => {
-                    document.getElementById('statusText').innerText = "AUTENTICANDO...";
-                    conectarYTransmitir(nom, tok);
-                });
-
-                peer.on('call', (call) => {
-                    call.answer(miStream); 
-                    call.on('stream', (remoteStream) => {
-                        const audioRemoto = document.createElement('audio');
-                        audioRemoto.srcObject = remoteStream;
-                        audioRemoto.play();
-                    });
-                });
-
-            } catch (e) { 
-                alert("ERROR: DEBES ACEPTAR LOS PERMISOS DE CÁMARA Y UBICACIÓN"); 
-                console.error(e);
+                miStream = await navigator.mediaDevices.getUserMedia({video: true, audio: true});
+            } catch(e) {
+                alert('Sin acceso a cámara/micrófono: ' + e.message);
+                return;
             }
+            document.getElementById('localVideo').srcObject = miStream;
+            document.getElementById('setup').style.display = 'none';
+            document.getElementById('monitor-activo').style.display = 'block';
+            setStatus('CONECTANDO...', false);
+
+            iniciarPeer();
         }
 
-        function conectarYTransmitir(nombre, token) {
-            connCentral = peer.connect(CENTRAL_PEER_ID);
-            
+        function iniciarPeer() {
+            clearTimeout(retryTimer);
+
+            if (peer && !peer.destroyed) {
+                peer.destroy();
+            }
+
+            // ID estable por sesión (no cambia en reconexiones de red)
+            const peerId = 'PABLO-U-' + nombreActivo;
+            peer = new Peer(peerId);
+
+            peer.on('open', () => conectar());
+
+            peer.on('error', (err) => {
+                if (err.type === 'peer-unavailable') {
+                    setStatus('CENTRAL OFFLINE - REINTENTANDO EN 5s...', false);
+                    retryTimer = setTimeout(() => conectar(), RETRY_DELAY);
+                } else if (err.type === 'unavailable-id') {
+                    // ID ocupado por sesión anterior, usar timestamp esta vez
+                    if (peer && !peer.destroyed) peer.destroy();
+                    peer = new Peer('PABLO-U-' + nombreActivo + '-' + Date.now());
+                    peer.on('open', () => conectar());
+                } else if (err.type === 'network' || err.type === 'server-error' || err.type === 'socket-error' || err.type === 'socket-closed') {
+                    setStatus('SIN RED - REINTENTANDO EN 5s...', false);
+                    retryTimer = setTimeout(() => iniciarPeer(), RETRY_DELAY);
+                } else {
+                    setStatus('ERROR: ' + err.type + ' - REINTENTANDO...', false);
+                    retryTimer = setTimeout(() => iniciarPeer(), RETRY_DELAY);
+                }
+            });
+
+            peer.on('disconnected', () => {
+                setStatus('DESCONECTADO - RECONECTANDO...', false);
+                if (!peer.destroyed) {
+                    peer.reconnect();
+                } else {
+                    retryTimer = setTimeout(() => iniciarPeer(), RETRY_DELAY);
+                }
+            });
+        }
+
+        function conectar() {
+            clearTimeout(retryTimer);
+            setStatus('CONECTANDO CON CENTRAL...', false);
+
+            if (connCentral) {
+                try { connCentral.close(); } catch(e) {}
+            }
+
+            connCentral = peer.connect(CENTRAL_PEER_ID, { reliable: true });
+
             connCentral.on('open', () => {
-                connCentral.send({ tipo: 'login', nombre: nombre, token: token });
+                connCentral.send({ tipo: 'login', nombre: nombreActivo, token: tokenActivo });
+                iniciarGPS();
             });
 
             connCentral.on('data', (data) => {
                 if (data.tipo === 'auth_ok') {
-                    document.getElementById('dot').className = 'status-dot status-on';
-                    document.getElementById('statusText').innerText = 'EN LÍNEA';
+                    setStatus('EN LÍNEA', true);
                     peer.call(CENTRAL_PEER_ID, miStream);
-
-                    navigator.geolocation.watchPosition((pos) => {
-                        if (connCentral.open) {
-                            connCentral.send({ tipo: 'gps', lat: pos.coords.latitude, lng: pos.coords.longitude });
-                        }
-                    }, null, { enableHighAccuracy: true });
-
-                } else if (data.tipo === 'error') {
-                    alert(data.msg);
-                    location.reload();
-                }
-                
-                // BLOQUEO REMOTO DESDE CENTRAL
-                if (data.tipo === 'bloquear_pantalla' || (data.tipo === 'comando' && data.accion === 'bloquear')) {
-                    ejecutarBloqueo();
+                } else if (data.tipo === 'auth_fail') {
+                    setStatus('TOKEN INCORRECTO', false);
                 }
             });
 
             connCentral.on('close', () => {
-                document.getElementById('statusText').innerText = 'RECONECTANDO...';
-                document.getElementById('dot').className = 'status-dot';
-                setTimeout(() => conectarYTransmitir(nombre, token), 3000);
+                setStatus('CONEXIÓN CERRADA - REINTENTANDO...', false);
+                retryTimer = setTimeout(() => conectar(), RETRY_DELAY);
             });
+
+            connCentral.on('error', (err) => {
+                setStatus('ERROR CONEXIÓN - REINTENTANDO...', false);
+                retryTimer = setTimeout(() => conectar(), RETRY_DELAY);
+            });
+
+            // Si en 10 segundos no hubo respuesta, reintentar
+            retryTimer = setTimeout(() => {
+                if (!connCentral || !connCentral.open) {
+                    setStatus('SIN RESPUESTA - REINTENTANDO...', false);
+                    conectar();
+                }
+            }, 10000);
         }
 
-        function ejecutarBloqueo() {
-            document.getElementById('app-content').style.display = 'none';
-            document.getElementById('blockScreen').style.display = 'flex';
-            sirena.play();
-            if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
-            
-            // Bloqueo de navegación
-            window.history.pushState(null, null, window.location.href);
-            window.onpopstate = function() { window.history.pushState(null, null, window.location.href); };
+        function iniciarGPS() {
+            if (watchId) navigator.geolocation.clearWatch(watchId);
+            watchId = navigator.geolocation.watchPosition((pos) => {
+                lastLat = pos.coords.latitude;
+                lastLng = pos.coords.longitude;
+                if (connCentral && connCentral.open) {
+                    connCentral.send({ tipo: 'gps', lat: lastLat, lng: lastLng });
+                }
+                // Enviar GPS a los viewers del link de viaje
+                viewerConns.forEach(c => { try { if (c.open) c.send({ tipo: 'gps', lat: lastLat, lng: lastLng }); } catch(e) {} });
+            }, (err) => console.error("Error GPS:", err), { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 });
         }
 
-        function enviarSOS() {
-            if (connCentral && connCentral.open) {
-                connCentral.send({ tipo: 'sos' });
-                alert("¡ALERTA SOS ENVIADA!");
+        // ── LINK DE VIAJE (presión larga en candado flotante) ──
+        window.generarLinkViaje = function(tokenForzado) {
+            // Token de 6 caracteres alfanuméricos
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+            const token = tokenForzado || Array.from({length: 6}, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+            const link = 'https://monitor-uber.vercel.app/viewer.html?v=' + token;
+            window.__viajeTokenActivo = token;
+
+            // Si ya está publicado con este mismo token, no reiniciar peer
+            if (peerViaje && !peerViaje.destroyed && viajeTokenActivo === token) {
+                return link;
             }
-        }
 
-        // Mantener pantalla encendida
-        if ('wakeLock' in navigator) {
-            navigator.wakeLock.request('screen').catch(() => {});
-        }
+            // Si cambia token, cerrar peer anterior
+            if (peerViaje && !peerViaje.destroyed && viajeTokenActivo !== token) {
+                try { peerViaje.destroy(); } catch(e) {}
+            }
+            viewerConns = [];
+            viajeTokenActivo = token;
+
+            // Fallback: si esto se ejecuta en browser (no app Android), copiar aquí.
+            if (!window.Android) {
+                navigator.clipboard && navigator.clipboard.writeText(link);
+            }
+
+            peerViaje = new Peer('PABLO-VIAJE-' + token);
+
+            peerViaje.on('open', () => {
+                // Peer listo, viewers ya pueden conectarse
+            });
+
+            // El viewer nos llama y nosotros le enviamos el stream
+            peerViaje.on('call', (call) => {
+                call.answer(miStream);
+            });
+
+            // Conexión de datos para GPS
+            peerViaje.on('connection', (conn) => {
+                conn.on('open', () => {
+                    viewerConns.push(conn);
+                    // Mandar GPS inmediatamente si ya tenemos fijación
+                    if (lastLat !== null) conn.send({ tipo: 'gps', lat: lastLat, lng: lastLng });
+                });
+                conn.on('close', () => { viewerConns = viewerConns.filter(c => c !== conn); });
+            });
+
+            peerViaje.on('error', (err) => {
+                if (err.type === 'unavailable-id') {
+                    // Si el token vino de Java, mantener el mismo link y reintentar publicación
+                    if (tokenForzado) {
+                        setTimeout(() => window.generarLinkViaje(tokenForzado), 1200);
+                    } else {
+                        // En browser normal, si choca el ID, generar uno nuevo
+                        setTimeout(() => window.generarLinkViaje(), 500);
+                    }
+                } else if (err.type === 'network' || err.type === 'socket-error' || err.type === 'socket-closed' || err.type === 'server-error') {
+                    // Recuperar red manteniendo el mismo token
+                    setTimeout(() => window.generarLinkViaje(token), 1500);
+                }
+            });
+
+            return link;
+        };
+
+        // MANTENER VIVO EN SEGUNDO PLANO
+        document.addEventListener("visibilitychange", () => {
+            if (document.hidden) {
+                document.body.classList.add('pip-hidden');
+                return;
+            }
+
+            document.body.classList.remove('pip-hidden');
+            if (miStream) document.getElementById('localVideo').srcObject = miStream;
+        });
+
+        window.setHiddenPipMode = function(enabled) {
+            document.body.classList.toggle('pip-hidden', !!enabled);
+        };
     </script>
 </body>
 </html>
