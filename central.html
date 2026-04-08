@@ -81,7 +81,6 @@
     const units = {};
     const CENTRAL_ID = 'PABLO-CENTRAL-MASTER-2026';
 
-    // Función segura para obtener la base de datos
     function obtenerDB() {
         try {
             const data = localStorage.getItem('pablo_db');
@@ -111,8 +110,11 @@
                 const v = document.getElementById('v-' + call.peer);
                 if(v) {
                     v.srcObject = s;
-                    // Corrección para el error AbortError
-                    v.play().catch(e => console.warn("Reproducción postergada"));
+                    // Manejo del error AbortError capturando la promesa
+                    const playPromise = v.play();
+                    if (playPromise !== undefined) {
+                        playPromise.catch(() => { /* Silenciar error de interrupción */ });
+                    }
                 }
             });
         });
@@ -195,14 +197,14 @@
         units[pid] = { mi, markerInd: L.marker([0,0]).addTo(mi), markerGen: L.marker([0,0]).addTo(mainMap).bindPopup(nombre) };
     }
 
-    // Funciones de Zoom
     function zoomVideo(pid) { 
         const v = document.getElementById('v-' + pid);
-        v.requestFullscreen ? v.requestFullscreen() : v.webkitRequestFullscreen();
+        if (v.requestFullscreen) v.requestFullscreen();
+        else if (v.webkitRequestFullscreen) v.webkitRequestFullscreen();
     }
 
     function zoomGPS(pid) { 
-        if(units[pid]) mainMap.setView(units[pid].markerGen.getLatLng(), 18); 
+        if(units[pid]) mainMap.setView(units[pid].markerGen.getLatLng(), 18);
     }
 
     async function toggleHablar(pid) {
