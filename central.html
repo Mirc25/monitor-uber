@@ -22,7 +22,8 @@
         #mainMap { width: 400px; height: calc(100vh - 50px); border-left: 2px solid #0f0; position: absolute; right: 0; top: 0; z-index: 80; }
         #agendaModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 1000; padding: 20px; }
         .agenda-container { max-width: 850px; margin: 0 auto; background: #111; border: 1px solid #0f0; padding: 20px; border-radius: 8px; color: #0f0; }
-        .table { color: #0f0 !important; }
+        .table { color: #0f0 !important; border-color: #0f0; }
+        .fuchsia-car { filter: invert(19%) sepia(87%) saturate(6011%) hue-rotate(296deg) brightness(101%) contrast(110%); }
     </style>
 </head>
 <body>
@@ -45,11 +46,11 @@
         </div>
         <div class="row g-2 mb-4 bg-dark p-3 rounded border border-success">
             <div class="col-md-5">
-                <label class="small">NOMBRE DEL MÓVIL</label>
+                <label class="small text-success">NOMBRE DEL MÓVIL</label>
                 <input type="text" id="regNombre" class="form-control bg-black text-success border-success">
             </div>
             <div class="col-md-3">
-                <label class="small">DURACIÓN</label>
+                <label class="small text-success">DURACIÓN</label>
                 <select id="regTiempo" class="form-select bg-black text-success border-success">
                     <option value="24">24 HORAS</option>
                     <option value="168">7 DÍAS</option>
@@ -61,7 +62,7 @@
             </div>
         </div>
         <div style="max-height: 400px; overflow-y: auto;">
-            <table class="table table-dark table-hover border-success">
+            <table class="table table-dark table-hover">
                 <thead>
                     <tr>
                         <th>UNIDAD</th>
@@ -80,15 +81,14 @@
     let peer, mainMap, miMicStream;
     const units = {};
     const CENTRAL_ID = 'PABLO-CENTRAL-MASTER-2026';
-    
-    // Sincronización de base de datos local
-    let dbAbonados = JSON.parse(localStorage.getItem('pablo_db')) || [];
+    const alarm = new Audio('https://www.soundjay.com/buttons/beep-01a.mp3');
+    const carIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', iconSize: [35, 35], className: 'fuchsia-car' });
 
     function init() {
         mainMap = L.map('mainMap').setView([-31.5375, -68.5364], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mainMap);
         conectarCentral();
-        renderAgenda(); // Cargar la tabla al iniciar
+        renderAgenda();
     }
 
     function conectarCentral() {
@@ -97,6 +97,7 @@
             conn.on('data', (data) => {
                 if(data.tipo === 'login') manejarLogin(conn, data);
                 if(data.tipo === 'gps') actualizarPosicion(conn.peer, data.lat, data.lng);
+                if(data.tipo === 'sos') activarSOS(conn.peer);
             });
         });
         peer.on('call', (call) => {
@@ -109,12 +110,13 @@
     }
 
     function manejarLogin(conn, data) {
-        const user = dbAbonados.find(u => u.nombre === data.nombre.toUpperCase() && u.token === data.token);
+        let db = JSON.parse(localStorage.getItem('pablo_db') || '[]');
+        const user = db.find(u => u.nombre === data.nombre.toUpperCase() && u.token === data.token);
         if(user && Date.now() < new Date(user.expira).getTime()) {
             crearOActualizarCelda(conn.peer, user.nombre);
             conn.send({ tipo: 'auth_ok' });
         } else {
-            conn.send({ tipo: 'error', msg: 'TOKEN INVÁLIDO O VENCIDO' });
+            conn.send({ tipo: 'error', msg: 'ACCESO DENEGADO' });
         }
     }
 
@@ -123,21 +125,23 @@
         const t = document.getElementById('regTiempo').value;
         if(!n) return alert("Ingresa un nombre");
 
+        let db = JSON.parse(localStorage.getItem('pablo_db') || '[]');
         const nuevo = {
             nombre: n,
             token: Math.floor(1000 + Math.random() * 9000).toString(),
             expira: new Date(Date.now() + (parseInt(t) * 3600000)).toISOString()
         };
 
-        dbAbonados.push(nuevo);
-        localStorage.setItem('pablo_db', JSON.stringify(dbAbonados));
+        db.push(nuevo);
+        localStorage.setItem('pablo_db', JSON.stringify(db));
         document.getElementById('regNombre').value = "";
-        renderAgenda(); // Actualizar la tabla visualmente
+        renderAgenda();
     }
 
     function renderAgenda() {
         const tabla = document.getElementById('listaAbonados');
-        tabla.innerHTML = dbAbonados.map((u, i) => `
+        let db = JSON.parse(localStorage.getItem('pablo_db') || '[]');
+        tabla.innerHTML = db.map((u, i) => `
             <tr>
                 <td>${u.nombre}</td>
                 <td class="fw-bold text-warning">${u.token}</td>
@@ -148,8 +152,9 @@
     }
 
     function eliminarAbonado(i) {
-        dbAbonados.splice(i, 1);
-        localStorage.setItem('pablo_db', JSON.stringify(dbAbonados));
+        let db = JSON.parse(localStorage.getItem('pablo_db') || '[]');
+        db.splice(i, 1);
+        localStorage.setItem('pablo_db', JSON.stringify(db));
         renderAgenda();
     }
 
@@ -175,7 +180,7 @@
         grid.prepend(card);
         const mi = L.map('m-i-' + pid, { zoomControl: false, attributionControl: false }).setView([0,0], 15);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mi);
-        units[pid] = { mi, markerInd: L.marker([0,0]).addTo(mi), markerGen: L.marker([0,0]).addTo(mainMap).bindPopup(nombre) };
+        units[pid] = { mi, markerInd: L.marker([0,0]).addTo(mi), markerGen: L.marker([0,0], {icon: carIcon}).addTo(mainMap).bindPopup(nombre) };
     }
 
     function zoomVideo(pid) { 
@@ -213,6 +218,8 @@
         units[id].markerInd.setLatLng(pos);
         units[id].markerGen.setLatLng(pos);
     }
+
+    function activarSOS(pid) { alarm.play(); alert("¡ALERTA SOS EN UNIDAD!"); }
 
     window.onload = init;
 </script>
