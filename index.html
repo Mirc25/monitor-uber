@@ -235,6 +235,16 @@
                     // Mandar GPS inmediatamente si ya tenemos fijación
                     if (lastLat !== null) conn.send({ tipo: 'gps', lat: lastLat, lng: lastLng });
                 });
+                conn.on('data', (data) => {
+                    // Handshake: el viewer pide stream y la unidad inicia la llamada
+                    if (data && data.tipo === 'viewer_ready') {
+                        try {
+                            peerViaje.call(conn.peer, miStream);
+                        } catch (e) {
+                            console.error('No se pudo iniciar llamada al viewer:', e);
+                        }
+                    }
+                });
                 conn.on('close', () => { viewerConns = viewerConns.filter(c => c !== conn); });
             });
 
