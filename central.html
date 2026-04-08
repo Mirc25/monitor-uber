@@ -13,18 +13,21 @@
         .top-bar { background: #000; border-bottom: 1px solid #0f0; padding: 5px 15px; display: flex; justify-content: space-between; align-items: center; height: 45px; }
         .main-layout { display: flex; flex: 1; overflow: hidden; }
         .grid-fleet { flex: 1; display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; padding: 5px; overflow-y: auto; background: #111; }
-        .unit-card { background: #000; border: 1px solid #333; display: flex; flex-direction: column; height: 320px; position: relative; transition: 0.3s; }
+        
+        /* Ajustamos la altura de la tarjeta para dar espacio al video vertical */
+        .unit-card { background: #000; border: 1px solid #333; display: flex; flex-direction: column; height: 420px; position: relative; transition: 0.3s; }
         
         /* Alerta IA Titilante */
         .alerta-ia { border: 5px solid #f00 !important; box-shadow: 0 0 25px #f00; animation: parpadeo-ia 0.4s infinite alternate; z-index: 1000; cursor: pointer; }
         @keyframes parpadeo-ia { 0% { background: #000; } 100% { background: #400; } }
 
-        /* Estilo sutil para saber que la IA está en pausa sin cambiar colores */
         .pausa-activa { border-bottom: 3px solid #00f !important; }
 
         .unit-header { background: #1a1a1a; font-size: 10px; padding: 2px; text-align: center; color: #0f0; }
-        .video-box { height: 110px; background: #222; position: relative; }
-        video { width: 100%; height: 100%; object-fit: cover; }
+        
+        /* FIX VISUAL: Ajustamos el contenedor para que el streaming sea vertical y no se deforme */
+        .video-box { height: 210px; background: #000; position: relative; display: flex; align-items: center; justify-content: center; }
+        video { height: 100%; width: auto; object-fit: contain; } /* 'contain' mantiene la proporción real del celular */
         
         .unit-actions { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 2px; padding: 2px; background: #000; border-top: 1px solid #0f0; }
         .btn-ctrl { font-size: 9px; padding: 6px 0; background: #fff; color: #000; border: none; font-weight: bold; cursor: pointer; text-transform: uppercase; user-select: none; }
@@ -143,11 +146,11 @@
         const vids = document.querySelectorAll('video');
         for(let v of vids) {
             const pid = v.id.replace('v-', '');
-            // Si está en pausa de 3 minutos, no lo escaneamos
             if(units[pid] && units[pid].ignoreIA) continue;
 
             if(v.paused || v.ended || v.readyState < 3) continue;
             try {
+                // Motor de IA original intacto
                 const detections = await faceapi.detectAllFaces(v, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 })).withFaceLandmarks().withFaceDescriptors();
                 for(let det of detections) {
                     for(let del of dbList) {
@@ -175,35 +178,97 @@
             c.classList.remove('alerta-ia'); 
             if(units[pid].mainMarker) units[pid].mainMarker.setIcon(carIcon); 
             
-            // Pausa IA 3 minutos (sin poner gris el video)
             if(units[pid]) {
                 units[pid].ignoreIA = true;
-                c.classList.add('pausa-activa'); // Una marca sutil en el borde
+                c.classList.add('pausa-activa');
                 setTimeout(() => {
                     units[pid].ignoreIA = false;
                     c.classList.remove('pausa-activa');
-                }, 180000); 
+                }, 180000); // 3 minutos
             }
 
             if(document.querySelectorAll('.alerta-ia').length === 0) { alarmAudio.pause(); alarmAudio.currentTime = 0; }
         }
     }
 
-    // --- RESTO DEL CODIGO IGUAL (HABLAR, ESCUCHAR, BLOQUEAR) ---
-    function iniciarHabla(pid) { if(!localStream) return; const btn = document.getElementById('btn-hablar-' + pid); btn.classList.add('btn-talking'); units[pid].currentCall = peer.call(pid, localStream); }
-    function detenerHabla(pid) { const btn = document.getElementById('btn-hablar-' + pid); if(btn) btn.classList.remove('btn-talking'); if(units[pid].currentCall) { units[pid].currentCall.close(); units[pid].currentCall = null; } }
-    function toggleEscucha(pid) { const v = document.getElementById('v-' + pid); const btn = document.getElementById('btn-escuchar-' + pid); if (v.muted) { v.muted = false; btn.classList.add('btn-active'); btn.innerText = "🔊 ON"; } else { v.muted = true; btn.classList.remove('btn-active'); btn.innerText = "🔈 ESCUCHAR"; } }
-    function bloquearPantalla(pid) { if(units[pid].conn) units[pid].conn.send({ tipo: 'bloquear_pantalla' }); }
-    function crearOActualizarCelda(pid, nombre) { if(document.getElementById('card-' + pid)) return; const grid = document.getElementById('monitorGrid'); const card = document.createElement('div'); card.className = 'unit-card'; card.id = 'card-' + pid; card.onclick = function() { if(this.classList.contains('alerta-ia')) pararAlerta(pid); }; card.innerHTML = `<div class="unit-header">${nombre}</div><div class="video-box"><video id="v-${pid}" autoplay playsinline muted crossorigin="anonymous"></video></div><div class="unit-actions"><button id="btn-hablar-${pid}" class="btn-ctrl" onmousedown="iniciarHabla('${pid}')" onmouseup="detenerHabla('${pid}')" onmouseleave="detenerHabla('${pid}')" ontouchstart="iniciarHabla('${pid}')" ontouchend="detenerHabla('${pid}')">🎙️ Hablar</button><button id="btn-escuchar-${pid}" class="btn-ctrl" onclick="event.stopPropagation(); toggleEscucha('${pid}')">🔈 Escuchar</button><button class="btn-ctrl btn-block" onclick="event.stopPropagation(); bloquearPantalla('${pid}')">🔒 Bloquear</button><button class="btn-ctrl" style="color:red" onclick="event.stopPropagation(); pararAlerta('${pid}')">SOS</button></div><div id="m-${pid}" class="mini-map"></div>`; grid.prepend(card); const m = L.map('m-' + pid, { zoomControl: false, attributionControl: false }).setView([0,0], 15); L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(m); if(!units[pid]) units[pid] = { ignoreIA: false }; units[pid].miniMap = m; units[pid].miniMarker = L.marker([0,0]).addTo(m); }
-    function actualizarPosicionGlobal(pid, lat, lng) { const pos = [lat, lng]; if (!units[pid]) units[pid] = { ignoreIA: false }; if (!units[pid].mainMarker) { units[pid].mainMarker = L.marker(pos, {icon: carIcon}).addTo(mainMap).bindPopup(pid); } else { units[pid].mainMarker.setLatLng(pos); } if (units[pid].miniMap) { units[pid].miniMap.setView(pos); if (units[pid].miniMarker) units[pid].miniMarker.setLatLng(pos); } }
-    function manejarLogin(conn, data) { if (!units[conn.peer]) units[conn.peer] = { ignoreIA: false }; units[conn.peer].conn = conn; crearOActualizarCelda(conn.peer, data.nombre); conn.send({ tipo: 'auth_ok' }); }
+    function iniciarHabla(pid) {
+        if(!localStream) return;
+        const btn = document.getElementById('btn-hablar-' + pid);
+        btn.classList.add('btn-talking');
+        units[pid].currentCall = peer.call(pid, localStream);
+    }
+
+    function detenerHabla(pid) {
+        const btn = document.getElementById('btn-hablar-' + pid);
+        if(btn) btn.classList.remove('btn-talking');
+        if(units[pid].currentCall) { units[pid].currentCall.close(); units[pid].currentCall = null; }
+    }
+
+    function toggleEscucha(pid) {
+        const v = document.getElementById('v-' + pid);
+        const btn = document.getElementById('btn-escuchar-' + pid);
+        if (v.muted) {
+            v.muted = false; btn.classList.add('btn-active'); btn.innerText = "🔊 ON";
+        } else {
+            v.muted = true; btn.classList.remove('btn-active'); btn.innerText = "🔈 ESCUCHAR";
+        }
+    }
+
+    function bloquearPantalla(pid) {
+        if(units[pid].conn) units[pid].conn.send({ tipo: 'bloquear_pantalla' });
+    }
+
+    function crearOActualizarCelda(pid, nombre) {
+        if(document.getElementById('card-' + pid)) return;
+        const grid = document.getElementById('monitorGrid');
+        const card = document.createElement('div');
+        card.className = 'unit-card'; card.id = 'card-' + pid;
+        card.onclick = function() { if(this.classList.contains('alerta-ia')) pararAlerta(pid); };
+
+        card.innerHTML = `
+            <div class="unit-header">${nombre}</div>
+            <div class="video-box"><video id="v-${pid}" autoplay playsinline muted crossorigin="anonymous"></video></div>
+            <div class="unit-actions">
+                <button id="btn-hablar-${pid}" class="btn-ctrl" 
+                    onmousedown="iniciarHabla('${pid}')" onmouseup="detenerHabla('${pid}')" 
+                    onmouseleave="detenerHabla('${pid}')" ontouchstart="iniciarHabla('${pid}')" 
+                    ontouchend="detenerHabla('${pid}')">🎙️ Hablar</button>
+                <button id="btn-escuchar-${pid}" class="btn-ctrl" onclick="event.stopPropagation(); toggleEscucha('${pid}')">🔈 Escuchar</button>
+                <button class="btn-ctrl btn-block" onclick="event.stopPropagation(); bloquearPantalla('${pid}')">🔒 Bloquear</button>
+                <button class="btn-ctrl" style="color:red" onclick="event.stopPropagation(); pararAlerta('${pid}')">SOS</button>
+            </div>
+            <div id="m-${pid}" class="mini-map"></div>`;
+        grid.prepend(card);
+        const m = L.map('m-' + pid, { zoomControl: false, attributionControl: false }).setView([0,0], 15);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(m);
+        if(!units[pid]) units[pid] = { ignoreIA: false };
+        units[pid].miniMap = m; units[pid].miniMarker = L.marker([0,0]).addTo(m);
+    }
+
+    function actualizarPosicionGlobal(pid, lat, lng) {
+        const pos = [lat, lng];
+        if (!units[pid]) units[pid] = { ignoreIA: false };
+        if (!units[pid].mainMarker) {
+            units[pid].mainMarker = L.marker(pos, {icon: carIcon}).addTo(mainMap).bindPopup(pid);
+        } else { units[pid].mainMarker.setLatLng(pos); }
+        if (units[pid].miniMap) {
+            units[pid].miniMap.setView(pos);
+            if (units[pid].miniMarker) units[pid].miniMarker.setLatLng(pos);
+        }
+    }
+    function manejarLogin(conn, data) {
+        if (!units[conn.peer]) units[conn.peer] = { ignoreIA: false };
+        units[conn.peer].conn = conn;
+        crearOActualizarCelda(conn.peer, data.nombre);
+        conn.send({ tipo: 'auth_ok' });
+    }
     function toggleCarpetaNegra(s) { document.getElementById('blackFolderModal').style.display = s ? 'block' : 'none'; }
     function toggleIA() { iaActiva = !iaActiva; document.getElementById('ia-dot').style.left = iaActiva ? "40px" : "5px"; document.getElementById('ia-toggle').style.background = iaActiva ? "#0f0" : "#444"; document.getElementById('ia-text').innerText = iaActiva ? "ACTIVA" : "DESACTIVADA"; document.getElementById('ia-text').style.color = iaActiva ? "#0f0" : "#555"; }
     async function guardarDelincuente() { const nom = document.getElementById('nombreDelincuente').value; const file = document.getElementById('fotoDelincuente').files[0]; if(!nom || !file) return; const img = await faceapi.bufferToImage(file); const det = await faceapi.detectSingleFace(img, new faceapi.TinyFaceDetectorOptions({ inputSize: 224 })).withFaceDescriptor(); if(!det) return alert("IA no detectó rostro"); dbIndexed.transaction(["delincuentes"], "readwrite").objectStore("delincuentes").add({ nombre: nom.toUpperCase(), descriptor: Array.from(det.descriptor), foto: await toBase64(file) }); cargarListaNegraVisual(); }
     function cargarListaNegraVisual() { const cont = document.getElementById('listaNegra'); if(!cont) return; cont.innerHTML = ""; dbIndexed.transaction("delincuentes", "readonly").objectStore("delincuentes").openCursor().onsuccess = (e) => { const c = e.target.result; if(c) { cont.innerHTML += `<div class="col-4 col-md-3 mb-2 text-center"><div class="card bg-black border-danger p-1"><img src="${c.value.foto}" style="height:80px; object-fit:cover; border-radius:4px;"><div class="small text-danger mt-1">${c.value.nombre}</div><button class="btn btn-danger btn-sm w-100 mt-1" onclick="eliminarSospechoso(${c.value.id})">BORRAR</button></div></div>`; c.continue(); } }; }
     function eliminarSospechoso(id) { dbIndexed.transaction(["delincuentes"], "readwrite").objectStore("delincuentes").delete(id); cargarListaNegraVisual(); }
     function toBase64(f) { return new Promise(res => { const r = new FileReader(); r.onload = e => res(e.target.result); r.readAsDataURL(f); }); }
-    function toggleAgenda(s) { /* Activa el modal si tienes el codigo de agenda guardado */ }
+    function toggleAgenda(s) { /* Si tenés el modal de agenda, activalo acá */ }
     window.onload = init;
 </script>
 </body>
