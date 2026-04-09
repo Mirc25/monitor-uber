@@ -190,9 +190,16 @@
             call.on('stream', (s) => {
                 streamReceived = true;
                 video.srcObject = s;
+                video.muted = true;
                 video.style.display = 'block';
                 placeholder.style.display = 'none';
                 setStatus(true, 'EN VIVO');
+                const p = video.play();
+                if (p && typeof p.catch === 'function') {
+                    p.catch(() => {
+                        setStatus(true, 'EN VIVO (tocá la pantalla para iniciar video)');
+                    });
+                }
             });
             call.on('close', () => {
                 if (streamReceived) mostrarFin();
