@@ -204,8 +204,8 @@
 
         peerV.on('error', (err) => {
             if (err.type === 'peer-unavailable') {
-                if (retryCount < 8) {
-                    setStatus(false, 'Unidad preparando enlace... reintentando');
+                if (retryCount < 30) {
+                    setStatus(false, 'Unidad preparando enlace... reintentando (' + (retryCount + 1) + '/30)');
                     setTimeout(() => {
                         try { peerV.destroy(); } catch(e) {}
                         iniciarViewer(retryCount + 1);
@@ -226,7 +226,10 @@
 
         peerV.on('close', () => {
             if (streamReceived) mostrarFin();
-            else { setTimeout(() => iniciarViewer(retryCount + 1), 5000); }
+            else {
+                setStatus(false, 'Reintentando conexión de video...');
+                setTimeout(() => iniciarViewer(retryCount + 1), 3000);
+            }
         });
     }
 
