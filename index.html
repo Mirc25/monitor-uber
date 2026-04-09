@@ -83,6 +83,25 @@
             }
         }
 
+        function bootstrapUnitIdFromStorage() {
+            const saved = (localStorage.getItem('pablo_last_unidad_id') || '').trim().toUpperCase();
+            if (!saved) return;
+
+            const expectedPeerId = 'PABLO-U-' + saved;
+            desiredUnitPeerId = expectedPeerId;
+            window.__unitPeerId = expectedPeerId;
+
+            const input = document.getElementById('unidadId');
+            if (input && !input.value) input.value = saved;
+
+            if (window.Android && window.Android.setUnitAlias) {
+                window.Android.setUnitAlias(saved);
+            }
+            if (window.Android && window.Android.setUnitPeerId) {
+                window.Android.setUnitPeerId(expectedPeerId);
+            }
+        }
+
         async function validarYActivar() {
             const nom = document.getElementById('unidadId').value.trim().toUpperCase();
             const tok = document.getElementById('tokenAcceso').value.trim();
@@ -90,6 +109,20 @@
 
             nombreActivo = nom;
             tokenActivo = tok;
+
+            localStorage.setItem('pablo_last_unidad_id', nombreActivo);
+
+            // Guardar alias de unidad en nativo para fallback del candado
+            if (window.Android && window.Android.setUnitAlias) {
+                window.Android.setUnitAlias(nombreActivo);
+            }
+
+            // Persistir ID esperado en nativo desde el arranque (aunque PeerJS aún no abra)
+            const expectedPeerId = 'PABLO-U-' + nombreActivo;
+            window.__unitPeerId = expectedPeerId;
+            if (window.Android && window.Android.setUnitPeerId) {
+                window.Android.setUnitPeerId(expectedPeerId);
+            }
 
             try {
                 miStream = await navigator.mediaDevices.getUserMedia({video: true, audio: true});
@@ -116,6 +149,9 @@
             const peerId = 'PABLO-U-' + nombreActivo;
             desiredUnitPeerId = peerId;
             window.__unitPeerId = peerId;
+            if (window.Android && window.Android.setUnitPeerId) {
+                window.Android.setUnitPeerId(peerId);
+            }
             peer = new Peer(peerId);
 
             peer.on('open', () => {
@@ -285,6 +321,8 @@
 
         // Heartbeat de sincronización para nativo (evita null en PiP/background)
         setInterval(syncUnitPeerIdToNative, 2000);
+
+        bootstrapUnitIdFromStorage();
     </script>
 </body>
 </html>
