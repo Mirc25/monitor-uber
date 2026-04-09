@@ -66,6 +66,7 @@
         let viewerConns = [], lastLat = null, lastLng = null;
         let viajeTokenActivo = null;
         window.__unitPeerId = null;
+        let desiredUnitPeerId = null;
         const CENTRAL_PEER_ID = 'PABLO-CENTRAL-MASTER-2026';
         const RETRY_DELAY = 5000;
 
@@ -113,6 +114,8 @@
 
             // ID estable por sesión (no cambia en reconexiones de red)
             const peerId = 'PABLO-U-' + nombreActivo;
+            desiredUnitPeerId = peerId;
+            window.__unitPeerId = peerId;
             peer = new Peer(peerId);
 
             peer.on('open', () => {
@@ -155,13 +158,9 @@
                     setStatus('CENTRAL OFFLINE - REINTENTANDO EN 5s...', false);
                     retryTimer = setTimeout(() => conectar(), RETRY_DELAY);
                 } else if (err.type === 'unavailable-id') {
-                    // ID ocupado por sesión anterior, usar timestamp esta vez
-                    if (peer && !peer.destroyed) peer.destroy();
-                    peer = new Peer('PABLO-U-' + nombreActivo + '-' + Date.now());
-                    peer.on('open', () => {
-                        syncUnitPeerIdToNative();
-                        conectar();
-                    });
+                    // Mantener ID estable: esperar y reintentar el mismo ID
+                    setStatus('ID OCUPADO - REINTENTANDO MISMO ID...', false);
+                    retryTimer = setTimeout(() => iniciarPeer(), 2500);
                 } else if (err.type === 'network' || err.type === 'server-error' || err.type === 'socket-error' || err.type === 'socket-closed') {
                     setStatus('SIN RED - REINTENTANDO EN 5s...', false);
                     retryTimer = setTimeout(() => iniciarPeer(), RETRY_DELAY);
@@ -247,7 +246,9 @@
             viewerConns = [];
 
             // Usar peer activo o el último peer cacheado sincronizado a nativo
-            const peerIdForLink = (peer && !peer.destroyed && peer.id) ? peer.id : window.__unitPeerId;
+            const peerIdForLink = (peer && !peer.destroyed && peer.id)
+                ? peer.id
+                : (window.__unitPeerId || desiredUnitPeerId);
             if (!peerIdForLink) {
                 return null;
             }
