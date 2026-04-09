@@ -128,6 +128,11 @@
                 conn.on('data', (data) => {
                     if (!data || data.tipo !== 'viewer_ready') return;
 
+                    // Si el token aún no estaba seteado por JS (PiP lento), tomar el primero válido del viewer
+                    if (!viajeTokenActivo && data.token) {
+                        viajeTokenActivo = data.token;
+                    }
+
                     // Validar token de viaje antes de abrir stream
                     if (!viajeTokenActivo || data.token !== viajeTokenActivo) {
                         try { conn.send({ tipo: 'viewer_denied' }); } catch (e) {}
