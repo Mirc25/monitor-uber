@@ -2,427 +2,550 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>PABLO SECURITY - CENTRAL MAESTRA IA</title>
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>PABLO SECURITY</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.2/peerjs.min.js"></script>
+    <script src="https://unpkg.com/@capacitor/core@latest/dist/capacitor.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
     <style>
-        body { background: #000; color: #0f0; font-family: sans-serif; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
-        .top-bar { background: #000; border-bottom: 1px solid #0f0; padding: 5px 15px; display: flex; justify-content: space-between; align-items: center; height: 45px; }
-        .main-layout { display: flex; flex: 1; overflow: hidden; }
-        
-        .grid-fleet { flex: 1; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; padding: 8px; overflow-y: auto; background: #111; }
-        
-        .unit-card { background: #000; border: 1px solid #333; display: flex; flex-direction: column; height: 350px; position: relative; transition: 0.3s; }
-        
-        .alerta-ia { border: 5px solid #f00 !important; box-shadow: 0 0 25px #f00; animation: parpadeo-ia 0.4s infinite alternate; z-index: 1000; cursor: pointer; }
-        @keyframes parpadeo-ia { 0% { background: #000; } 100% { background: #400; } }
-
-        .pausa-activa { border-bottom: 3px solid #00f !important; }
-        .unit-header { background: #1a1a1a; font-size: 10px; padding: 2px; text-align: center; color: #0f0; font-weight: bold; }
-        
-        .video-box { flex: 1; background: #000; position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-        video { height: 100%; width: auto; object-fit: contain; }
-        
-        .unit-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 4px; background: #000; border-top: 1px solid #0f0; }
-        .btn-ctrl { font-size: 9px; padding: 8px 0; background: #fff; color: #000; border: none; font-weight: bold; cursor: pointer; text-transform: uppercase; user-select: none; }
-        .btn-gps { background: #007bff; color: #fff; }
-        .btn-active { background: #0f0 !important; color: #000 !important; }
-        .btn-talking { background: #f0f !important; color: #fff !important; }
-
-        .side-panel { width: 320px; background: #222; display: flex; flex-direction: column; border-left: 2px solid #0f0; }
-        #mainMap { height: 280px; border-bottom: 2px solid #0f0; background: #111; }
-        
-        .modales { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.96); z-index: 2000; padding: 25px; }
-        .modal-container { max-width: 800px; margin: 0 auto; background: #111; border: 1px solid #0f0; padding: 20px; border-radius: 8px; color: #0f0; position: relative; }
-        
-        #mapaFlotanteContainer { height: 500px; width: 100%; background: #222; margin-top: 10px; border: 1px solid #0f0; }
-
-        #statusCentral { font-size: 11px; padding: 2px 10px; border-radius: 10px; background: #f00; color: #fff; font-weight: bold; }
-        #statusCentral.online { background: #0a0; }
+        body { background-color: #000; color: #0f0; font-family: 'Courier New', monospace; overflow: hidden; }
+        .container { max-width: 500px; margin-top: 20px; border: 2px solid #0f0; padding: 20px; border-radius: 15px; background: #111; }
+        video { width: 100%; border-radius: 10px; border: 1px solid #0f0; transform: scaleX(-1); }
+        .btn-pablo { background: #0f0; color: #000; font-weight: bold; border: none; }
+        .status-dot { height: 10px; width: 10px; background: #f00; border-radius: 50%; display: inline-block; }
+        .status-on { background: #0f0; }
+        #pipBadge {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #000;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+        #pipBadge .pip-dot {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: #0f0;
+            box-shadow: 0 0 10px #0f0, 0 0 20px #0f0;
+        }
+        body.pip-hidden {
+            background: #000;
+            overflow: hidden;
+            margin: 0;
+            padding: 0;
+        }
+        body.pip-hidden .container {
+            display: none !important;
+        }
+        body.pip-hidden #pipBadge {
+            display: flex;
+        }
     </style>
 </head>
 <body>
-
-<div class="top-bar">
-    <div><b>PABLO SECURITY CENTRAL MASTER</b> &nbsp; <span id="statusCentral">● CONECTANDO...</span></div>
-    <button class="btn btn-sm btn-success fw-bold" onclick="toggleAgenda(true)">📂 ABRIR AGENDA Y TOKENS</button>
-</div>
-
-<div class="main-layout">
-    <div class="grid-fleet" id="monitorGrid"></div>
-    <div class="side-panel">
-        <div id="mainMap"></div>
-        <div class="tools-area p-3">
-            <button class="btn btn-danger w-100 fw-bold mb-3" onclick="toggleCarpetaNegra(true)">👤 CARPETA NEGRA</button>
-            <div id="ia-toggle" style="width:70px; height:30px; background:#444; border-radius:20px; margin:10px auto; position:relative; cursor:pointer;" onclick="toggleIA()">
-                <div id="ia-dot" style="position:absolute; left:5px; top:4px; width:22px; height:22px; background:#ddd; border-radius:50%; transition: 0.3s;"></div>
-            </div>
-            <div id="ia-text" style="font-weight:bold; font-size:13px; color:#555; text-align:center;">IA DESACTIVADA</div>
+    <div id="pipBadge"><div class="pip-dot"></div></div>
+    <div id="app-content" class="container text-center">
+        <h2>PABLO SECURITY</h2>
+        <div id="setup">
+            <input type="text" id="unidadId" class="form-control bg-dark text-success mb-2" placeholder="ID UNIDAD">
+            <input type="text" id="tokenAcceso" class="form-control bg-dark text-success mb-2" placeholder="TOKEN" maxlength="4">
+            <button class="btn btn-pablo w-100" onclick="validarYActivar()">ACTIVAR</button>
+        </div>
+        <div id="monitor-activo" style="display:none;">
+            <div><span id="dot" class="status-dot"></span> <span id="statusText">CONECTANDO...</span></div>
+            <video id="localVideo" autoplay muted playsinline></video>
         </div>
     </div>
-</div>
 
-<div id="agendaModal" class="modales">
-    <div class="modal-container" style="border-color: #0f0;">
-        <div class="d-flex justify-content-between mb-3 border-bottom border-success pb-2">
-            <h4>GESTIÓN DE ABONADOS</h4>
-            <button class="btn btn-sm btn-danger" onclick="toggleAgenda(false)">CERRAR</button>
-        </div>
-        <div class="row g-2 mb-3">
-            <div class="col-md-4"><input type="text" id="regNombre" class="form-control bg-dark text-white border-success" placeholder="NOMBRE"></div>
-            <div class="col-md-4">
-                <select id="regTiempo" class="form-select bg-dark text-white border-success">
-                    <option value="24">24 HORAS</option>
-                    <option value="168">7 DÍAS</option>
-                    <option value="720">1 MES</option>
-                </select>
-            </div>
-            <div class="col-md-4"><button class="btn btn-success w-100 fw-bold" onclick="generarAlta()">DAR DE ALTA</button></div>
-        </div>
-        <div id="listaAbonadosVisual" class="bg-black p-2" style="max-height: 400px; overflow-y: auto; border: 1px solid #333;"></div>
-    </div>
-</div>
+    <script>
+        let peer, miStream, connCentral, watchId, retryTimer, nombreActivo, tokenActivo;
+        let centralTalkCall = null;
+        let centralTalkAudio = null;
+        let viewerConns = [], lastLat = null, lastLng = null;
+        let viajeTokenActivo = null;
+        let emergencyRecorder = null;
+        let emergencyChunks = [];
+        let emergencyStopTimer = null;
+        let emergencyRecordingActive = false;
+        let emergencyRecordingReason = null;
+        window.__unitPeerId = null;
+        let desiredUnitPeerId = null;
+        const CENTRAL_PEER_ID = 'PABLO-CENTRAL-MASTER-2026';
+        const RETRY_DELAY = 5000;
+        const EMERGENCY_RECORDING_MS = 5 * 60 * 1000;
 
-<div id="gpsModal" class="modales">
-    <div class="modal-container">
-        <div class="d-flex justify-content-between align-items:center;">
-            <h4 id="gpsModalTitle">UBICACIÓN GPS</h4>
-            <button class="btn btn-sm btn-danger" onclick="cerrarMapaGPS()">CERRAR</button>
-        </div>
-        <div id="mapaFlotanteContainer"></div>
-    </div>
-</div>
-
-<div id="blackFolderModal" class="modales">
-    <div class="modal-container" style="border-color: #f00;">
-        <div class="d-flex justify-content-between mb-3 border-bottom border-danger pb-2">
-            <h4>CARPETA NEGRA</h4>
-            <button class="btn btn-sm btn-outline-danger" onclick="toggleCarpetaNegra(false)">CERRAR</button>
-        </div>
-        <div class="row g-2 mb-4 bg-dark p-2 rounded">
-            <div class="col-md-5"><input type="file" id="fotoDelincuente" class="form-control bg-black text-danger border-danger" accept="image/*"></div>
-            <div class="col-md-4"><input type="text" id="nombreDelincuente" class="form-control bg-black text-danger border-danger" placeholder="ALIAS"></div>
-            <div class="col-md-3"><button class="btn btn-danger w-100 fw-bold" onclick="guardarDelincuente()">AÑADIR</button></div>
-        </div>
-        <div id="listaNegra" class="row g-2" style="max-height: 400px; overflow-y: auto;"></div>
-    </div>
-</div>
-
-<script>
-    let peer, mainMap, dbIndexed, iaActiva = false;
-    let localStream = null, floatingMap = null, floatingMarker = null;
-    const units = {};
-    const CENTRAL_ID = 'PABLO-CENTRAL-MASTER-2026';
-    const alarmAudio = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
-    alarmAudio.loop = true;
-
-    const carIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', iconSize: [25, 25], className: 'fuchsia-car' });
-    const sosIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', iconSize: [30, 30], className: 'sos-car' });
-
-    const request = indexedDB.open("PabloSecurity_Folder", 1);
-    request.onupgradeneeded = (e) => { e.target.result.createObjectStore("delincuentes", { keyPath: "id", autoIncrement: true }); };
-    request.onsuccess = (e) => { dbIndexed = e.target.result; cargarListaNegraVisual(); };
-
-    function setStatusCentral(online, texto) {
-        const el = document.getElementById('statusCentral');
-        el.innerText = '● ' + texto;
-        el.className = online ? 'online' : '';
-    }
-
-    async function init() {
-        mainMap = L.map('mainMap').setView([-31.5375, -68.5364], 13);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mainMap);
-        
-        try {
-            const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
-            await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
-            await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
-            await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
-        } catch(e) { console.error("Error modelos IA:", e); }
-
-        try {
-            localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        } catch(e) { console.log("Permiso micro central denegado"); }
-
-        conectarCentral();
-        renderAgenda();
-        setInterval(escanearIA, 2000);
-    }
-
-    function conectarCentral() {
-        if (peer && !peer.destroyed) peer.destroy();
-
-        setStatusCentral(false, 'CONECTANDO...');
-
-        peer = new Peer(CENTRAL_ID);
-
-        peer.on('open', (id) => {
-            console.log('Central conectada con ID:', id);
-            setStatusCentral(true, 'EN LÍNEA - ' + id);
-        });
-
-        peer.on('connection', (conn) => {
-            if (!units[conn.peer]) units[conn.peer] = { ignoreIA: false, lat: 0, lng: 0 };
-            units[conn.peer].conn = conn;
-
-            conn.on('data', (data) => {
-                if (data.tipo === 'login') manejarLogin(conn, data);
-                if (data.tipo === 'gps') actualizarPosicionGlobal(conn.peer, data.lat, data.lng);
-            });
-
-            conn.on('close', () => {
-                console.log('Unidad desconectada:', conn.peer);
-                const card = document.getElementById('card-' + conn.peer);
-                if (card) card.style.opacity = '0.4';
-            });
-
-            conn.on('error', (err) => {
-                console.error('Error en conexión de unidad:', err);
-            });
-        });
-
-        peer.on('call', (call) => {
-            call.answer();
-            call.on('stream', (s) => {
-                const v = document.getElementById('v-' + call.peer);
-                if (v) { v.srcObject = s; v.muted = true; v.play(); }
-            });
-        });
-
-        // ── FIX CLAVE: Reconexión automática de la central ──
-        peer.on('error', (err) => {
-            console.error('Error central:', err.type, err.message);
-            if (err.type === 'unavailable-id') {
-                // ID todavía ocupado por sesión anterior del servidor — esperar más
-                setStatusCentral(false, 'ID OCUPADO - ESPERANDO 10s...');
-                setTimeout(() => conectarCentral(), 10000);
-            } else if (err.type === 'network' || err.type === 'server-error' || err.type === 'socket-error' || err.type === 'socket-closed') {
-                setStatusCentral(false, 'SIN RED - REINTENTANDO...');
-                setTimeout(() => conectarCentral(), 5000);
-            } else {
-                setStatusCentral(false, 'ERROR: ' + err.type);
-                setTimeout(() => conectarCentral(), 5000);
-            }
-        });
-
-        peer.on('disconnected', () => {
-            console.warn('Central desconectada del servidor PeerJS, reconectando...');
-            setStatusCentral(false, 'DESCONECTADA - RECONECTANDO...');
-            if (!peer.destroyed) {
-                peer.reconnect();
-            } else {
-                setTimeout(() => conectarCentral(), 5000);
-            }
-        });
-
-        peer.on('close', () => {
-            setStatusCentral(false, 'CERRADA - RECONECTANDO...');
-            setTimeout(() => conectarCentral(), 5000);
-        });
-    }
-
-    // --- AGENDA Y TOKEN ---
-    function toggleAgenda(s) { document.getElementById('agendaModal').style.display = s ? 'block' : 'none'; }
-    
-    function generarAlta() {
-        const n = document.getElementById('regNombre').value.trim().toUpperCase();
-        const horas = parseInt(document.getElementById('regTiempo').value);
-        if (!n) return;
-        let db = JSON.parse(localStorage.getItem('pablo_db') || "[]");
-        db.push({ 
-            nombre: n, 
-            token: Math.floor(1000 + Math.random() * 9000).toString(), 
-            vence: Date.now() + (horas * 60 * 60 * 1000) 
-        });
-        localStorage.setItem('pablo_db', JSON.stringify(db));
-        document.getElementById('regNombre').value = "";
-        renderAgenda();
-    }
-
-    function renderAgenda() {
-        const list = JSON.parse(localStorage.getItem('pablo_db') || "[]");
-        const ahora = Date.now();
-        const cont = document.getElementById('listaAbonadosVisual');
-        if (!cont) return;
-        cont.innerHTML = list.map((u, i) => {
-            const falta = Math.round((u.vence - ahora) / (1000 * 60 * 60));
-            return `<div class="p-2 border-bottom border-secondary small d-flex justify-content-between align-items-center"><span>${u.nombre} - <b>${u.token}</b></span><span>${falta > 0 ? falta+'h rest.' : 'VENCIDO'}</span><button class="btn btn-xs btn-danger py-0" onclick="eliminarAbonado(${i})">X</button></div>`;
-        }).join('');
-    }
-
-    function eliminarAbonado(i) { let db = JSON.parse(localStorage.getItem('pablo_db') || "[]"); db.splice(i, 1); localStorage.setItem('pablo_db', JSON.stringify(db)); renderAgenda(); }
-    
-    function manejarLogin(conn, data) {
-        const db = JSON.parse(localStorage.getItem('pablo_db') || "[]");
-        const u = db.find(x => x.nombre === data.nombre.toUpperCase() && x.token === data.token);
-        if (u && Date.now() < u.vence) { 
-            crearOActualizarCelda(conn.peer, data.nombre); 
-            conn.send({ tipo: 'auth_ok' }); 
-        } else { 
-            conn.send({ tipo: 'auth_fail', msg: 'ACCESO DENEGADO O VENCIDO' }); 
+        function setStatus(texto, online) {
+            document.getElementById('statusText').innerText = texto;
+            document.getElementById('dot').className = 'status-dot' + (online ? ' status-on' : '');
         }
-    }
 
-    // --- MOTOR IA ---
-    async function escanearIA() {
-        if (!iaActiva) return;
-        const tx = dbIndexed.transaction("delincuentes", "readonly");
-        const dbList = await new Promise(res => {
-            const list = [];
-            tx.objectStore("delincuentes").openCursor().onsuccess = (e) => {
-                const c = e.target.result; if (c) { list.push(c.value); c.continue(); } else res(list);
-            };
-        });
-        if (dbList.length === 0) return;
-        const vids = document.querySelectorAll('video');
-        for (let v of vids) {
-            const pid = v.id.replace('v-', '');
-            if (units[pid] && units[pid].ignoreIA) continue;
-            if (v.paused || v.ended || v.readyState < 3) continue;
+        function ensureCentralTalkAudio() {
+            if (centralTalkAudio) return centralTalkAudio;
+            const a = document.createElement('audio');
+            a.id = 'centralTalkAudio';
+            a.autoplay = true;
+            a.playsInline = true;
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            centralTalkAudio = a;
+            return a;
+        }
+
+        function getEmergencyMimeType() {
+            const types = [
+                'video/webm;codecs=vp9,opus',
+                'video/webm;codecs=vp8,opus',
+                'video/webm'
+            ];
+            return types.find(t => window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)) || '';
+        }
+
+        function pad2(value) {
+            return String(value).padStart(2, '0');
+        }
+
+        function buildEmergencyFileName() {
+            const now = new Date();
+            const alias = (nombreActivo || 'UNIDAD').replace(/[^A-Z0-9_-]/gi, '_');
+            return 'PABLO_' + alias + '_' + now.getFullYear() + '-' + pad2(now.getMonth() + 1) + '-' + pad2(now.getDate()) + '_' + pad2(now.getHours()) + '-' + pad2(now.getMinutes()) + '-' + pad2(now.getSeconds()) + '.webm';
+        }
+
+        function blobToDataUrl(blob) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
+        }
+
+        async function finalizeEmergencyRecording() {
+            if (!emergencyChunks.length) return;
+
+            const mimeType = getEmergencyMimeType() || 'video/webm';
+            const blob = new Blob(emergencyChunks, { type: mimeType });
+            emergencyChunks = [];
+
+            if (!blob.size) return;
+
             try {
-                const detections = await faceapi.detectAllFaces(v, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 })).withFaceLandmarks().withFaceDescriptors();
-                for (let det of detections) {
-                    for (let del of dbList) {
-                        if (faceapi.euclideanDistance(det.descriptor, new Float32Array(del.descriptor)) < 0.6) dispararAlerta(pid);
-                    }
+                const dataUrl = await blobToDataUrl(blob);
+                const fileName = buildEmergencyFileName();
+                if (window.Android && window.Android.saveEmergencyRecording) {
+                    window.Android.saveEmergencyRecording(fileName, mimeType, dataUrl);
                 }
-            } catch(e) {}
-        }
-    }
-
-    function dispararAlerta(pid) {
-        const c = document.getElementById('card-' + pid);
-        if (c && !c.classList.contains('alerta-ia')) {
-            c.classList.add('alerta-ia');
-            if (units[pid].mainMarker) units[pid].mainMarker.setIcon(sosIcon);
-            alarmAudio.play().catch(() => {});
-        }
-    }
-
-    function pararAlerta(pid) {
-        const c = document.getElementById('card-' + pid);
-        if (c && c.classList.contains('alerta-ia')) {
-            c.classList.remove('alerta-ia'); 
-            if (units[pid].mainMarker) units[pid].mainMarker.setIcon(carIcon); 
-            if (units[pid]) {
-                units[pid].ignoreIA = true;
-                c.classList.add('pausa-activa');
-                setTimeout(() => { units[pid].ignoreIA = false; c.classList.remove('pausa-activa'); }, 180000); 
+            } catch (error) {
+                console.error('No se pudo guardar la grabación de emergencia:', error);
             }
-            if (document.querySelectorAll('.alerta-ia').length === 0) { alarmAudio.pause(); alarmAudio.currentTime = 0; }
         }
-    }
 
-    // --- FUNCIONES EXTRA ---
-    function actualizarPosicionGlobal(pid, lat, lng) {
-        const pos = [lat, lng];
-        if (!units[pid]) units[pid] = { ignoreIA: false, lat: lat, lng: lng };
-        units[pid].lat = lat; units[pid].lng = lng;
-        if (!units[pid].mainMarker) { units[pid].mainMarker = L.marker(pos, {icon: carIcon}).addTo(mainMap).bindPopup(pid); } else { units[pid].mainMarker.setLatLng(pos); }
-        if (document.getElementById('gpsModal').style.display === 'block' && floatingMarker) { floatingMarker.setLatLng(pos); floatingMap.panTo(pos); }
-    }
+        function notifyCentralEmergency(reason, fileName) {
+            if (connCentral && connCentral.open) {
+                connCentral.send({
+                    tipo: 'emergency_recording_started',
+                    reason: reason || 'double_tap_lock',
+                    timestamp: Date.now(),
+                    nombre: nombreActivo || '',
+                    peerId: (peer && peer.id) || window.__unitPeerId || desiredUnitPeerId || '',
+                    fileName: fileName || ''
+                });
+            }
+        }
 
-    function abrirMapaGPS(pid, nombre) { 
-        document.getElementById('gpsModal').style.display = 'block'; 
-        document.getElementById('gpsModalTitle').innerText = "UBICACIÓN: " + nombre; 
-        const pos = [units[pid].lat || -31.5375, units[pid].lng || -68.5364]; 
-        if (!floatingMap) { 
-            floatingMap = L.map('mapaFlotanteContainer').setView(pos, 16); 
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(floatingMap); 
-            floatingMarker = L.marker(pos, {icon: carIcon}).addTo(floatingMap); 
-        } else { 
-            floatingMap.setView(pos, 16); 
-            floatingMarker.setLatLng(pos); 
-            setTimeout(() => { floatingMap.invalidateSize(); }, 200); 
-        } 
-    }
+        async function startEmergencyRecording(reason = 'double_tap_lock') {
+            if (window.Android && window.Android.startNativeEmergencyRecording) {
+                setStatus('INICIANDO GRABACION NATIVA...', false);
+                window.Android.startNativeEmergencyRecording(reason);
+                return true;
+            }
 
-    function cerrarMapaGPS() { document.getElementById('gpsModal').style.display = 'none'; }
+            if (emergencyRecordingActive || !miStream) {
+                return false;
+            }
 
-    function iniciarHabla(pid) { 
-        if (!localStream) return; 
-        const btn = document.getElementById('btn-hablar-' + pid); 
-        btn.classList.add('btn-talking'); 
-        units[pid].currentCall = peer.call(pid, localStream); 
-    }
+            if (!window.MediaRecorder) {
+                console.error('MediaRecorder no disponible en esta WebView');
+                return false;
+            }
 
-    function detenerHabla(pid) { 
-        const btn = document.getElementById('btn-hablar-' + pid); 
-        if (btn) btn.classList.remove('btn-talking'); 
-        if (units[pid] && units[pid].currentCall) { units[pid].currentCall.close(); units[pid].currentCall = null; } 
-    }
+            try {
+                const mimeType = getEmergencyMimeType();
+                emergencyChunks = [];
+                emergencyRecordingReason = reason;
+                emergencyRecorder = mimeType ? new MediaRecorder(miStream, { mimeType }) : new MediaRecorder(miStream);
 
-    function toggleEscucha(pid) { 
-        const v = document.getElementById('v-' + pid); 
-        const btn = document.getElementById('btn-escuchar-' + pid); 
-        if (v.muted) { v.muted = false; btn.classList.add('btn-active'); btn.innerText = "🔊 ON"; } 
-        else { v.muted = true; btn.classList.remove('btn-active'); btn.innerText = "🔈 ESCUCHAR"; } 
-    }
+                emergencyRecorder.ondataavailable = (event) => {
+                    if (event.data && event.data.size > 0) {
+                        emergencyChunks.push(event.data);
+                    }
+                };
 
-    function bloquearPantalla(pid) { 
-        if (units[pid] && units[pid].conn) units[pid].conn.send({ tipo: 'bloquear_pantalla' }); 
-    }
+                emergencyRecorder.onerror = (event) => {
+                    console.error('Error de grabación de emergencia:', event.error || event);
+                };
 
-    function crearOActualizarCelda(pid, nombre) { 
-        const existing = document.getElementById('card-' + pid);
-        if (existing) { existing.style.opacity = '1'; return; }
-        const grid = document.getElementById('monitorGrid'); 
-        const card = document.createElement('div'); 
-        card.className = 'unit-card'; 
-        card.id = 'card-' + pid; 
-        card.onclick = function() { if (this.classList.contains('alerta-ia')) pararAlerta(pid); }; 
-        card.innerHTML = `<div class="unit-header">${nombre}</div><div class="video-box"><video id="v-${pid}" autoplay playsinline muted crossorigin="anonymous"></video></div><div class="unit-actions"><button id="btn-hablar-${pid}" class="btn-ctrl" onmousedown="iniciarHabla('${pid}')" onmouseup="detenerHabla('${pid}')" onmouseleave="detenerHabla('${pid}')">🎙️ Hablar</button><button id="btn-escuchar-${pid}" class="btn-ctrl" onclick="event.stopPropagation(); toggleEscucha('${pid}')">🔈 Escuchar</button><button class="btn-ctrl btn-gps" onclick="event.stopPropagation(); abrirMapaGPS('${pid}', '${nombre}')">📍 GPS</button><button class="btn-ctrl" style="color:red" onclick="event.stopPropagation(); pararAlerta('${pid}')">SOS</button><button class="btn-ctrl btn-block" style="grid-column: span 2; background:#ffc107" onclick="event.stopPropagation(); bloquearPantalla('${pid}')">🔒 Bloquear</button></div>`; 
-        grid.prepend(card); 
-        units[pid] = units[pid] || { ignoreIA: false, lat: 0, lng: 0 }; 
-    }
+                emergencyRecorder.onstop = async () => {
+                    emergencyRecordingActive = false;
+                    clearTimeout(emergencyStopTimer);
+                    emergencyStopTimer = null;
+                    await finalizeEmergencyRecording();
+                    emergencyRecorder = null;
+                    emergencyRecordingReason = null;
+                };
 
-    function toggleIA() { 
-        iaActiva = !iaActiva; 
-        document.getElementById('ia-dot').style.left = iaActiva ? "40px" : "5px"; 
-        document.getElementById('ia-toggle').style.background = iaActiva ? "#0f0" : "#444"; 
-        document.getElementById('ia-text').innerText = iaActiva ? "ACTIVA" : "DESACTIVADA"; 
-        document.getElementById('ia-text').style.color = iaActiva ? "#0f0" : "#555"; 
-    }
+                emergencyRecorder.start(1000);
+                emergencyRecordingActive = true;
+                notifyCentralEmergency(reason);
 
-    function toggleCarpetaNegra(s) { document.getElementById('blackFolderModal').style.display = s ? 'block' : 'none'; }
+                if (window.Android && window.Android.showToast) {
+                    window.Android.showToast('Grabación de emergencia iniciada');
+                }
 
-    async function guardarDelincuente() { 
-        const nom = document.getElementById('nombreDelincuente').value; 
-        const file = document.getElementById('fotoDelincuente').files[0]; 
-        if (!nom || !file) return; 
-        const img = await faceapi.bufferToImage(file); 
-        const det = await faceapi.detectSingleFace(img, new faceapi.TinyFaceDetectorOptions({ inputSize: 224 })).withFaceDescriptor(); 
-        if (!det) { alert('No se detectó cara en la foto'); return; }
-        dbIndexed.transaction(["delincuentes"], "readwrite").objectStore("delincuentes").add({ nombre: nom.toUpperCase(), descriptor: Array.from(det.descriptor), foto: await toBase64(file) }); 
-        cargarListaNegraVisual(); 
-    }
+                emergencyStopTimer = setTimeout(() => {
+                    if (emergencyRecorder && emergencyRecorder.state !== 'inactive') {
+                        emergencyRecorder.stop();
+                    }
+                }, EMERGENCY_RECORDING_MS);
 
-    function cargarListaNegraVisual() { 
-        const cont = document.getElementById('listaNegra'); 
-        if (!cont) return; 
-        cont.innerHTML = ""; 
-        dbIndexed.transaction("delincuentes", "readonly").objectStore("delincuentes").openCursor().onsuccess = (e) => { 
-            const c = e.target.result; 
-            if (c) { 
-                cont.innerHTML += `<div class="col-4 col-md-3 mb-2 text-center"><div class="card bg-black border-danger p-1"><img src="${c.value.foto}" style="height:80px; object-fit:cover; border-radius:4px;"><div class="small text-danger mt-1">${c.value.nombre}</div><button class="btn btn-danger btn-sm w-100 mt-1" onclick="eliminarSospechoso(${c.value.id})">BORRAR</button></div></div>`; 
-                c.continue(); 
-            } 
-        }; 
-    }
+                return true;
+            } catch (error) {
+                console.error('No se pudo iniciar la grabación de emergencia:', error);
+                emergencyRecordingActive = false;
+                emergencyRecorder = null;
+                emergencyChunks = [];
+                return false;
+            }
+        }
 
-    function eliminarSospechoso(id) { 
-        dbIndexed.transaction(["delincuentes"], "readwrite").objectStore("delincuentes").delete(id); 
-        cargarListaNegraVisual(); 
-    }
+        window.startEmergencyRecordingFromNative = function(reason) {
+            return startEmergencyRecording(reason || 'double_tap_lock');
+        };
 
-    function toBase64(f) { 
-        return new Promise(res => { const r = new FileReader(); r.onload = e => res(e.target.result); r.readAsDataURL(f); }); 
-    }
+        window.onNativeEmergencyRecordingStarted = function(reason, fileName) {
+            setStatus('GRABACION NATIVA EN CURSO', true);
+            notifyCentralEmergency(reason || 'double_tap_lock', fileName || '');
+        };
 
-    window.onload = init;
-</script>
+        window.onNativeEmergencyRecordingFinished = function(fileName) {
+            setStatus('GRABACION NATIVA FINALIZADA', true);
+            if (window.Android && window.Android.showToast) {
+                window.Android.showToast('Grabacion guardada: ' + (fileName || 'OK'));
+            }
+        };
+
+        function syncUnitPeerIdToNative() {
+            if (!peer || peer.destroyed || !peer.id) return;
+            window.__unitPeerId = peer.id;
+            if (window.Android && window.Android.setUnitPeerId) {
+                window.Android.setUnitPeerId(peer.id);
+            }
+        }
+
+        async function ensureStreamForViewer() {
+            const hasLiveVideo = miStream
+                && miStream.getVideoTracks
+                && miStream.getVideoTracks().some(t => t.readyState === 'live');
+            if (hasLiveVideo) return miStream;
+
+            try {
+                miStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                const localVideo = document.getElementById('localVideo');
+                if (localVideo) localVideo.srcObject = miStream;
+                return miStream;
+            } catch (e) {
+                console.error('No se pudo reabrir cámara/mic para viewer:', e);
+                return miStream;
+            }
+        }
+
+        function bootstrapUnitIdFromStorage() {
+            const saved = (localStorage.getItem('pablo_last_unidad_id') || '').trim().toUpperCase();
+            if (!saved) return;
+
+            const expectedPeerId = 'PABLO-U-' + saved;
+            desiredUnitPeerId = expectedPeerId;
+            window.__unitPeerId = expectedPeerId;
+
+            const input = document.getElementById('unidadId');
+            if (input && !input.value) input.value = saved;
+
+            if (window.Android && window.Android.setUnitAlias) {
+                window.Android.setUnitAlias(saved);
+            }
+            if (window.Android && window.Android.setUnitPeerId) {
+                window.Android.setUnitPeerId(expectedPeerId);
+            }
+        }
+
+        async function validarYActivar() {
+            const nom = document.getElementById('unidadId').value.trim().toUpperCase();
+            const tok = document.getElementById('tokenAcceso').value.trim();
+            if (!nom || !tok) { alert('Completá ID y TOKEN'); return; }
+
+            nombreActivo = nom;
+            tokenActivo = tok;
+
+            localStorage.setItem('pablo_last_unidad_id', nombreActivo);
+
+            // Guardar alias de unidad en nativo para fallback del candado
+            if (window.Android && window.Android.setUnitAlias) {
+                window.Android.setUnitAlias(nombreActivo);
+            }
+
+            // Persistir ID esperado en nativo desde el arranque (aunque PeerJS aún no abra)
+            const expectedPeerId = 'PABLO-U-' + nombreActivo;
+            window.__unitPeerId = expectedPeerId;
+            if (window.Android && window.Android.setUnitPeerId) {
+                window.Android.setUnitPeerId(expectedPeerId);
+            }
+
+            try {
+                miStream = await navigator.mediaDevices.getUserMedia({video: true, audio: true});
+            } catch(e) {
+                alert('Sin acceso a cámara/micrófono: ' + e.message);
+                return;
+            }
+            document.getElementById('localVideo').srcObject = miStream;
+            document.getElementById('setup').style.display = 'none';
+            document.getElementById('monitor-activo').style.display = 'block';
+            setStatus('CONECTANDO...', false);
+
+            iniciarPeer();
+        }
+
+        function iniciarPeer() {
+            clearTimeout(retryTimer);
+
+            if (peer && !peer.destroyed) {
+                peer.destroy();
+            }
+
+            // ID estable por sesión (no cambia en reconexiones de red)
+            const peerId = 'PABLO-U-' + nombreActivo;
+            desiredUnitPeerId = peerId;
+            window.__unitPeerId = peerId;
+            if (window.Android && window.Android.setUnitPeerId) {
+                window.Android.setUnitPeerId(peerId);
+            }
+            peer = new Peer(peerId);
+
+            peer.on('open', () => {
+                syncUnitPeerIdToNative();
+                conectar();
+            });
+
+            // Viewers se conectan al peer principal de la unidad
+            peer.on('connection', (conn) => {
+                conn.on('data', (data) => {
+                    if (!data || data.tipo !== 'viewer_ready') return;
+
+                    // Si el token aún no estaba seteado por JS (PiP lento), tomar el primero válido del viewer
+                    if (!viajeTokenActivo && data.token) {
+                        viajeTokenActivo = data.token;
+                    }
+
+                    // Validar token de viaje antes de abrir stream
+                    if (!viajeTokenActivo || data.token !== viajeTokenActivo) {
+                        try { conn.send({ tipo: 'viewer_denied' }); } catch (e) {}
+                        return;
+                    }
+
+                    try { conn.send({ tipo: 'viewer_ok' }); } catch (e) {}
+
+                    if (!viewerConns.includes(conn)) viewerConns.push(conn);
+                    if (lastLat !== null) {
+                        try { conn.send({ tipo: 'gps', lat: lastLat, lng: lastLng }); } catch (e) {}
+                    }
+
+                    (async () => {
+                        const streamToSend = await ensureStreamForViewer();
+                        if (!streamToSend) return;
+                        try {
+                            peer.call(conn.peer, streamToSend);
+                        } catch (e) {
+                            console.error('No se pudo iniciar llamada al viewer:', e);
+                        }
+                    })();
+                });
+
+                conn.on('close', () => {
+                    viewerConns = viewerConns.filter(c => c !== conn);
+                });
+            });
+
+            // Recibir audio push-to-talk desde la central.
+            peer.on('call', (call) => {
+                if (call.peer !== CENTRAL_PEER_ID) {
+                    try { call.answer(); } catch (e) {}
+                    return;
+                }
+
+                if (centralTalkCall) {
+                    try { centralTalkCall.close(); } catch (e) {}
+                }
+                centralTalkCall = call;
+
+                call.answer();
+
+                call.on('stream', (remoteStream) => {
+                    const audioEl = ensureCentralTalkAudio();
+                    audioEl.srcObject = remoteStream;
+                    const p = audioEl.play();
+                    if (p && typeof p.catch === 'function') {
+                        p.catch(() => {
+                            setStatus('AUDIO CENTRAL BLOQUEADO - TOCA LA PANTALLA', false);
+                        });
+                    }
+                });
+
+                call.on('close', () => {
+                    if (centralTalkCall === call) centralTalkCall = null;
+                    if (centralTalkAudio) centralTalkAudio.srcObject = null;
+                });
+
+                call.on('error', (err) => {
+                    console.error('Error llamada de audio central:', err);
+                });
+            });
+
+            peer.on('error', (err) => {
+                if (err.type === 'peer-unavailable') {
+                    setStatus('CENTRAL OFFLINE - REINTENTANDO EN 5s...', false);
+                    retryTimer = setTimeout(() => conectar(), RETRY_DELAY);
+                } else if (err.type === 'unavailable-id') {
+                    // Mantener ID estable: esperar y reintentar el mismo ID
+                    setStatus('ID OCUPADO - REINTENTANDO MISMO ID...', false);
+                    retryTimer = setTimeout(() => iniciarPeer(), 2500);
+                } else if (err.type === 'network' || err.type === 'server-error' || err.type === 'socket-error' || err.type === 'socket-closed') {
+                    setStatus('SIN RED - REINTENTANDO EN 5s...', false);
+                    retryTimer = setTimeout(() => iniciarPeer(), RETRY_DELAY);
+                } else {
+                    setStatus('ERROR: ' + err.type + ' - REINTENTANDO...', false);
+                    retryTimer = setTimeout(() => iniciarPeer(), RETRY_DELAY);
+                }
+            });
+
+            peer.on('disconnected', () => {
+                setStatus('DESCONECTADO - RECONECTANDO...', false);
+                if (!peer.destroyed) {
+                    peer.reconnect();
+                } else {
+                    retryTimer = setTimeout(() => iniciarPeer(), RETRY_DELAY);
+                }
+            });
+        }
+
+        function conectar() {
+            clearTimeout(retryTimer);
+            setStatus('CONECTANDO CON CENTRAL...', false);
+
+            if (connCentral) {
+                try { connCentral.close(); } catch(e) {}
+            }
+
+            connCentral = peer.connect(CENTRAL_PEER_ID, { reliable: true });
+
+            connCentral.on('open', () => {
+                connCentral.send({ tipo: 'login', nombre: nombreActivo, token: tokenActivo });
+                iniciarGPS();
+            });
+
+            connCentral.on('data', (data) => {
+                if (data.tipo === 'auth_ok') {
+                    setStatus('EN LÍNEA', true);
+                    syncUnitPeerIdToNative();
+                    peer.call(CENTRAL_PEER_ID, miStream);
+                } else if (data.tipo === 'auth_fail') {
+                    setStatus('TOKEN INCORRECTO', false);
+                } else if (data.tipo === 'emergency_recording_ack') {
+                    setStatus('EMERGENCIA REPORTADA', true);
+                } else if (data.tipo === 'sos_operador') {
+                    setStatus('SOS DESDE CENTRAL', false);
+                    startEmergencyRecording('central_sos');
+                }
+            });
+
+            connCentral.on('close', () => {
+                setStatus('CONEXIÓN CERRADA - REINTENTANDO...', false);
+                retryTimer = setTimeout(() => conectar(), RETRY_DELAY);
+            });
+
+            connCentral.on('error', (err) => {
+                setStatus('ERROR CONEXIÓN - REINTENTANDO...', false);
+                retryTimer = setTimeout(() => conectar(), RETRY_DELAY);
+            });
+
+            // Si en 10 segundos no hubo respuesta, reintentar
+            retryTimer = setTimeout(() => {
+                if (!connCentral || !connCentral.open) {
+                    setStatus('SIN RESPUESTA - REINTENTANDO...', false);
+                    conectar();
+                }
+            }, 10000);
+        }
+
+        function iniciarGPS() {
+            if (watchId) navigator.geolocation.clearWatch(watchId);
+            watchId = navigator.geolocation.watchPosition((pos) => {
+                lastLat = pos.coords.latitude;
+                lastLng = pos.coords.longitude;
+                if (connCentral && connCentral.open) {
+                    connCentral.send({ tipo: 'gps', lat: lastLat, lng: lastLng });
+                }
+                // Enviar GPS a los viewers del link de viaje
+                viewerConns.forEach(c => { try { if (c.open) c.send({ tipo: 'gps', lat: lastLat, lng: lastLng }); } catch(e) {} });
+            }, (err) => console.error("Error GPS:", err), { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 });
+        }
+
+        // ── LINK DE VIAJE (presión larga en candado flotante) ──
+        window.generarLinkViaje = function(tokenForzado) {
+            // Token de 6 caracteres alfanuméricos
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+            const token = tokenForzado || Array.from({length: 6}, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+            viajeTokenActivo = token;
+            viewerConns = [];
+
+            // Usar peer activo o el último peer cacheado sincronizado a nativo
+            const peerIdForLink = (peer && !peer.destroyed && peer.id)
+                ? peer.id
+                : (window.__unitPeerId || desiredUnitPeerId);
+            if (!peerIdForLink) {
+                return null;
+            }
+
+            const link = 'https://monitor-uber.vercel.app/viewer.html?u=' + encodeURIComponent(peerIdForLink) + '&v=' + token;
+
+            // Fallback browser normal
+            if (!window.Android) {
+                navigator.clipboard && navigator.clipboard.writeText(link);
+            }
+
+            return link;
+        };
+
+        // MANTENER VIVO EN SEGUNDO PLANO
+        document.addEventListener("visibilitychange", () => {
+            if (document.hidden) {
+                document.body.classList.add('pip-hidden');
+                return;
+            }
+
+            document.body.classList.remove('pip-hidden');
+            if (miStream) document.getElementById('localVideo').srcObject = miStream;
+        });
+
+        window.setHiddenPipMode = function(enabled) {
+            document.body.classList.toggle('pip-hidden', !!enabled);
+        };
+
+        // Heartbeat de sincronización para nativo (evita null en PiP/background)
+        setInterval(syncUnitPeerIdToNative, 2000);
+
+        bootstrapUnitIdFromStorage();
+    </script>
 </body>
 </html>
