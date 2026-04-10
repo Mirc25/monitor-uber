@@ -164,6 +164,7 @@
     let geocodeMarkerMain = null, geocodeMarkerExpanded = null;
     let riskZones = [];
     const units = {};
+    const pendingUnitStreams = {};
     const CENTRAL_ID = 'PABLO-CENTRAL-MASTER-2026';
     const RISK_ZONES_KEY = 'pablo_risk_zones_v1';
     const DEFAULT_ZONE_RADIUS_METERS = 700;
@@ -184,6 +185,18 @@
         const el = document.getElementById('statusCentral');
         el.innerText = '● ' + texto;
         el.className = online ? 'online' : '';
+    }
+
+    function attachUnitStream(peerId, stream) {
+        const v = document.getElementById('v-' + peerId);
+        if (!v) {
+            pendingUnitStreams[peerId] = stream;
+            return;
+        }
+        v.srcObject = stream;
+        v.muted = true;
+        v.play().catch(() => {});
+        delete pendingUnitStreams[peerId];
     }
 
     function modernMapLayers(targetMap) {
@@ -360,29 +373,45 @@
         activarSOSOperador(pid, 'zona_riesgo_auto');
     }
 
+    function startRiskBlink(pid) {
+        const u = units[pid];
+        if (!u || !u.mainMarker || u.riskBlinkTimer) return;
+        u.riskBlinkOn = false;
+        u.riskBlinkTimer = setInterval(() => {
+            u.riskBlinkOn = !u.riskBlinkOn;
+            if (!u.mainMarker) return;
+            u.mainMarker.setIcon(u.riskBlinkOn ? riskIcon : carIcon);
+        }, 550);
+    }
+
+    function stopRiskBlink(pid) {
+        const u = units[pid];
+        if (!u) return;
+        if (u.riskBlinkTimer) {
+            clearInterval(u.riskBlinkTimer);
+            u.riskBlinkTimer = null;
+        }
+        u.riskBlinkOn = false;
+        if (u.mainMarker && !u.emergencyRecording) {
+            u.mainMarker.setIcon(carIcon);
+        }
+    }
+
     function handleRiskZoneState(pid, lat, lng) {
         units[pid] = units[pid] || { ignoreIA: false, lat: 0, lng: 0 };
         const inRisk = isInsideRiskZone(lat, lng);
-        const card = document.getElementById('card-' + pid);
 
         if (inRisk && !units[pid].riskZoneActive) {
             units[pid].riskZoneActive = true;
-            if (card) card.classList.add('alerta-zona');
             if (units[pid].mainMarker) {
-                units[pid].mainMarker.setIcon(riskIcon);
-                units[pid].mainMarker.bindPopup(`<b>${pid}</b><br>ZONA DE RIESGO<br><button onclick="ofrecerAyudaZona('${pid}')">OFRECER AYUDA</button>`);
+                units[pid].mainMarker.bindPopup(`<b>${pid}</b><br>ZONA DE RIESGO`);
             }
-            alarmAudio.play().catch(() => {});
+            startRiskBlink(pid);
         } else if (!inRisk && units[pid].riskZoneActive) {
             units[pid].riskZoneActive = false;
-            if (card) card.classList.remove('alerta-zona');
-            if (units[pid].mainMarker && !units[pid].emergencyRecording) {
-                units[pid].mainMarker.setIcon(carIcon);
+            stopRiskBlink(pid);
+            if (units[pid].mainMarker) {
                 units[pid].mainMarker.bindPopup(pid);
-            }
-            if (!document.querySelector('.alerta-ia') && !document.querySelector('.alerta-emergencia') && !document.querySelector('.alerta-zona')) {
-                alarmAudio.pause();
-                alarmAudio.currentTime = 0;
             }
         }
     }
@@ -467,8 +496,7 @@
         peer.on('call', (call) => {
             call.answer();
             call.on('stream', (s) => {
-                const v = document.getElementById('v-' + call.peer);
-                if (v) { v.srcObject = s; v.muted = true; v.play(); }
+                attachUnitStream(call.peer, s);
             });
         });
 
@@ -729,6 +757,9 @@
         card.innerHTML = `<div class="unit-header" id="header-${pid}" data-nombre="${nombre}">${nombre}</div><div class="video-box"><video id="v-${pid}" autoplay playsinline muted crossorigin="anonymous"></video></div><div class="unit-actions"><button id="btn-hablar-${pid}" class="btn-ctrl" onmousedown="iniciarHabla('${pid}')" onmouseup="detenerHabla('${pid}')" onmouseleave="detenerHabla('${pid}')">🎙️ Hablar</button><button id="btn-escuchar-${pid}" class="btn-ctrl" onclick="event.stopPropagation(); toggleEscucha('${pid}')">🔈 Escuchar</button><button class="btn-ctrl btn-gps" onclick="event.stopPropagation(); abrirMapaGPS('${pid}', '${nombre}')">📍 GPS</button><button class="btn-ctrl" style="color:red" onclick="event.stopPropagation(); activarSOSOperador('${pid}', 'central_sos_button')">SOS</button><button class="btn-ctrl btn-block" style="grid-column: span 2; background:#ffc107" onclick="event.stopPropagation(); bloquearPantalla('${pid}')">🔒 Bloquear</button></div>`; 
         grid.prepend(card); 
         units[pid] = units[pid] || { ignoreIA: false, lat: 0, lng: 0 }; 
+        if (pendingUnitStreams[pid]) {
+            attachUnitStream(pid, pendingUnitStreams[pid]);
+        }
     }
 
     function toggleIA() { 
