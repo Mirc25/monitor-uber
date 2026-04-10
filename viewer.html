@@ -238,17 +238,13 @@
             call.on('stream', (s) => {
                 streamReceived = true;
                 video.srcObject = s;
-                video.muted = false;
+                video.muted = true;
                 video.style.display = 'block';
                 placeholder.style.display = 'none';
                 setStatus(true, 'EN VIVO');
-                const p = video.play();
-                if (p && typeof p.catch === 'function') {
-                    p.catch(() => {
-                        setStatus(true, 'EN VIVO (tocá para activar audio)');
-                        audioHint.style.display = 'block';
-                    });
-                }
+                video.play()
+                    .then(() => { audioHint.style.display = 'block'; })
+                    .catch(() => { audioHint.style.display = 'block'; setStatus(true, 'EN VIVO (tocá para activar audio)'); });
             });
             call.on('close', () => {
                 if (streamReceived) mostrarFin();
