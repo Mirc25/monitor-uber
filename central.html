@@ -380,7 +380,8 @@
         u.riskBlinkTimer = setInterval(() => {
             u.riskBlinkOn = !u.riskBlinkOn;
             if (!u.mainMarker) return;
-            u.mainMarker.setIcon(u.riskBlinkOn ? riskIcon : carIcon);
+            // Silent blink: fade marker instead of switching to SOS-like icon.
+            u.mainMarker.setOpacity(u.riskBlinkOn ? 0.28 : 1);
         }, 550);
     }
 
@@ -392,8 +393,11 @@
             u.riskBlinkTimer = null;
         }
         u.riskBlinkOn = false;
-        if (u.mainMarker && !u.emergencyRecording) {
-            u.mainMarker.setIcon(carIcon);
+        if (u.mainMarker) {
+            u.mainMarker.setOpacity(1);
+            if (!u.emergencyRecording) {
+                u.mainMarker.setIcon(carIcon);
+            }
         }
     }
 
