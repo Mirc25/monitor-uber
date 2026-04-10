@@ -50,6 +50,12 @@
         
         #mapaFlotanteContainer { height: 500px; width: 100%; background: #222; margin-top: 10px; border: 1px solid #0f0; }
         #mainMapExpandedContainer { height: calc(100vh - 140px); width: 100%; background: #111; border: 1px solid #1f6e94; }
+        .gps-toolbar { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+        .gps-mini-btn { border: 1px solid #246ea0; background: #10263b; color: #8fd3ff; font-size: 11px; font-weight: bold; border-radius: 6px; padding: 5px 10px; cursor: pointer; }
+        .gps-mini-btn.on { background: #1f5f34; border-color: #46c77a; color: #d9ffe9; }
+        .gps-mini-btn.poi { background: #3a2a11; border-color: #d09a4f; color: #ffd89e; }
+        .gps-hud { margin-top: 8px; border: 1px solid #1a5075; border-radius: 8px; background: #08151f; padding: 8px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12px; color: #bfe7ff; }
+        .gps-hud b { color: #77ceff; }
 
         #statusCentral { font-size: 11px; padding: 2px 10px; border-radius: 10px; background: #f00; color: #fff; font-weight: bold; }
         #statusCentral.online { background: #0a0; }
@@ -112,6 +118,17 @@
             <h4 id="gpsModalTitle">UBICACIÓN GPS</h4>
             <button class="btn btn-sm btn-danger" onclick="cerrarMapaGPS()">CERRAR</button>
         </div>
+        <div class="gps-toolbar">
+            <button class="gps-mini-btn" onclick="centrarMapaChofer()">CENTRAR</button>
+            <button id="btnFollowDriver" class="gps-mini-btn on" onclick="toggleSeguirChofer()">SEGUIR ON</button>
+            <button id="btnPoiDriver" class="gps-mini-btn poi" onclick="togglePoiChofer()">REFERENCIAS OFF</button>
+        </div>
+        <div class="gps-hud">
+            <div><b>Chofer:</b> <span id="hudChofer">-</span></div>
+            <div><b>Ultima act.:</b> <span id="hudHora">-</span></div>
+            <div><b>Lat:</b> <span id="hudLat">-</span></div>
+            <div><b>Lng:</b> <span id="hudLng">-</span></div>
+        </div>
         <div id="mapaFlotanteContainer"></div>
     </div>
 </div>
@@ -159,6 +176,10 @@
 <script>
     let peer, mainMap, mainMapExpanded, dbIndexed, iaActiva = false;
     let localStream = null, floatingMap = null, floatingMarker = null;
+    let floatingTrackLine = null, floatingTrackPoints = [];
+    let floatingCurrentPid = null, floatingCurrentNombre = '';
+    let floatingFollow = true, floatingPoiOn = false;
+    let floatingPoiLayer = null;
     let riskZonesLayer = null, riskZonesLayerExpanded = null;
     let poiLayerMain = null, poiLayerExpanded = null;
     let geocodeMarkerMain = null, geocodeMarkerExpanded = null;
@@ -197,6 +218,86 @@
         v.muted = true;
         v.play().catch(() => {});
         delete pendingUnitStreams[peerId];
+    }
+
+    function updateGpsHud(nombre, lat, lng) {
+        const chofer = document.getElementById('hudChofer');
+        const hora = document.getElementById('hudHora');
+        const latEl = document.getElementById('hudLat');
+        const lngEl = document.getElementById('hudLng');
+        if (chofer) chofer.innerText = nombre || floatingCurrentNombre || '-';
+        if (hora) hora.innerText = new Date().toLocaleTimeString();
+        if (latEl) latEl.innerText = Number(lat || 0).toFixed(6);
+        if (lngEl) lngEl.innerText = Number(lng || 0).toFixed(6);
+    }
+
+    function addTrackPoint(lat, lng) {
+        if (!floatingMap) return;
+        floatingTrackPoints.push([lat, lng]);
+        if (floatingTrackPoints.length > 300) floatingTrackPoints.shift();
+        if (!floatingTrackLine) {
+            floatingTrackLine = L.polyline(floatingTrackPoints, { color: '#4fd1ff', weight: 3, opacity: 0.85 }).addTo(floatingMap);
+        } else {
+            floatingTrackLine.setLatLngs(floatingTrackPoints);
+        }
+    }
+
+    function centrarMapaChofer() {
+        if (!floatingMap || !floatingMarker) return;
+        floatingMap.setView(floatingMarker.getLatLng(), 16);
+    }
+
+    function toggleSeguirChofer() {
+        floatingFollow = !floatingFollow;
+        const btn = document.getElementById('btnFollowDriver');
+        if (btn) {
+            btn.classList.toggle('on', floatingFollow);
+            btn.innerText = floatingFollow ? 'SEGUIR ON' : 'SEGUIR OFF';
+        }
+    }
+
+    async function loadPoiChofer() {
+        if (!floatingMap || !floatingPoiOn) return;
+        if (!floatingPoiLayer) floatingPoiLayer = L.layerGroup().addTo(floatingMap);
+        floatingPoiLayer.clearLayers();
+
+        const b = floatingMap.getBounds();
+        const bbox = `${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()}`;
+        const query = `[out:json][timeout:20];(node["amenity"="fuel"](${bbox});node["shop"~"supermarket|convenience"](${bbox});node["amenity"~"pharmacy|hospital|clinic|police"](${bbox}););out body 150;`;
+
+        try {
+            const res = await fetch('https://overpass-api.de/api/interpreter', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+                body: 'data=' + encodeURIComponent(query)
+            });
+            if (!res.ok) return;
+            const data = await res.json();
+            const elements = Array.isArray(data.elements) ? data.elements : [];
+            elements.forEach((el) => {
+                if (!Number.isFinite(el.lat) || !Number.isFinite(el.lon)) return;
+                const tags = el.tags || {};
+                const name = tags.name || tags.brand || 'Referencia';
+                L.circleMarker([el.lat, el.lon], {
+                    radius: 5,
+                    color: '#ffd57a',
+                    fillColor: '#ffd57a',
+                    fillOpacity: 0.75,
+                    weight: 1
+                }).bindPopup(name).addTo(floatingPoiLayer);
+            });
+        } catch (e) {}
+    }
+
+    function togglePoiChofer() {
+        floatingPoiOn = !floatingPoiOn;
+        const btn = document.getElementById('btnPoiDriver');
+        if (btn) btn.innerText = floatingPoiOn ? 'REFERENCIAS ON' : 'REFERENCIAS OFF';
+        if (!floatingPoiOn) {
+            if (floatingPoiLayer) floatingPoiLayer.clearLayers();
+            return;
+        }
+        loadPoiChofer();
     }
 
     function modernMapLayers(targetMap) {
@@ -704,13 +805,22 @@
                 units[pid].expandedMarker.setLatLng(pos);
             }
         }
-        if (document.getElementById('gpsModal').style.display === 'block' && floatingMarker) { floatingMarker.setLatLng(pos); floatingMap.panTo(pos); }
+        if (document.getElementById('gpsModal').style.display === 'block' && floatingMarker && pid === floatingCurrentPid) {
+            floatingMarker.setLatLng(pos);
+            addTrackPoint(lat, lng);
+            if (floatingFollow) floatingMap.panTo(pos);
+            updateGpsHud(floatingCurrentNombre || pid, lat, lng);
+        }
         handleRiskZoneState(pid, lat, lng);
     }
 
     function abrirMapaGPS(pid, nombre) { 
         document.getElementById('gpsModal').style.display = 'block'; 
         document.getElementById('gpsModalTitle').innerText = "UBICACIÓN: " + nombre; 
+        floatingCurrentPid = pid;
+        floatingCurrentNombre = nombre;
+        floatingTrackPoints = [];
+        floatingTrackLine = null;
         const pos = [units[pid].lat || -31.5375, units[pid].lng || -68.5364]; 
         if (!floatingMap) { 
             floatingMap = L.map('mapaFlotanteContainer').setView(pos, 16); 
@@ -721,9 +831,16 @@
             floatingMarker.setLatLng(pos); 
             setTimeout(() => { floatingMap.invalidateSize(); }, 200); 
         } 
+        updateGpsHud(nombre, pos[0], pos[1]);
+        addTrackPoint(pos[0], pos[1]);
+        if (floatingPoiOn) loadPoiChofer();
     }
 
-    function cerrarMapaGPS() { document.getElementById('gpsModal').style.display = 'none'; }
+    function cerrarMapaGPS() {
+        document.getElementById('gpsModal').style.display = 'none';
+        floatingCurrentPid = null;
+        floatingCurrentNombre = '';
+    }
 
     function iniciarHabla(pid) { 
         if (!localStream) return; 
