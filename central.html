@@ -72,13 +72,18 @@
             <div id="mainMap"></div>
             <div class="map-actions">
                 <button class="btn-map-mini" onclick="toggleMainMapExpanded(true)">MAXIMIZAR</button>
-                <button id="btnZoneMode" class="btn-map-mini" onclick="toggleZoneMode()">ZONAS OFF</button>
-                <button class="btn-map-mini" onclick="toggleZoneManager(true)">ZONAS</button>
-                <button id="btnRefs" class="btn-map-mini" onclick="togglePoiReferences()">REFERENCIAS OFF</button>
                 <button class="btn-map-mini" onclick="clearRiskZones()">LIMPIAR</button>
             </div>
         </div>
         <div class="tools-area p-3">
+            <div class="mb-3 p-2" style="border:1px solid #2f6993; border-radius:8px; background:#101822;">
+                <div class="fw-bold mb-2" style="font-size:12px; color:#9fe9ff;">ZONAS PELIGROSAS</div>
+                <div class="d-flex gap-2 mb-2">
+                    <input id="zoneSearch" class="form-control form-control-sm bg-dark text-info border-info" placeholder="Ej: Barrio La Estacion, San Juan">
+                    <button class="btn btn-sm btn-info fw-bold" onclick="buscarLugarParaZona()">AGREGAR</button>
+                </div>
+                <div id="zoneList" style="max-height:150px; overflow-y:auto;"></div>
+            </div>
             <button class="btn btn-danger w-100 fw-bold mb-3" onclick="toggleCarpetaNegra(true)">👤 CARPETA NEGRA</button>
             <div id="ia-toggle" style="width:70px; height:30px; background:#444; border-radius:20px; margin:10px auto; position:relative; cursor:pointer;" onclick="toggleIA()">
                 <div id="ia-dot" style="position:absolute; left:5px; top:4px; width:22px; height:22px; background:#ddd; border-radius:50%; transition: 0.3s;"></div>
@@ -129,31 +134,6 @@
     </div>
 </div>
 
-<div id="zoneManagerModal" class="modales">
-    <div class="modal-container" style="border-color:#2f6993; max-width: 900px;">
-        <div class="d-flex justify-content-between align-items-center mb-3 border-bottom border-info pb-2">
-            <h4>ZONAS PELIGROSAS - GESTION</h4>
-            <button class="btn btn-sm btn-danger" onclick="toggleZoneManager(false)">CERRAR</button>
-        </div>
-
-        <div class="row g-2 mb-3">
-            <div class="col-md-3"><input id="zoneName" class="form-control bg-dark text-info border-info" placeholder="Nombre zona"></div>
-            <div class="col-md-3"><input id="zoneLat" class="form-control bg-dark text-info border-info" placeholder="Latitud"></div>
-            <div class="col-md-3"><input id="zoneLng" class="form-control bg-dark text-info border-info" placeholder="Longitud"></div>
-            <div class="col-md-2"><input id="zoneRadius" class="form-control bg-dark text-info border-info" placeholder="Radio m" value="220"></div>
-            <div class="col-md-1 d-grid"><button class="btn btn-info fw-bold" onclick="addZoneFromInputs()">+</button></div>
-        </div>
-
-        <div class="row g-2 mb-3">
-            <div class="col-md-10"><input id="zoneSearch" class="form-control bg-dark text-info border-info" placeholder="Buscar barrio, villa, asentamiento o referencia (ej: Villa Carolina, San Juan)"></div>
-            <div class="col-md-2 d-grid"><button class="btn btn-outline-info fw-bold" onclick="buscarLugarParaZona()">BUSCAR</button></div>
-        </div>
-
-        <div class="small text-info mb-2">Tip: con ZONAS ON tambien podés tocar el mapa para agregar manchas rápidas.</div>
-        <div id="zoneList" style="max-height: 360px; overflow-y: auto;"></div>
-    </div>
-</div>
-
 <div id="blackFolderModal" class="modales">
     <div class="modal-container" style="border-color: #f00;">
         <div class="d-flex justify-content-between mb-3 border-bottom border-danger pb-2">
@@ -175,9 +155,6 @@
     let riskZonesLayer = null, riskZonesLayerExpanded = null;
     let poiLayerMain = null, poiLayerExpanded = null;
     let geocodeMarkerMain = null, geocodeMarkerExpanded = null;
-    let poiReferencesOn = false;
-    let poiRefreshTimer = null;
-    let zoneMode = false;
     let riskZones = [];
     const units = {};
     const CENTRAL_ID = 'PABLO-CENTRAL-MASTER-2026';
@@ -224,106 +201,6 @@
         }, null, { position: 'bottomright' }).addTo(targetMap);
     }
 
-    function ensurePoiLayers() {
-        if (!poiLayerMain && mainMap) poiLayerMain = L.layerGroup().addTo(mainMap);
-        if (mainMapExpanded && !poiLayerExpanded) poiLayerExpanded = L.layerGroup().addTo(mainMapExpanded);
-    }
-
-    function clearPoiLayers() {
-        if (poiLayerMain) poiLayerMain.clearLayers();
-        if (poiLayerExpanded) poiLayerExpanded.clearLayers();
-    }
-
-    function renderPoiPoint(lat, lng, title, tone = '#49b3ff') {
-        const markerMain = L.circleMarker([lat, lng], {
-            radius: 6,
-            color: tone,
-            fillColor: tone,
-            fillOpacity: 0.75,
-            weight: 1
-        }).bindPopup(title);
-        if (poiLayerMain) markerMain.addTo(poiLayerMain);
-
-        if (poiLayerExpanded) {
-            L.circleMarker([lat, lng], {
-                radius: 6,
-                color: tone,
-                fillColor: tone,
-                fillOpacity: 0.75,
-                weight: 1
-            }).bindPopup(title).addTo(poiLayerExpanded);
-        }
-    }
-
-    async function loadPoiReferences() {
-        if (!mainMap) return;
-
-        ensurePoiLayers();
-        clearPoiLayers();
-
-        const b = mainMap.getBounds();
-        const bbox = `${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()}`;
-        const query = `[out:json][timeout:25];(node["amenity"="fuel"](${bbox});node["shop"~"supermarket|convenience|mall|department_store|hardware"](${bbox});node["amenity"~"pharmacy|hospital|clinic|police"](${bbox}););out body 250;`;
-
-        try {
-            const btn = document.getElementById('btnRefs');
-            if (btn) btn.innerText = 'CARGANDO REF...';
-
-            const res = await fetch('https://overpass-api.de/api/interpreter', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
-                body: 'data=' + encodeURIComponent(query)
-            });
-
-            if (!res.ok) throw new Error('Overpass ' + res.status);
-            const data = await res.json();
-            const elements = Array.isArray(data.elements) ? data.elements : [];
-
-            elements.forEach((el) => {
-                if (!Number.isFinite(el.lat) || !Number.isFinite(el.lon)) return;
-                const tags = el.tags || {};
-                const name = tags.name || tags.brand || tags.operator || 'Referencia';
-                const isYpf = String(tags.brand || tags.name || '').toUpperCase().includes('YPF');
-                const isFuel = tags.amenity === 'fuel';
-                const isShop = !!tags.shop;
-                const kind = isYpf ? 'YPF' : (isFuel ? 'Estacion' : (isShop ? 'Comercio' : 'Servicio'));
-                const tone = isYpf ? '#2f8dff' : (isFuel ? '#4ec3ff' : (isShop ? '#6dffb5' : '#ffd166'));
-                renderPoiPoint(el.lat, el.lon, `<b>${kind}</b><br>${name}`, tone);
-            });
-
-            if (btn) btn.innerText = 'REFERENCIAS ON';
-        } catch (e) {
-            console.error('Error cargando referencias OSM:', e);
-            const btn = document.getElementById('btnRefs');
-            if (btn) btn.innerText = 'REF ERROR';
-        }
-    }
-
-    function togglePoiReferences() {
-        poiReferencesOn = !poiReferencesOn;
-        const btn = document.getElementById('btnRefs');
-
-        if (btn) {
-            btn.classList.toggle('ref-on', poiReferencesOn);
-            btn.innerText = poiReferencesOn ? 'REFERENCIAS ON' : 'REFERENCIAS OFF';
-        }
-
-        if (!poiReferencesOn) {
-            clearPoiLayers();
-            return;
-        }
-
-        loadPoiReferences();
-    }
-
-    function schedulePoiRefresh() {
-        if (!poiReferencesOn) return;
-        if (poiRefreshTimer) clearTimeout(poiRefreshTimer);
-        poiRefreshTimer = setTimeout(() => {
-            loadPoiReferences();
-        }, 600);
-    }
-
     function loadRiskZones() {
         try {
             const raw = localStorage.getItem(RISK_ZONES_KEY);
@@ -350,14 +227,6 @@
         });
 
         renderZoneList();
-    }
-
-    function toggleZoneMode() {
-        zoneMode = !zoneMode;
-        const btn = document.getElementById('btnZoneMode');
-        if (!btn) return;
-        btn.classList.toggle('active', zoneMode);
-        btn.innerText = zoneMode ? 'ZONAS ON' : 'ZONAS OFF';
     }
 
     function addRiskZone(lat, lng, radius = 220, name = '') {
@@ -387,24 +256,6 @@
             const safeName = String(z.name || ('Zona ' + (i + 1))).replace(/</g, '&lt;');
             return `<div class="zone-list-item"><div class="d-flex justify-content-between align-items-center"><strong>${safeName}</strong><div class="d-flex gap-1"><button class="btn btn-sm btn-outline-info" onclick="focusZone(${i})">VER</button><button class="btn btn-sm btn-outline-danger" onclick="removeZone(${i})">BORRAR</button></div></div><div class="meta">Lat ${lat} | Lng ${lng} | Radio ${radius}m</div></div>`;
         }).join('');
-    }
-
-    function addZoneFromInputs() {
-        const name = (document.getElementById('zoneName').value || '').trim();
-        const lat = Number((document.getElementById('zoneLat').value || '').trim());
-        const lng = Number((document.getElementById('zoneLng').value || '').trim());
-        const radius = Number((document.getElementById('zoneRadius').value || '220').trim()) || 220;
-
-        if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-            alert('Latitud/Longitud invalidas');
-            return;
-        }
-
-        addRiskZone(lat, lng, Math.max(60, radius), name || 'Zona manual');
-        document.getElementById('zoneName').value = '';
-        document.getElementById('zoneLat').value = '';
-        document.getElementById('zoneLng').value = '';
-        document.getElementById('zoneRadius').value = '220';
     }
 
     function setGeocodeMarker(lat, lng, label) {
@@ -444,11 +295,8 @@
             if (!Number.isFinite(lat) || !Number.isFinite(lng)) throw new Error('Coordenadas invalidas');
 
             const shortName = String(top.display_name || raw).split(',').slice(0, 2).join(',').trim();
-            document.getElementById('zoneLat').value = lat.toFixed(6);
-            document.getElementById('zoneLng').value = lng.toFixed(6);
-            if (!document.getElementById('zoneName').value.trim()) {
-                document.getElementById('zoneName').value = shortName || raw;
-            }
+            addRiskZone(lat, lng, 220, shortName || raw);
+            if (queryInput) queryInput.value = '';
 
             mainMap.setView([lat, lng], 16);
             if (mainMapExpanded) mainMapExpanded.setView([lat, lng], 16);
@@ -472,13 +320,6 @@
         riskZones.splice(index, 1);
         saveRiskZones();
         redrawRiskZones();
-    }
-
-    function toggleZoneManager(show) {
-        const modal = document.getElementById('zoneManagerModal');
-        if (!modal) return;
-        modal.style.display = show ? 'block' : 'none';
-        if (show) renderZoneList();
     }
 
     function isInsideRiskZone(lat, lng) {
@@ -528,16 +369,6 @@
             mainMapExpanded = L.map('mainMapExpandedContainer').setView(mainMap.getCenter(), mainMap.getZoom());
             modernMapLayers(mainMapExpanded);
             riskZonesLayerExpanded = L.layerGroup().addTo(mainMapExpanded);
-            ensurePoiLayers();
-
-            mainMapExpanded.on('click', (e) => {
-                if (!zoneMode) return;
-                addRiskZone(e.latlng.lat, e.latlng.lng, 220);
-            });
-
-            mainMapExpanded.on('moveend', () => {
-                schedulePoiRefresh();
-            });
         }
 
         mainMapExpanded.setView(mainMap.getCenter(), mainMap.getZoom());
@@ -554,15 +385,6 @@
         riskZonesLayer = L.layerGroup().addTo(mainMap);
         loadRiskZones();
         redrawRiskZones();
-
-        mainMap.on('click', (e) => {
-            if (!zoneMode) return;
-            addRiskZone(e.latlng.lat, e.latlng.lng, 220, 'Zona mapa');
-        });
-
-        mainMap.on('moveend', () => {
-            schedulePoiRefresh();
-        });
         
         try {
             const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
