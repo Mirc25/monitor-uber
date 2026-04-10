@@ -187,6 +187,19 @@
     const units = {};
     const pendingUnitStreams = {};
     const CENTRAL_ID = 'PABLO-CENTRAL-MASTER-2026';
+    const PEER_OPTS = {
+        host: '0.peerjs.com',
+        port: 443,
+        secure: true,
+        path: '/',
+        config: {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun2.l.google.com:19302' }
+            ]
+        }
+    };
     const RISK_ZONES_KEY = 'pablo_risk_zones_v1';
     const DEFAULT_ZONE_RADIUS_METERS = 700;
     const MIN_ZONE_RADIUS_METERS = 450;
@@ -570,7 +583,7 @@
 
         setStatusCentral(false, 'CONECTANDO...');
 
-        peer = new Peer(CENTRAL_ID);
+        peer = new Peer(CENTRAL_ID, PEER_OPTS);
 
         peer.on('open', (id) => {
             console.log('Central conectada con ID:', id);
