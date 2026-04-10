@@ -36,15 +36,23 @@
         .btn-talking { background: #f0f !important; color: #fff !important; }
 
         .side-panel { width: 320px; background: #222; display: flex; flex-direction: column; border-left: 2px solid #0f0; }
-        #mainMap { height: 280px; border-bottom: 2px solid #0f0; background: #111; }
+        .map-shell { position: relative; border-bottom: 2px solid #0f0; }
+        #mainMap { height: 280px; background: #111; }
+        .map-actions { position: absolute; top: 8px; right: 8px; display: flex; flex-direction: column; gap: 6px; z-index: 1200; }
+        .btn-map-mini { background: rgba(7, 14, 24, 0.88); color: #9fe9ff; border: 1px solid #2f6993; font-size: 10px; font-weight: bold; padding: 4px 8px; border-radius: 6px; cursor: pointer; }
+        .btn-map-mini.active { background: #7a2800; color: #ffd8ad; border-color: #ff8a3c; }
         
         .modales { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.96); z-index: 2000; padding: 25px; }
         .modal-container { max-width: 800px; margin: 0 auto; background: #111; border: 1px solid #0f0; padding: 20px; border-radius: 8px; color: #0f0; position: relative; }
         
         #mapaFlotanteContainer { height: 500px; width: 100%; background: #222; margin-top: 10px; border: 1px solid #0f0; }
+        #mainMapExpandedContainer { height: calc(100vh - 140px); width: 100%; background: #111; border: 1px solid #1f6e94; }
 
         #statusCentral { font-size: 11px; padding: 2px 10px; border-radius: 10px; background: #f00; color: #fff; font-weight: bold; }
         #statusCentral.online { background: #0a0; }
+
+        .alerta-zona { border: 5px solid #ffc107 !important; box-shadow: 0 0 25px #ffc107; animation: parpadeo-zona 0.5s infinite alternate; z-index: 1002; }
+        @keyframes parpadeo-zona { 0% { background: #111; } 100% { background: #4b3805; } }
     </style>
 </head>
 <body>
@@ -57,7 +65,14 @@
 <div class="main-layout">
     <div class="grid-fleet" id="monitorGrid"></div>
     <div class="side-panel">
-        <div id="mainMap"></div>
+        <div class="map-shell">
+            <div id="mainMap"></div>
+            <div class="map-actions">
+                <button class="btn-map-mini" onclick="toggleMainMapExpanded(true)">MAXIMIZAR</button>
+                <button id="btnZoneMode" class="btn-map-mini" onclick="toggleZoneMode()">ZONAS OFF</button>
+                <button class="btn-map-mini" onclick="clearRiskZones()">LIMPIAR</button>
+            </div>
+        </div>
         <div class="tools-area p-3">
             <button class="btn btn-danger w-100 fw-bold mb-3" onclick="toggleCarpetaNegra(true)">👤 CARPETA NEGRA</button>
             <div id="ia-toggle" style="width:70px; height:30px; background:#444; border-radius:20px; margin:10px auto; position:relative; cursor:pointer;" onclick="toggleIA()">
@@ -99,6 +114,16 @@
     </div>
 </div>
 
+<div id="mainMapModal" class="modales">
+    <div class="modal-container" style="max-width: 96vw; border-color: #1f6e94;">
+        <div class="d-flex justify-content-between align-items:center;">
+            <h4>MAPA GENERAL AMPLIADO</h4>
+            <button class="btn btn-sm btn-danger" onclick="toggleMainMapExpanded(false)">CERRAR</button>
+        </div>
+        <div id="mainMapExpandedContainer"></div>
+    </div>
+</div>
+
 <div id="blackFolderModal" class="modales">
     <div class="modal-container" style="border-color: #f00;">
         <div class="d-flex justify-content-between mb-3 border-bottom border-danger pb-2">
@@ -115,15 +140,20 @@
 </div>
 
 <script>
-    let peer, mainMap, dbIndexed, iaActiva = false;
+    let peer, mainMap, mainMapExpanded, dbIndexed, iaActiva = false;
     let localStream = null, floatingMap = null, floatingMarker = null;
+    let riskZonesLayer = null, riskZonesLayerExpanded = null;
+    let zoneMode = false;
+    let riskZones = [];
     const units = {};
     const CENTRAL_ID = 'PABLO-CENTRAL-MASTER-2026';
+    const RISK_ZONES_KEY = 'pablo_risk_zones_v1';
     const alarmAudio = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
     alarmAudio.loop = true;
 
     const carIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', iconSize: [25, 25], className: 'fuchsia-car' });
     const sosIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', iconSize: [30, 30], className: 'sos-car' });
+    const riskIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', iconSize: [30, 30], className: 'risk-car' });
 
     const request = indexedDB.open("PabloSecurity_Folder", 1);
     request.onupgradeneeded = (e) => { e.target.result.createObjectStore("delincuentes", { keyPath: "id", autoIncrement: true }); };
@@ -135,9 +165,137 @@
         el.className = online ? 'online' : '';
     }
 
+    function modernMapLayers(targetMap) {
+        const esri = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles © Esri'
+        });
+        const carto = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+            attribution: '© OpenStreetMap contributors © CARTO',
+            subdomains: 'abcd',
+            maxZoom: 20
+        });
+        esri.addTo(targetMap);
+        L.control.layers({ 'Esri Streets + POI': esri, 'Carto Voyager': carto }, null, { position: 'bottomright' }).addTo(targetMap);
+    }
+
+    function loadRiskZones() {
+        try {
+            const raw = localStorage.getItem(RISK_ZONES_KEY);
+            const parsed = raw ? JSON.parse(raw) : [];
+            riskZones = Array.isArray(parsed) ? parsed : [];
+        } catch (e) {
+            riskZones = [];
+        }
+    }
+
+    function saveRiskZones() {
+        localStorage.setItem(RISK_ZONES_KEY, JSON.stringify(riskZones));
+    }
+
+    function redrawRiskZones() {
+        if (riskZonesLayer) riskZonesLayer.clearLayers();
+        if (riskZonesLayerExpanded) riskZonesLayerExpanded.clearLayers();
+
+        riskZones.forEach((z) => {
+            const opts = { color: '#ff7b00', fillColor: '#ff7b00', fillOpacity: 0.17, weight: 2 };
+            if (riskZonesLayer) L.circle([z.lat, z.lng], { radius: z.radius || 220, ...opts }).addTo(riskZonesLayer);
+            if (riskZonesLayerExpanded) L.circle([z.lat, z.lng], { radius: z.radius || 220, ...opts }).addTo(riskZonesLayerExpanded);
+        });
+    }
+
+    function toggleZoneMode() {
+        zoneMode = !zoneMode;
+        const btn = document.getElementById('btnZoneMode');
+        if (!btn) return;
+        btn.classList.toggle('active', zoneMode);
+        btn.innerText = zoneMode ? 'ZONAS ON' : 'ZONAS OFF';
+    }
+
+    function addRiskZone(lat, lng, radius = 220) {
+        riskZones.push({ lat, lng, radius });
+        saveRiskZones();
+        redrawRiskZones();
+    }
+
+    function clearRiskZones() {
+        riskZones = [];
+        saveRiskZones();
+        redrawRiskZones();
+    }
+
+    function isInsideRiskZone(lat, lng) {
+        if (!mainMap || !Array.isArray(riskZones) || riskZones.length === 0) return false;
+        return riskZones.some((z) => mainMap.distance([lat, lng], [z.lat, z.lng]) <= (z.radius || 220));
+    }
+
+    function ofrecerAyudaZona(pid) {
+        activarSOSOperador(pid, 'zona_riesgo_auto');
+    }
+
+    function handleRiskZoneState(pid, lat, lng) {
+        units[pid] = units[pid] || { ignoreIA: false, lat: 0, lng: 0 };
+        const inRisk = isInsideRiskZone(lat, lng);
+        const card = document.getElementById('card-' + pid);
+
+        if (inRisk && !units[pid].riskZoneActive) {
+            units[pid].riskZoneActive = true;
+            if (card) card.classList.add('alerta-zona');
+            if (units[pid].mainMarker) {
+                units[pid].mainMarker.setIcon(riskIcon);
+                units[pid].mainMarker.bindPopup(`<b>${pid}</b><br>ZONA DE RIESGO<br><button onclick="ofrecerAyudaZona('${pid}')">OFRECER AYUDA</button>`);
+            }
+            alarmAudio.play().catch(() => {});
+        } else if (!inRisk && units[pid].riskZoneActive) {
+            units[pid].riskZoneActive = false;
+            if (card) card.classList.remove('alerta-zona');
+            if (units[pid].mainMarker && !units[pid].emergencyRecording) {
+                units[pid].mainMarker.setIcon(carIcon);
+                units[pid].mainMarker.bindPopup(pid);
+            }
+            if (!document.querySelector('.alerta-ia') && !document.querySelector('.alerta-emergencia') && !document.querySelector('.alerta-zona')) {
+                alarmAudio.pause();
+                alarmAudio.currentTime = 0;
+            }
+        }
+    }
+
+    function toggleMainMapExpanded(show) {
+        const modal = document.getElementById('mainMapModal');
+        if (!modal) return;
+
+        modal.style.display = show ? 'block' : 'none';
+        if (!show) return;
+
+        if (!mainMapExpanded) {
+            mainMapExpanded = L.map('mainMapExpandedContainer').setView(mainMap.getCenter(), mainMap.getZoom());
+            modernMapLayers(mainMapExpanded);
+            riskZonesLayerExpanded = L.layerGroup().addTo(mainMapExpanded);
+
+            mainMapExpanded.on('click', (e) => {
+                if (!zoneMode) return;
+                addRiskZone(e.latlng.lat, e.latlng.lng, 220);
+            });
+        }
+
+        mainMapExpanded.setView(mainMap.getCenter(), mainMap.getZoom());
+        redrawRiskZones();
+
+        setTimeout(() => {
+            mainMapExpanded.invalidateSize();
+        }, 120);
+    }
+
     async function init() {
         mainMap = L.map('mainMap').setView([-31.5375, -68.5364], 13);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mainMap);
+        modernMapLayers(mainMap);
+        riskZonesLayer = L.layerGroup().addTo(mainMap);
+        loadRiskZones();
+        redrawRiskZones();
+
+        mainMap.on('click', (e) => {
+            if (!zoneMode) return;
+            addRiskZone(e.latlng.lat, e.latlng.lng, 220);
+        });
         
         try {
             const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
@@ -373,6 +531,14 @@
                 alarmAudio.currentTime = 0;
             }
         }
+
+        if (c && c.classList.contains('alerta-zona') && units[pid] && !units[pid].riskZoneActive) {
+            c.classList.remove('alerta-zona');
+            if (!document.querySelector('.alerta-ia') && !document.querySelector('.alerta-emergencia') && !document.querySelector('.alerta-zona')) {
+                alarmAudio.pause();
+                alarmAudio.currentTime = 0;
+            }
+        }
     }
 
     // --- FUNCIONES EXTRA ---
@@ -381,7 +547,15 @@
         if (!units[pid]) units[pid] = { ignoreIA: false, lat: lat, lng: lng };
         units[pid].lat = lat; units[pid].lng = lng;
         if (!units[pid].mainMarker) { units[pid].mainMarker = L.marker(pos, {icon: carIcon}).addTo(mainMap).bindPopup(pid); } else { units[pid].mainMarker.setLatLng(pos); }
+        if (mainMapExpanded) {
+            if (!units[pid].expandedMarker) {
+                units[pid].expandedMarker = L.marker(pos, { icon: carIcon }).addTo(mainMapExpanded).bindPopup(pid);
+            } else {
+                units[pid].expandedMarker.setLatLng(pos);
+            }
+        }
         if (document.getElementById('gpsModal').style.display === 'block' && floatingMarker) { floatingMarker.setLatLng(pos); floatingMap.panTo(pos); }
+        handleRiskZoneState(pid, lat, lng);
     }
 
     function abrirMapaGPS(pid, nombre) { 
@@ -390,7 +564,7 @@
         const pos = [units[pid].lat || -31.5375, units[pid].lng || -68.5364]; 
         if (!floatingMap) { 
             floatingMap = L.map('mapaFlotanteContainer').setView(pos, 16); 
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(floatingMap); 
+            modernMapLayers(floatingMap); 
             floatingMarker = L.marker(pos, {icon: carIcon}).addTo(floatingMap); 
         } else { 
             floatingMap.setView(pos, 16); 
