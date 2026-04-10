@@ -41,6 +41,7 @@
         .map-actions { position: absolute; top: 8px; right: 8px; display: flex; flex-direction: column; gap: 6px; z-index: 1200; }
         .btn-map-mini { background: rgba(7, 14, 24, 0.88); color: #9fe9ff; border: 1px solid #2f6993; font-size: 10px; font-weight: bold; padding: 4px 8px; border-radius: 6px; cursor: pointer; }
         .btn-map-mini.active { background: #7a2800; color: #ffd8ad; border-color: #ff8a3c; }
+        .btn-map-mini.ref-on { background: #143e66; color: #d7f0ff; border-color: #6fb7ff; }
         .zone-list-item { border: 1px solid #2b435e; border-radius: 8px; background: #0d1724; padding: 8px; margin-bottom: 8px; color: #cde5ff; }
         .zone-list-item .meta { font-size: 12px; color: #94c8ff; }
         
@@ -73,6 +74,7 @@
                 <button class="btn-map-mini" onclick="toggleMainMapExpanded(true)">MAXIMIZAR</button>
                 <button id="btnZoneMode" class="btn-map-mini" onclick="toggleZoneMode()">ZONAS OFF</button>
                 <button class="btn-map-mini" onclick="toggleZoneManager(true)">ZONAS</button>
+                <button id="btnRefs" class="btn-map-mini" onclick="togglePoiReferences()">REFERENCIAS OFF</button>
                 <button class="btn-map-mini" onclick="clearRiskZones()">LIMPIAR</button>
             </div>
         </div>
@@ -142,6 +144,11 @@
             <div class="col-md-1 d-grid"><button class="btn btn-info fw-bold" onclick="addZoneFromInputs()">+</button></div>
         </div>
 
+        <div class="row g-2 mb-3">
+            <div class="col-md-10"><input id="zoneSearch" class="form-control bg-dark text-info border-info" placeholder="Buscar barrio, villa, asentamiento o referencia (ej: Villa Carolina, San Juan)"></div>
+            <div class="col-md-2 d-grid"><button class="btn btn-outline-info fw-bold" onclick="buscarLugarParaZona()">BUSCAR</button></div>
+        </div>
+
         <div class="small text-info mb-2">Tip: con ZONAS ON tambien podés tocar el mapa para agregar manchas rápidas.</div>
         <div id="zoneList" style="max-height: 360px; overflow-y: auto;"></div>
     </div>
@@ -166,6 +173,10 @@
     let peer, mainMap, mainMapExpanded, dbIndexed, iaActiva = false;
     let localStream = null, floatingMap = null, floatingMarker = null;
     let riskZonesLayer = null, riskZonesLayerExpanded = null;
+    let poiLayerMain = null, poiLayerExpanded = null;
+    let geocodeMarkerMain = null, geocodeMarkerExpanded = null;
+    let poiReferencesOn = false;
+    let poiRefreshTimer = null;
     let zoneMode = false;
     let riskZones = [];
     const units = {};
@@ -189,6 +200,10 @@
     }
 
     function modernMapLayers(targetMap) {
+        const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors',
+            maxZoom: 19
+        });
         const esri = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
             attribution: 'Tiles © Esri'
         });
@@ -197,8 +212,116 @@
             subdomains: 'abcd',
             maxZoom: 20
         });
-        esri.addTo(targetMap);
-        L.control.layers({ 'Esri Streets + POI': esri, 'Carto Voyager': carto }, null, { position: 'bottomright' }).addTo(targetMap);
+        const esriSat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles © Esri'
+        });
+        osm.addTo(targetMap);
+        L.control.layers({
+            'OpenStreetMap Referencias': osm,
+            'Esri Streets + POI': esri,
+            'Carto Voyager': carto,
+            'Esri Satelital': esriSat
+        }, null, { position: 'bottomright' }).addTo(targetMap);
+    }
+
+    function ensurePoiLayers() {
+        if (!poiLayerMain && mainMap) poiLayerMain = L.layerGroup().addTo(mainMap);
+        if (mainMapExpanded && !poiLayerExpanded) poiLayerExpanded = L.layerGroup().addTo(mainMapExpanded);
+    }
+
+    function clearPoiLayers() {
+        if (poiLayerMain) poiLayerMain.clearLayers();
+        if (poiLayerExpanded) poiLayerExpanded.clearLayers();
+    }
+
+    function renderPoiPoint(lat, lng, title, tone = '#49b3ff') {
+        const markerMain = L.circleMarker([lat, lng], {
+            radius: 6,
+            color: tone,
+            fillColor: tone,
+            fillOpacity: 0.75,
+            weight: 1
+        }).bindPopup(title);
+        if (poiLayerMain) markerMain.addTo(poiLayerMain);
+
+        if (poiLayerExpanded) {
+            L.circleMarker([lat, lng], {
+                radius: 6,
+                color: tone,
+                fillColor: tone,
+                fillOpacity: 0.75,
+                weight: 1
+            }).bindPopup(title).addTo(poiLayerExpanded);
+        }
+    }
+
+    async function loadPoiReferences() {
+        if (!mainMap) return;
+
+        ensurePoiLayers();
+        clearPoiLayers();
+
+        const b = mainMap.getBounds();
+        const bbox = `${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()}`;
+        const query = `[out:json][timeout:25];(node["amenity"="fuel"](${bbox});node["shop"~"supermarket|convenience|mall|department_store|hardware"](${bbox});node["amenity"~"pharmacy|hospital|clinic|police"](${bbox}););out body 250;`;
+
+        try {
+            const btn = document.getElementById('btnRefs');
+            if (btn) btn.innerText = 'CARGANDO REF...';
+
+            const res = await fetch('https://overpass-api.de/api/interpreter', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+                body: 'data=' + encodeURIComponent(query)
+            });
+
+            if (!res.ok) throw new Error('Overpass ' + res.status);
+            const data = await res.json();
+            const elements = Array.isArray(data.elements) ? data.elements : [];
+
+            elements.forEach((el) => {
+                if (!Number.isFinite(el.lat) || !Number.isFinite(el.lon)) return;
+                const tags = el.tags || {};
+                const name = tags.name || tags.brand || tags.operator || 'Referencia';
+                const isYpf = String(tags.brand || tags.name || '').toUpperCase().includes('YPF');
+                const isFuel = tags.amenity === 'fuel';
+                const isShop = !!tags.shop;
+                const kind = isYpf ? 'YPF' : (isFuel ? 'Estacion' : (isShop ? 'Comercio' : 'Servicio'));
+                const tone = isYpf ? '#2f8dff' : (isFuel ? '#4ec3ff' : (isShop ? '#6dffb5' : '#ffd166'));
+                renderPoiPoint(el.lat, el.lon, `<b>${kind}</b><br>${name}`, tone);
+            });
+
+            if (btn) btn.innerText = 'REFERENCIAS ON';
+        } catch (e) {
+            console.error('Error cargando referencias OSM:', e);
+            const btn = document.getElementById('btnRefs');
+            if (btn) btn.innerText = 'REF ERROR';
+        }
+    }
+
+    function togglePoiReferences() {
+        poiReferencesOn = !poiReferencesOn;
+        const btn = document.getElementById('btnRefs');
+
+        if (btn) {
+            btn.classList.toggle('ref-on', poiReferencesOn);
+            btn.innerText = poiReferencesOn ? 'REFERENCIAS ON' : 'REFERENCIAS OFF';
+        }
+
+        if (!poiReferencesOn) {
+            clearPoiLayers();
+            return;
+        }
+
+        loadPoiReferences();
+    }
+
+    function schedulePoiRefresh() {
+        if (!poiReferencesOn) return;
+        if (poiRefreshTimer) clearTimeout(poiRefreshTimer);
+        poiRefreshTimer = setTimeout(() => {
+            loadPoiReferences();
+        }, 600);
     }
 
     function loadRiskZones() {
@@ -284,6 +407,58 @@
         document.getElementById('zoneRadius').value = '220';
     }
 
+    function setGeocodeMarker(lat, lng, label) {
+        if (geocodeMarkerMain) mainMap.removeLayer(geocodeMarkerMain);
+        geocodeMarkerMain = L.marker([lat, lng]).addTo(mainMap).bindPopup(label).openPopup();
+
+        if (mainMapExpanded) {
+            if (geocodeMarkerExpanded) mainMapExpanded.removeLayer(geocodeMarkerExpanded);
+            geocodeMarkerExpanded = L.marker([lat, lng]).addTo(mainMapExpanded).bindPopup(label);
+        }
+    }
+
+    async function buscarLugarParaZona() {
+        const queryInput = document.getElementById('zoneSearch');
+        const raw = (queryInput?.value || '').trim();
+        if (!raw) {
+            alert('Escribí un barrio o referencia para buscar.');
+            return;
+        }
+
+        const q = /san\s*juan/i.test(raw) ? raw : `${raw}, San Juan, Argentina`;
+
+        try {
+            const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=ar&q=${encodeURIComponent(q)}`;
+            const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+            if (!res.ok) throw new Error('Geocoding ' + res.status);
+            const list = await res.json();
+
+            if (!Array.isArray(list) || list.length === 0) {
+                alert('No encontré ese lugar. Probá con otro nombre o una referencia cercana.');
+                return;
+            }
+
+            const top = list[0];
+            const lat = Number(top.lat);
+            const lng = Number(top.lon);
+            if (!Number.isFinite(lat) || !Number.isFinite(lng)) throw new Error('Coordenadas invalidas');
+
+            const shortName = String(top.display_name || raw).split(',').slice(0, 2).join(',').trim();
+            document.getElementById('zoneLat').value = lat.toFixed(6);
+            document.getElementById('zoneLng').value = lng.toFixed(6);
+            if (!document.getElementById('zoneName').value.trim()) {
+                document.getElementById('zoneName').value = shortName || raw;
+            }
+
+            mainMap.setView([lat, lng], 16);
+            if (mainMapExpanded) mainMapExpanded.setView([lat, lng], 16);
+            setGeocodeMarker(lat, lng, shortName || raw);
+        } catch (e) {
+            console.error('Error al buscar lugar:', e);
+            alert('No se pudo buscar el lugar ahora. Revisá conexión y probá de nuevo.');
+        }
+    }
+
     function focusZone(index) {
         const z = riskZones[index];
         if (!z || !mainMap) return;
@@ -353,10 +528,15 @@
             mainMapExpanded = L.map('mainMapExpandedContainer').setView(mainMap.getCenter(), mainMap.getZoom());
             modernMapLayers(mainMapExpanded);
             riskZonesLayerExpanded = L.layerGroup().addTo(mainMapExpanded);
+            ensurePoiLayers();
 
             mainMapExpanded.on('click', (e) => {
                 if (!zoneMode) return;
                 addRiskZone(e.latlng.lat, e.latlng.lng, 220);
+            });
+
+            mainMapExpanded.on('moveend', () => {
+                schedulePoiRefresh();
             });
         }
 
@@ -378,6 +558,10 @@
         mainMap.on('click', (e) => {
             if (!zoneMode) return;
             addRiskZone(e.latlng.lat, e.latlng.lng, 220, 'Zona mapa');
+        });
+
+        mainMap.on('moveend', () => {
+            schedulePoiRefresh();
         });
         
         try {
