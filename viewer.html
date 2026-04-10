@@ -154,6 +154,7 @@
     const params = new URLSearchParams(location.search);
     const token = params.get('v');
     const UNIT_PEER_ID = params.get('u');
+    const expTs = Number(params.get('exp') || 0);
 
     const dot       = document.getElementById('dot');
     const statusTxt = document.getElementById('statusText');
@@ -169,9 +170,16 @@
 
     // --- Mapa ---
     const map = L.map('map', { zoomControl: true }).setView([-31.5375, -68.5364], 14);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap'
-    }).addTo(map);
+    const esri = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+        attribution: 'Tiles © Esri'
+    });
+    const carto = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        attribution: '© OpenStreetMap contributors © CARTO',
+        subdomains: 'abcd',
+        maxZoom: 20
+    });
+    esri.addTo(map);
+    L.control.layers({ 'Esri Streets + POI': esri, 'Carto Voyager': carto }, null, { position: 'bottomright' }).addTo(map);
 
     const carIcon = L.icon({
         iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png',
@@ -190,7 +198,7 @@
     }
 
     // --- Sin token válido ---
-    if (!token || token.length < 4 || !UNIT_PEER_ID) {
+    if (!token || token.length < 4 || !UNIT_PEER_ID || !expTs || Date.now() > expTs) {
         setStatus(false, 'Link inválido o expirado.');
         endMsg.style.display = 'flex';
     } else {
