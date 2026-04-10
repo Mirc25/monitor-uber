@@ -154,7 +154,6 @@
     const params = new URLSearchParams(location.search);
     const token = params.get('v');
     const UNIT_PEER_ID = params.get('u');
-    const expTs = Number(params.get('exp') || 0);
 
     const dot       = document.getElementById('dot');
     const statusTxt = document.getElementById('statusText');
@@ -198,7 +197,7 @@
     }
 
     // --- Sin token válido ---
-    if (!token || token.length < 4 || !UNIT_PEER_ID || !expTs || Date.now() > expTs) {
+    if (!token || token.length < 4 || !UNIT_PEER_ID) {
         setStatus(false, 'Link inválido o expirado.');
         endMsg.style.display = 'flex';
     } else {
