@@ -9,9 +9,7 @@
     <script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
     <style>
         body {
-            background: linear-gradient(135deg, #0a1a2f 0%, #1e355c 100%) fixed, url('https://cdn.pixabay.com/photo/2017/01/31/13/14/earth-2029147_1280.png') center center no-repeat, url('https://www.transparenttextures.com/patterns/stardust.png');
-            background-size: cover, 55% auto, auto;
-            background-blend-mode: normal, lighten, normal;
+            background: linear-gradient(135deg, #0a1a2f 0%, #1e355c 100%) fixed;
             color: #e7f0ff;
             font-family: 'Rajdhani', 'Orbitron', sans-serif;
             margin: 0;
@@ -84,15 +82,14 @@
             box-shadow: 0 4px 16px #ff5f7d44, 0 1.5px 0 #7a0022 inset;
         }
         .main-layout { display: flex; flex: 1; overflow: hidden; position: relative; }
-        .main-layout::before {
-            content: '';
+        .main-layout-bg {
             position: absolute;
             top: 0; left: 0; right: 0; bottom: 0;
+            z-index: 0;
+            pointer-events: none;
             background: url('https://cdn.pixabay.com/photo/2017/01/31/13/14/earth-2029147_1280.png') center center no-repeat;
             background-size: 55% auto;
             opacity: 0.18;
-            pointer-events: none;
-            z-index: 0;
         }
         .grid-fleet { flex: 1; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; padding: 8px; overflow-y: auto; background: #111; }
         .grid-fleet::before {
@@ -163,15 +160,14 @@
         body { background: #000; color: #0f0; font-family: sans-serif; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
         .top-bar { background: #000; border-bottom: 1px solid #0f0; padding: 5px 15px; display: flex; justify-content: space-between; align-items: center; height: 45px; }
         .main-layout { display: flex; flex: 1; overflow: hidden; position: relative; }
-        .main-layout::before {
-            content: '';
+        .main-layout-bg {
             position: absolute;
             top: 0; left: 0; right: 0; bottom: 0;
+            z-index: 0;
+            pointer-events: none;
             background: url('https://cdn.pixabay.com/photo/2017/01/31/13/14/earth-2029147_1280.png') center center no-repeat;
             background-size: 55% auto;
             opacity: 0.18;
-            pointer-events: none;
-            z-index: 0;
         }
         .grid-fleet { flex: 1; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; padding: 8px; overflow-y: auto; background: #111; }
         .grid-fleet::before {
@@ -244,6 +240,7 @@
 </div>
 
 <div class="main-layout">
+    <div class="main-layout-bg"></div>
     <div class="grid-fleet" id="monitorGrid"></div>
     <div class="side-panel">
         <div class="map-shell">
@@ -256,6 +253,10 @@
             <button class="btn-3d btn-zona w-100 mb-3" onclick="toggleCarpetaZonas(true)"><span style="font-size:1.4em;">🗂️</span> <b>ZONAS PELIGROSAS</b></button>
             <button class="btn-3d agenda-btn w-100 mb-3" onclick="toggleAgenda(true)"><span style="font-size:1.4em;">🌐</span> <b>AGENDA Y TOKENS</b></button>
             <button class="btn-3d btn-negra w-100 mb-3" onclick="toggleCarpetaNegra(true)"><span style="font-size:1.4em;">👤</span> <b>CARPETA NEGRA</b></button>
+            <div id="ia-toggle" style="width:70px; height:30px; background:#444; border-radius:20px; margin:10px auto; position:relative; cursor:pointer;" onclick="toggleIA()">
+                <div id="ia-dot" style="position:absolute; left:5px; top:4px; width:22px; height:22px; background:#ddd; border-radius:50%; transition: 0.3s;"></div>
+            </div>
+            <div id="ia-text" style="font-weight:bold; font-size:13px; color:#555; text-align:center;">IA DESACTIVADA</div>
         </div>
     </div>
 </div>
