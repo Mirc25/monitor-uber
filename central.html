@@ -119,18 +119,18 @@
             gap: 12px;
             padding: 8px 8px 6px 8px;
             background: #000;
-            border-top: 1px solid #2bdcff;
+            border-top: 1px solid #222;
         }
-        .btn-record {
-            background: linear-gradient(90deg, #f00 0%, #a00 100%);
-            color: #fff;
-            border: none;
-            border-radius: 12px;
-            box-shadow: 0 2px 12px #f004, 0 1.5px 0 #a00 inset;
-            font-weight: bold;
+        .btn-record, .btn-gps, .btn-sos, .btn-ctrl, .btn-active, .btn-talking, .btn-other {
+            background: linear-gradient(145deg, #23272e 0%, #111216 100%);
+            color: #e0e6ef;
+            border: 1.5px solid #23272e;
+            border-radius: 13px;
+            box-shadow: 0 3px 12px #000a, 0 1.5px 0 #23272e inset;
+            font-weight: 600;
             font-size: 15px;
             padding: 10px 18px;
-            min-width: 90px;
+            min-width: 82px;
             cursor: pointer;
             text-transform: uppercase;
             user-select: none;
@@ -138,74 +138,48 @@
             display: flex;
             align-items: center;
             gap: 8px;
+            letter-spacing: 0.5px;
         }
         .btn-record .rec-dot {
-            width: 13px; height: 13px; border-radius: 50%; background: #fff; display: inline-block; box-shadow: 0 0 8px #fff4; margin-right: 2px;
+            width: 13px; height: 13px; border-radius: 50%; background: #c33; display: inline-block; box-shadow: 0 0 8px #c334; margin-right: 2px;
         }
         .btn-record.recording {
-            background: linear-gradient(90deg, #a00 0%, #f00 100%);
+            background: linear-gradient(145deg, #2a1818 0%, #3a2323 100%);
             color: #fff;
-            border-color: #fff;
+            border-color: #c33;
         }
         .btn-gps {
-            background: linear-gradient(90deg, #2bdcff 0%, #6bffaf 100%);
-            color: #0a1a2f;
-            border: none;
-            border-radius: 12px;
-            box-shadow: 0 2px 12px #2bdcff44, 0 1.5px 0 #0a1a2f inset;
-            font-weight: bold;
-            font-size: 15px;
-            padding: 10px 18px;
-            min-width: 90px;
-            cursor: pointer;
-            text-transform: uppercase;
-            user-select: none;
-            transition: transform 0.12s, box-shadow 0.12s, background 0.2s;
-            display: flex;
-            align-items: center;
-            gap: 8px;
+            background: linear-gradient(145deg, #1a2327 0%, #162024 100%);
+            color: #b2f2ff;
+            border-color: #1a2327;
         }
         .btn-sos {
-            background: linear-gradient(90deg, #ff5f7d 0%, #ffb6c1 100%);
-            color: #7a0022;
-            border: none;
-            border-radius: 10px;
-            box-shadow: 0 2px 8px #ff5f7d44, 0 1.5px 0 #7a0022 inset;
-            font-weight: bold;
-            font-size: 12px;
-            padding: 7px 10px;
-            min-width: 48px;
-            cursor: pointer;
-            text-transform: uppercase;
-            user-select: none;
-            display: flex;
-            align-items: center;
-            gap: 5px;
+            background: linear-gradient(145deg, #2e1a1a 0%, #3a2323 100%);
+            color: #ffb6b6;
+            border-color: #2e1a1a;
+            font-size: 14px;
+            min-width: 60px;
+            padding: 8px 12px;
         }
         .btn-ctrl {
-            background: linear-gradient(90deg, #2bdcff 0%, #0a1a2f 100%);
-            color: #0a1a2f;
-            border: none;
-            border-radius: 10px;
-            box-shadow: 0 2px 8px #2bdcff44, 0 1.5px 0 #0a1a2f inset;
-            font-weight: bold;
-            font-size: 12px;
-            padding: 7px 10px;
-            min-width: 48px;
-            cursor: pointer;
-            text-transform: uppercase;
-            user-select: none;
-            display: flex;
-            align-items: center;
-            gap: 5px;
+            background: linear-gradient(145deg, #1a2327 0%, #23272e 100%);
+            color: #b2f2ff;
+            border-color: #1a2327;
+            font-size: 14px;
+            min-width: 60px;
+            padding: 8px 12px;
         }
         .btn-active {
-            background: linear-gradient(90deg, #0f0 0%, #2bdcff 100%) !important;
-            color: #000 !important;
+            background: linear-gradient(145deg, #1a2e1a 0%, #232e23 100%) !important;
+            color: #b6ffb6 !important;
         }
         .btn-talking {
-            background: linear-gradient(90deg, #f0f 0%, #2bdcff 100%) !important;
-            color: #fff !important;
+            background: linear-gradient(145deg, #2e1a2e 0%, #2e2332 100%) !important;
+            color: #e6b6ff !important;
+        }
+        .btn-record:active, .btn-gps:active, .btn-sos:active, .btn-ctrl:active, .btn-other:active {
+            transform: translateY(2px) scale(0.97);
+            box-shadow: 0 1px 4px #000c;
         }
         .side-panel { width: 320px; background: #222; display: flex; flex-direction: column; border-left: 2px solid #0f0; }
         .map-shell { position: relative; border-bottom: 2px solid #0f0; }
