@@ -357,22 +357,51 @@
                 if (!actions.querySelector('.btn-gps')) {
                     const gpsBtn = document.createElement('button');
                     gpsBtn.className = 'btn-gps';
-                    gpsBtn.innerHTML = `<svg width="20" height="20" viewBox="0 0 20 20" style="margin-right:5px;vertical-align:middle;" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="8" stroke="#2bdcff" stroke-width="2"/><circle cx="10" cy="10" r="3" fill="#2bdcff"/><line x1="10" y1="2" x2="10" y2="0" stroke="#2bdcff" stroke-width="2"/><line x1="10" y1="20" x2="10" y2="18" stroke="#2bdcff" stroke-width="2"/><line x1="2" y1="10" x2="0" y2="10" stroke="#2bdcff" stroke-width="2"/><line x1="20" y1="10" x2="18" y2="10" stroke="#2bdcff" stroke-width="2"/></svg>GPS`;
                     gpsBtn.onclick = function() { /* Acción GPS aquí */ alert('GPS solicitado'); };
+                    gpsBtn.innerHTML = `
+                        <span class="rec-anim">
+                            <svg width="18" height="18" viewBox="0 0 20 20">
+                                <circle cx="10" cy="10" r="7" fill="#fff" opacity="0.13"/>
+                                <circle cx="10" cy="10" r="6" fill="#3ad6ff"/>
+                                <circle cx="10" cy="10" r="2.5" fill="#fff"/>
+                                <path d="M10 2v3M10 15v3M2 10h3M15 10h3" stroke="#3ad6ff" stroke-width="1.5" stroke-linecap="round"/>
+                            </svg>
+                        </span>
+                        <span style="flex:1;text-align:center;">GPS</span>
+                    `;
                     actions.appendChild(gpsBtn);
                 }
                 if (!actions.querySelector('.btn-sos')) {
                     const sosBtn = document.createElement('button');
                     sosBtn.className = 'btn-sos';
-                    sosBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 20 20" style="margin-right:3px;vertical-align:middle;" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="8" stroke="#ff5f7d" stroke-width="2"/><text x="10" y="15" text-anchor="middle" font-size="11" fill="#ff5f7d" font-family="Arial" font-weight="bold">!</text></svg>SOS`;
                     sosBtn.onclick = function() { /* Acción SOS aquí */ alert('SOS enviado'); };
+                    sosBtn.innerHTML = `
+                        <span class="rec-anim">
+                            <svg width="18" height="18" viewBox="0 0 20 20">
+                                <circle cx="10" cy="10" r="7" fill="#fff" opacity="0.13"/>
+                                <circle cx="10" cy="10" r="6" fill="#ff5f5f"/>
+                                <rect x="9.1" y="5" width="1.8" height="6.5" rx="0.9" fill="#fff"/>
+                                <rect x="9.1" y="13.2" width="1.8" height="1.8" rx="0.9" fill="#fff"/>
+                            </svg>
+                        </span>
+                        <span style="flex:1;text-align:center;">SOS</span>
+                    `;
                     actions.appendChild(sosBtn);
                 }
                 if (!actions.querySelector('.btn-ctrl')) {
                     const bloquearBtn = document.createElement('button');
                     bloquearBtn.className = 'btn-ctrl';
-                    bloquearBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 20 20" style="margin-right:3px;vertical-align:middle;" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="8" width="12" height="8" rx="2" fill="#2bdcff"/><rect x="7" y="4" width="6" height="6" rx="3" fill="#0a1a2f"/></svg>BLOQ`;
                     bloquearBtn.onclick = function() { /* Acción BLOQUEAR aquí */ alert('Bloqueado'); };
+                    bloquearBtn.innerHTML = `
+                        <span class="rec-anim">
+                            <svg width="18" height="18" viewBox="0 0 20 20">
+                                <rect x="4" y="9" width="12" height="6" rx="2" fill="#b2f2ff"/>
+                                <rect x="7" y="4" width="6" height="6" rx="3" fill="#23272e"/>
+                                <rect x="9.2" y="11.5" width="1.6" height="2.5" rx="0.8" fill="#23272e"/>
+                            </svg>
+                        </span>
+                        <span style="flex:1;text-align:center;">BLOQ</span>
+                    `;
                     actions.appendChild(bloquearBtn);
                 }
             });
