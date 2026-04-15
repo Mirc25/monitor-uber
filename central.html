@@ -122,15 +122,15 @@
             border-top: 1px solid #222;
         }
         .btn-record, .btn-gps, .btn-sos, .btn-ctrl {
-            background: #111;
+            background: #000;
             color: #fff;
-            border: 2px solid #fff;
+            border: 1.5px solid #fff;
             border-radius: 32px;
-            box-shadow: 0 4px 18px 0 #0008, 0 1.5px 0 #fff2 inset;
-            font-weight: 800;
-            font-size: 20px;
-            padding: 14px 36px 14px 22px;
-            min-width: 140px;
+            box-shadow: 0 4px 18px 0 #000a;
+            font-weight: 900;
+            font-size: 22px;
+            padding: 14px 38px 14px 24px;
+            min-width: 150px;
             cursor: pointer;
             text-transform: uppercase;
             user-select: none;
@@ -138,28 +138,34 @@
             display: flex;
             align-items: center;
             justify-content: flex-start;
-            gap: 16px;
-            letter-spacing: 1.2px;
+            gap: 18px;
+            letter-spacing: 1.3px;
             position: relative;
             overflow: hidden;
             outline: none;
         }
         .btn-record:hover, .btn-gps:hover, .btn-sos:hover, .btn-ctrl:hover {
-            background: #222;
-            box-shadow: 0 6px 24px 0 #000b, 0 2px 0 #fff4 inset;
+            background: #181818;
+            box-shadow: 0 8px 32px 0 #000c;
             border-color: #fff;
             color: #fff;
         }
         .btn-record svg, .btn-gps svg, .btn-sos svg, .btn-ctrl svg {
-            width: 28px;
-            height: 28px;
-            margin-right: 8px;
+            width: 30px;
+            height: 30px;
+            margin-right: 10px;
             flex-shrink: 0;
+            fill: #fff;
+            animation: icon-bounce 1.2s infinite alternate;
         }
-        .btn-record { color: #ff3b3b; }
-        .btn-gps { color: #3ad6ff; }
-        .btn-sos { color: #ff5f5f; }
-        .btn-ctrl { color: #b2f2ff; }
+        @keyframes icon-bounce {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(-6px); }
+        }
+        .btn-record { color: #fff; }
+        .btn-gps { color: #fff; }
+        .btn-sos { color: #fff; }
+        .btn-ctrl { color: #fff; }
         .btn-record .rec-anim {
             width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; margin-right: 7px;
         }
