@@ -381,7 +381,15 @@
             const modal = document.createElement('div');
             modal.className = 'modales';
             modal.style.display = 'block';
-            modal.innerHTML = `<div class="modal-container" style="max-width:700px;"><h4>${rec.filename}</h4><video src="${URL.createObjectURL(rec.blob)}" controls autoplay style="width:100%"></video><br><button class="btn btn-danger mt-2" onclick="this.closest('.modales').remove()">CERRAR</button></div>`;
+            modal.innerHTML = `
+                <div class="modal-container" style="max-width:700px; position:relative;">
+                    <button onclick="this.closest('.modales').remove()" style="position:absolute;top:10px;right:10px;font-size:1.7em;background:none;border:none;color:#f00;font-weight:bold;z-index:10;line-height:1;">&times;</button>
+                    <h4 style="padding-right:40px;">${rec.filename}</h4>
+                    <video src="${URL.createObjectURL(rec.blob)}" controls autoplay style="width:100%"></video>
+                    <br>
+                    <button class="btn btn-danger mt-2" onclick="this.closest('.modales').remove()">CERRAR</button>
+                </div>
+            `;
             document.body.appendChild(modal);
         }
         </script>
