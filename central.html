@@ -253,50 +253,154 @@
         function renderRecordButtons() {
             const grid = document.getElementById('monitorGrid');
             if (!grid) return;
-            // Espera a que existan los monitores
             setTimeout(() => {
                 const cards = grid.querySelectorAll('.unit-card');
                 cards.forEach((card, idx) => {
-                    if (card.querySelector('.record-btn-wrap')) return; // Ya tiene
-                    const wrap = document.createElement('div');
-                    wrap.className = 'record-btn-wrap';
-                    wrap.innerHTML = `<button class="btn-record" onclick="toggleRecord(this, ${idx})"><span class="rec-dot"></span> GRABAR</button>`;
-                    card.insertBefore(wrap, card.firstChild);
+                    const actions = card.querySelector('.unit-actions');
+                    if (!actions || actions.querySelector('.btn-record')) return;
+                    // Encuentra el botón BLOQUEAR (asumimos que es el segundo botón)
+                    const btns = actions.querySelectorAll('button');
+                    if (btns.length < 2) return;
+                    const bloquearBtn = btns[1];
+                    // Crea el botón GRABAR reducido
+                    const recBtn = document.createElement('button');
+                    recBtn.className = 'btn-record btn-record-mini';
+                    recBtn.onclick = function() { toggleRecord(this, idx); };
+                    recBtn.innerHTML = '<span class="rec-dot"></span> REC';
+                    // Inserta el botón GRABAR al lado de BLOQUEAR
+                    bloquearBtn.parentNode.insertBefore(recBtn, bloquearBtn.nextSibling);
                 });
             }, 500);
         }
         // Llama esto después de renderizar los monitores
         document.addEventListener('DOMContentLoaded', renderRecordButtons);
         // --- Botón y animación ---
+        // --- Grabación de video y GPS ---
+        const recordings = [];
+        let mediaRecorders = {};
+        let gpsInterval = null;
         function toggleRecord(btn, idx) {
+            const card = btn.closest('.unit-card');
+            const video = card ? card.querySelector('video') : null;
+            const nombre = card ? (card.querySelector('.unit-header')?.innerText || 'Monitor') : 'Monitor';
+            if (!video) return;
             btn.classList.toggle('recording');
             if (btn.classList.contains('recording')) {
                 btn.innerHTML = '<span class="rec-dot"></span> GRABANDO...';
-                // Aquí iría la lógica de grabación real
+                // Iniciar grabación
+                let stream = video.srcObject || video.captureStream?.() || video.mozCaptureStream?.();
+                if (!stream) { alert('No se puede grabar este video.'); return; }
+                let chunks = [];
+                let gpsData = [];
+                let recorder = new MediaRecorder(stream, { mimeType: 'video/webm; codecs=vp9' });
+                recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+                recorder.onstop = () => {
+                    const blob = new Blob(chunks, { type: 'video/webm' });
+                    const now = new Date();
+                    const fecha = now.toLocaleDateString('es-AR').replace(/\//g, '-');
+                    const hora = now.toLocaleTimeString('es-AR').replace(/:/g, '-');
+                    const filename = `${fecha}_${hora}_${nombre.replace(/\s+/g,'_')}.webm`;
+                    recordings.push({ filename, blob, gps: [...gpsData] });
+                    updateVideosList();
+                };
+                recorder.start();
+                mediaRecorders[idx] = recorder;
+                // Guardar GPS cada 2s
+                gpsData.push(getCurrentGps());
+                gpsInterval = setInterval(() => gpsData.push(getCurrentGps()), 2000);
             } else {
-                btn.innerHTML = '<span class="rec-dot"></span> GRABAR';
-                // Aquí se detendría la grabación
+                btn.innerHTML = '<span class="rec-dot"></span> REC';
+                // Detener grabación
+                if (mediaRecorders[idx]) {
+                    mediaRecorders[idx].stop();
+                    delete mediaRecorders[idx];
+                }
+                if (gpsInterval) { clearInterval(gpsInterval); gpsInterval = null; }
             }
+        }
+
+        function getCurrentGps() {
+            // Simulación: reemplaza por tu fuente real de GPS
+            return { lat: window.floatingMarker?.getLatLng?.().lat || 0, lng: window.floatingMarker?.getLatLng?.().lng || 0, t: Date.now() };
+        }
+
+        // --- Listado y gestión de videos ---
+        function updateVideosList() {
+            const list = document.getElementById('videosList');
+            if (!list) return;
+            if (!recordings.length) {
+                list.innerHTML = '<div class="text-info">No hay videos grabados aún.</div>';
+                return;
+            }
+            list.innerHTML = '';
+            recordings.forEach((rec, i) => {
+                const div = document.createElement('div');
+                div.className = 'video-item bg-dark text-light p-2 mb-2 rounded';
+                div.innerHTML = `
+                  <b>${rec.filename}</b><br>
+                  <video src="${URL.createObjectURL(rec.blob)}" controls style="width:220px;max-width:100%;vertical-align:middle;"></video>
+                  <button class="btn btn-sm btn-success ms-2" onclick="playVideoInModal(${i})">REPRODUCIR</button>
+                  <button class="btn btn-sm btn-danger ms-2" onclick="deleteVideo(${i})">BORRAR</button>
+                  <button class="btn btn-sm btn-info ms-2" onclick="shareVideo(${i})">COMPARTIR</button>
+                  <button class="btn btn-sm btn-secondary ms-2" onclick="downloadVideo(${i})">DESCARGAR</button>
+                  <span class="badge bg-info ms-2">GPS: ${rec.gps.length} pts</span>
+                `;
+                list.appendChild(div);
+            });
+        }
+
+        function deleteVideo(i) {
+            if (confirm('¿Borrar este video?')) {
+                recordings.splice(i, 1);
+                updateVideosList();
+            }
+        }
+        function shareVideo(i) {
+            const rec = recordings[i];
+            if (navigator.share) {
+                rec.blob.arrayBuffer().then(buf => {
+                    const file = new File([buf], rec.filename, { type: 'video/webm' });
+                    navigator.share({ files: [file], title: rec.filename });
+                });
+            } else {
+                alert('Compartir no soportado en este navegador.');
+            }
+        }
+        function downloadVideo(i) {
+            const rec = recordings[i];
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(rec.blob);
+            a.download = rec.filename;
+            a.click();
+        }
+        function playVideoInModal(i) {
+            const rec = recordings[i];
+            const modal = document.createElement('div');
+            modal.className = 'modales';
+            modal.style.display = 'block';
+            modal.innerHTML = `<div class="modal-container" style="max-width:700px;"><h4>${rec.filename}</h4><video src="${URL.createObjectURL(rec.blob)}" controls autoplay style="width:100%"></video><br><button class="btn btn-danger mt-2" onclick="this.closest('.modales').remove()">CERRAR</button></div>`;
+            document.body.appendChild(modal);
         }
         </script>
         <style>
-        .record-btn-wrap { width: 100%; display: flex; justify-content: center; margin-bottom: 4px; }
         .btn-record {
             background: #222;
             color: #fff;
             border: 2px solid #2bdcff;
             border-radius: 8px;
             font-weight: bold;
-            font-size: 13px;
-            padding: 6px 18px;
-            margin-bottom: 2px;
+            font-size: 11px;
+            padding: 3px 8px;
+            margin-left: 4px;
+            margin-bottom: 0;
             cursor: pointer;
             position: relative;
             transition: background 0.2s, color 0.2s;
-            display: flex; align-items: center; gap: 8px;
+            display: flex; align-items: center; gap: 5px;
         }
+        .btn-record-mini { font-size: 10px; padding: 2px 7px; }
         .btn-record .rec-dot {
-            width: 13px; height: 13px; border-radius: 50%; background: #f00; display: inline-block; box-shadow: 0 0 8px #f004;
+            width: 9px; height: 9px; border-radius: 50%; background: #f00; display: inline-block; box-shadow: 0 0 6px #f004;
             animation: rec-blink 1s steps(1) infinite;
         }
         .btn-record:not(.recording) .rec-dot { opacity: 0.5; animation: none; }
