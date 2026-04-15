@@ -142,23 +142,23 @@
         }
         .btn-record:hover, .btn-gps:hover, .btn-sos:hover, .btn-ctrl:hover {
             background: #222;
-            color: #fff;
-        }
-        /* Sin SVG ni íconos en los botones planos */
-        @keyframes icon-bounce {
-            0% { transform: translateY(0); }
-            100% { transform: translateY(-6px); }
-        }
-        .btn-record { color: #fff; }
-        .btn-gps { color: #fff; }
-        .btn-sos { color: #fff; }
-        .btn-ctrl { color: #fff; }
-        .btn-record .rec-anim {
-            width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; margin-right: 7px;
-        }
-        .btn-record .rec-anim svg {
-            display: block;
-        }
+                  background: #000 !important;
+                  color: #fff !important;
+                  border: none !important;
+                  border-radius: 10px !important;
+                  box-shadow: none !important;
+                  font-weight: 600;
+                  font-size: 15px;
+                  padding: 4px 14px !important;
+                  min-width: 90px;
+                  height: 28px !important;
+                  cursor: pointer;
+                  text-transform: none;
+                  user-select: none;
+                  transition: background 0.15s, color 0.15s;
+                  display: inline-block;
+                  letter-spacing: 0.5px;
+                  outline: none;
         .btn-record .rec-pulse {
             fill: #f34b4b;
             stroke: #fff;
