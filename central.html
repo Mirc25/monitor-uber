@@ -481,8 +481,10 @@
         }
     };
     const PEER_ENDPOINTS = [
+        { host: '1.peerjs.com', port: 443, secure: true, path: '/' },
         { host: '0.peerjs.com', port: 443, secure: true, path: '/' },
-        { host: '0.peerjs.com', port: 80, secure: false, path: '/' }
+        { host: '0.peerjs.com', port: 80, secure: false, path: '/' },
+        { host: '1.peerjs.com', port: 80, secure: false, path: '/' }
     ];
     let peerEndpointIndex = 0;
     const RISK_ZONES_KEY = 'pablo_risk_zones_v1';
