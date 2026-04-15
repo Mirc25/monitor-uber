@@ -122,24 +122,25 @@
             border-top: 1px solid #222;
         }
         .btn-record, .btn-gps, .btn-sos, .btn-ctrl {
-            background: #000;
+            background: linear-gradient(135deg, #111 60%, #23272e 100%);
             color: #fff;
             border: 1.5px solid #fff;
-            border-radius: 32px;
-            box-shadow: 0 4px 18px 0 #000a;
-            font-weight: 900;
-            font-size: 22px;
-            padding: 14px 38px 14px 24px;
-            min-width: 150px;
+            border-radius: 16px;
+            box-shadow: 0 2px 8px 0 #0005;
+            font-weight: 700;
+            font-size: 17px;
+            padding: 8px 18px 8px 14px;
+            min-width: 120px;
+            height: 42px;
             cursor: pointer;
             text-transform: uppercase;
             user-select: none;
-            transition: box-shadow 0.18s, background 0.18s, color 0.18s, border 0.18s;
+            transition: box-shadow 0.15s, background 0.15s, color 0.15s, border 0.15s;
             display: flex;
             align-items: center;
-            justify-content: flex-start;
-            gap: 18px;
-            letter-spacing: 1.3px;
+            justify-content: center;
+            gap: 8px;
+            letter-spacing: 1px;
             position: relative;
             overflow: hidden;
             outline: none;
@@ -151,12 +152,12 @@
             color: #fff;
         }
         .btn-record svg, .btn-gps svg, .btn-sos svg, .btn-ctrl svg {
-            width: 30px;
-            height: 30px;
-            margin-right: 10px;
+            width: 18px;
+            height: 18px;
+            margin-right: 7px;
             flex-shrink: 0;
             fill: #fff;
-            animation: icon-bounce 1.2s infinite alternate;
+            animation: none;
         }
         @keyframes icon-bounce {
             0% { transform: translateY(0); }
