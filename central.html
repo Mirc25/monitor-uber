@@ -122,28 +122,41 @@
             border-top: 1px solid #222;
         }
         .btn-record, .btn-gps, .btn-sos, .btn-ctrl {
-            background: linear-gradient(160deg, #18191c 0%, #23272e 100%);
-            color: #f3f6fa;
-            border: 2px solid #2a2323;
-            border-radius: 15px;
-            box-shadow: 0 4px 18px #000b, 0 2px 0 #2a2323 inset;
-            font-weight: 700;
-            font-size: 17px;
-            padding: 13px 26px;
-            min-width: 110px;
+            background: #111;
+            color: #fff;
+            border: 2px solid #fff;
+            border-radius: 32px;
+            box-shadow: 0 4px 18px 0 #0008, 0 1.5px 0 #fff2 inset;
+            font-weight: 800;
+            font-size: 20px;
+            padding: 14px 36px 14px 22px;
+            min-width: 140px;
             cursor: pointer;
             text-transform: uppercase;
             user-select: none;
-            transition: transform 0.12s, box-shadow 0.12s, background 0.2s;
+            transition: box-shadow 0.18s, background 0.18s, color 0.18s, border 0.18s;
             display: flex;
             align-items: center;
-            justify-content: center;
-            gap: 10px;
-            letter-spacing: 1px;
+            justify-content: flex-start;
+            gap: 16px;
+            letter-spacing: 1.2px;
             position: relative;
             overflow: hidden;
+            outline: none;
         }
-        .btn-record { color: #f34b4b; }
+        .btn-record:hover, .btn-gps:hover, .btn-sos:hover, .btn-ctrl:hover {
+            background: #222;
+            box-shadow: 0 6px 24px 0 #000b, 0 2px 0 #fff4 inset;
+            border-color: #fff;
+            color: #fff;
+        }
+        .btn-record svg, .btn-gps svg, .btn-sos svg, .btn-ctrl svg {
+            width: 28px;
+            height: 28px;
+            margin-right: 8px;
+            flex-shrink: 0;
+        }
+        .btn-record { color: #ff3b3b; }
         .btn-gps { color: #3ad6ff; }
         .btn-sos { color: #ff5f5f; }
         .btn-ctrl { color: #b2f2ff; }
