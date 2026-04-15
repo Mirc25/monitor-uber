@@ -124,40 +124,27 @@
         .btn-record, .btn-gps, .btn-sos, .btn-ctrl {
             background: #000;
             color: #fff;
-            border: 2px solid #fff;
-            border-radius: 12px;
+            border: none;
+            border-radius: 10px;
             box-shadow: none;
             font-weight: 600;
-            font-size: 16px;
-            padding: 7px 18px 7px 12px;
-            min-width: 120px;
-            height: 38px;
+            font-size: 15px;
+            padding: 7px 18px;
+            min-width: 100px;
+            height: 36px;
             cursor: pointer;
             text-transform: none;
             user-select: none;
-            transition: background 0.15s, color 0.15s, border 0.15s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 7px;
+            transition: background 0.15s, color 0.15s;
+            display: inline-block;
             letter-spacing: 0.5px;
-            position: relative;
-            overflow: hidden;
             outline: none;
         }
         .btn-record:hover, .btn-gps:hover, .btn-sos:hover, .btn-ctrl:hover {
             background: #222;
-            border-color: #fff;
             color: #fff;
         }
-        .btn-record svg, .btn-gps svg, .btn-sos svg, .btn-ctrl svg {
-            width: 16px;
-            height: 16px;
-            margin-right: 6px;
-            flex-shrink: 0;
-            fill: #fff;
-            animation: none;
-        }
+        /* Sin SVG ni íconos en los botones planos */
         @keyframes icon-bounce {
             0% { transform: translateY(0); }
             100% { transform: translateY(-6px); }
@@ -1422,7 +1409,7 @@
         card.id = 'card-' + pid; 
         card.onclick = function() { if (this.classList.contains('alerta-ia') || this.classList.contains('alerta-emergencia')) pararAlerta(pid); }; 
         card.ondblclick = function(event) { event.preventDefault(); activarSOSOperador(pid, 'central_card_double_click'); };
-        card.innerHTML = `<div class="unit-header" id="header-${pid}" data-nombre="${nombre}">${nombre}</div><div class="video-box"><video id="v-${pid}" autoplay playsinline muted crossorigin="anonymous"></video></div><div class="unit-actions"><button id="btn-hablar-${pid}" class="btn-hablar" onmousedown="iniciarHabla('${pid}')" onmouseup="detenerHabla('${pid}')" onmouseleave="detenerHabla('${pid}')"><svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M16.5 12c0-2.485-2.015-4.5-4.5-4.5S7.5 9.515 7.5 12c0 2.485 2.015 4.5 4.5 4.5s4.5-2.015 4.5-4.5zm-2.25 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0z' fill='white'/><path d='M12 2C6.477 2 2 6.477 2 12c0 5.523 4.477 10 10 10s10-4.477 10-10c0-5.523-4.477-10-10-10zm0 18.5A8.5 8.5 0 1 1 20.5 12 8.51 8.51 0 0 1 12 20.5z' fill='white'/></svg>HABLAR</button><button id="btn-escuchar-${pid}" class="btn-ctrl" onclick="event.stopPropagation(); toggleEscucha('${pid}')">🔈 Escuchar</button><button class="btn-ctrl btn-gps" onclick="event.stopPropagation(); abrirMapaGPS('${pid}', '${nombre}')">📍 GPS</button><button class="btn-ctrl" style="color:red" onclick="event.stopPropagation(); activarSOSOperador('${pid}', 'central_sos_button')">SOS</button><button class="btn-ctrl btn-block" style="grid-column: span 2; background:#ffc107" onclick="event.stopPropagation(); bloquearPantalla('${pid}')">🔒 Bloquear</button></div>`; 
+        card.innerHTML = `<div class=\"unit-header\" id=\"header-${pid}\" data-nombre=\"${nombre}\">${nombre}</div><div class=\"video-box\"><video id=\"v-${pid}\" autoplay playsinline muted crossorigin=\"anonymous\"></video></div><div class=\"unit-actions\"><button id=\"btn-hablar-${pid}\" class=\"btn-ctrl\" onmousedown=\"iniciarHabla('${pid}')\" onmouseup=\"detenerHabla('${pid}')\" onmouseleave=\"detenerHabla('${pid}')\">HABLAR</button><button id=\"btn-escuchar-${pid}\" class=\"btn-ctrl\" onclick=\"event.stopPropagation(); toggleEscucha('${pid}')\">ESCUCHAR</button><button class=\"btn-ctrl btn-gps\" onclick=\"event.stopPropagation(); abrirMapaGPS('${pid}', '${nombre}')\">GPS</button><button class=\"btn-ctrl\" style=\"color:red\" onclick=\"event.stopPropagation(); activarSOSOperador('${pid}', 'central_sos_button')\">SOS</button><button class=\"btn-ctrl btn-block\" style=\"grid-column: span 2; background:#ffc107\" onclick=\"event.stopPropagation(); bloquearPantalla('${pid}')\">BLOQUEAR</button></div>`; 
         grid.prepend(card); 
         units[pid] = units[pid] || { ignoreIA: false, lat: 0, lng: 0 }; 
         if (pendingUnitStreams[pid]) {
