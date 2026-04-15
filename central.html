@@ -246,7 +246,64 @@
 
 <div class="main-layout">
     <img src="https://img.freepik.com/fotos-premium/mapa-mundo-lineas-conexion-red-internet_177415-3114.jpg?w=2000" alt="Decorativo" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;opacity:0.18;z-index:0;pointer-events:none;" />
-    <div class="grid-fleet" id="monitorGrid" style="position:relative; z-index:1;"></div>
+        <div class="grid-fleet" id="monitorGrid" style="position:relative; z-index:1;"></div>
+        <script>
+        // --- UI para botón GRABAR y gestión de videos ---
+        // Simulación: asume que cada monitor es un .unit-card con un video-box
+        function renderRecordButtons() {
+            const grid = document.getElementById('monitorGrid');
+            if (!grid) return;
+            // Espera a que existan los monitores
+            setTimeout(() => {
+                const cards = grid.querySelectorAll('.unit-card');
+                cards.forEach((card, idx) => {
+                    if (card.querySelector('.record-btn-wrap')) return; // Ya tiene
+                    const wrap = document.createElement('div');
+                    wrap.className = 'record-btn-wrap';
+                    wrap.innerHTML = `<button class="btn-record" onclick="toggleRecord(this, ${idx})"><span class="rec-dot"></span> GRABAR</button>`;
+                    card.insertBefore(wrap, card.firstChild);
+                });
+            }, 500);
+        }
+        // Llama esto después de renderizar los monitores
+        document.addEventListener('DOMContentLoaded', renderRecordButtons);
+        // --- Botón y animación ---
+        function toggleRecord(btn, idx) {
+            btn.classList.toggle('recording');
+            if (btn.classList.contains('recording')) {
+                btn.innerHTML = '<span class="rec-dot"></span> GRABANDO...';
+                // Aquí iría la lógica de grabación real
+            } else {
+                btn.innerHTML = '<span class="rec-dot"></span> GRABAR';
+                // Aquí se detendría la grabación
+            }
+        }
+        </script>
+        <style>
+        .record-btn-wrap { width: 100%; display: flex; justify-content: center; margin-bottom: 4px; }
+        .btn-record {
+            background: #222;
+            color: #fff;
+            border: 2px solid #2bdcff;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 13px;
+            padding: 6px 18px;
+            margin-bottom: 2px;
+            cursor: pointer;
+            position: relative;
+            transition: background 0.2s, color 0.2s;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .btn-record .rec-dot {
+            width: 13px; height: 13px; border-radius: 50%; background: #f00; display: inline-block; box-shadow: 0 0 8px #f004;
+            animation: rec-blink 1s steps(1) infinite;
+        }
+        .btn-record:not(.recording) .rec-dot { opacity: 0.5; animation: none; }
+        .btn-record.recording { background: #f00; color: #fff; border-color: #fff; }
+        .btn-record.recording .rec-dot { animation: rec-blink 0.6s steps(1) infinite; }
+        @keyframes rec-blink { 0%,100%{opacity:1;} 50%{opacity:0.2;} }
+        </style>
     <div class="side-panel" style="position:relative; z-index:2;">
         <div class="map-shell">
             <div id="mainMap"></div>
@@ -258,6 +315,24 @@
             <button class="btn-3d btn-zona w-100 mb-3" onclick="toggleCarpetaZonas(true)"><span style="font-size:1.4em;">🗂️</span> <b>ZONAS PELIGROSAS</b></button>
             <button class="btn-3d agenda-btn w-100 mb-3" onclick="toggleAgenda(true)"><span style="font-size:1.4em;">🌐</span> <b>AGENDA Y TOKENS</b></button>
             <button class="btn-3d btn-negra w-100 mb-3" onclick="toggleCarpetaNegra(true)"><span style="font-size:1.4em;">👤</span> <b>CARPETA NEGRA</b></button>
+            <button class="btn-3d btn-videos w-100 mb-3" onclick="toggleVideosModal(true)"><span style="font-size:1.4em;">🎥</span> <b>VIDEOS</b></button>
+            <div id="videosModal" class="modales">
+                <div class="modal-container" style="border-color: #2bdcff; max-width: 900px;">
+                    <div class="d-flex justify-content-between mb-3 border-bottom border-info pb-2">
+                        <h4>VIDEOS GRABADOS</h4>
+                        <button class="btn btn-sm btn-danger" onclick="toggleVideosModal(false)">CERRAR</button>
+                    </div>
+                    <div id="videosList" class="bg-black p-2" style="max-height: 500px; overflow-y: auto; border: 1px solid #333;">
+                        <!-- Aquí se listarán los videos grabados -->
+                        <div class="text-info">No hay videos grabados aún.</div>
+                    </div>
+                </div>
+            </div>
+            <script>
+            function toggleVideosModal(show) {
+                document.getElementById('videosModal').style.display = show ? 'block' : 'none';
+            }
+            </script>
             <div id="ia-toggle" style="width:70px; height:30px; background:#444; border-radius:20px; margin:10px auto; position:relative; cursor:pointer;" onclick="toggleIA()">
                 <div id="ia-dot" style="position:absolute; left:5px; top:4px; width:22px; height:22px; background:#ddd; border-radius:50%; transition: 0.3s;"></div>
             </div>
