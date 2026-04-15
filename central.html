@@ -114,68 +114,90 @@
         video { height: 100%; width: auto; object-fit: contain; }
         .unit-actions {
             display: flex;
-            justify-content: space-between;
+            justify-content: flex-start;
             align-items: center;
-            gap: 8px;
-            padding: 6px 6px 4px 6px;
+            gap: 12px;
+            padding: 8px 8px 6px 8px;
             background: #000;
             border-top: 1px solid #2bdcff;
         }
-        .btn-ctrl, .btn-record, .btn-sos, .btn-gps {
-            background: linear-gradient(90deg, #2bdcff 0%, #0a1a2f 100%);
-            color: #0a1a2f;
+        .btn-record {
+            background: linear-gradient(90deg, #f00 0%, #a00 100%);
+            color: #fff;
             border: none;
-            border-radius: 10px;
-            box-shadow: 0 2px 8px #2bdcff44, 0 1.5px 0 #0a1a2f inset;
+            border-radius: 12px;
+            box-shadow: 0 2px 12px #f004, 0 1.5px 0 #a00 inset;
             font-weight: bold;
-            font-size: 13px;
-            padding: 8px 0;
-            min-width: 64px;
+            font-size: 15px;
+            padding: 10px 18px;
+            min-width: 90px;
             cursor: pointer;
             text-transform: uppercase;
             user-select: none;
             transition: transform 0.12s, box-shadow 0.12s, background 0.2s;
             display: flex;
             align-items: center;
-            justify-content: center;
-            gap: 6px;
-        }
-        .btn-ctrl:active, .btn-record:active, .btn-sos:active, .btn-gps:active {
-            transform: translateY(2px) scale(0.97);
-            box-shadow: 0 1px 4px #2bdcff88;
-        }
-        .btn-record {
-            background: linear-gradient(90deg, #f00 0%, #a00 100%);
-            color: #fff;
-            border-radius: 10px;
-            min-width: 64px;
-            font-size: 13px;
-            box-shadow: 0 2px 8px #f004, 0 1.5px 0 #a00 inset;
+            gap: 8px;
         }
         .btn-record .rec-dot {
-            width: 10px; height: 10px; border-radius: 50%; background: #fff; display: inline-block; box-shadow: 0 0 6px #fff4;
-            margin-right: 2px;
+            width: 13px; height: 13px; border-radius: 50%; background: #fff; display: inline-block; box-shadow: 0 0 8px #fff4; margin-right: 2px;
         }
         .btn-record.recording {
             background: linear-gradient(90deg, #a00 0%, #f00 100%);
             color: #fff;
             border-color: #fff;
         }
+        .btn-gps {
+            background: linear-gradient(90deg, #2bdcff 0%, #6bffaf 100%);
+            color: #0a1a2f;
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 2px 12px #2bdcff44, 0 1.5px 0 #0a1a2f inset;
+            font-weight: bold;
+            font-size: 15px;
+            padding: 10px 18px;
+            min-width: 90px;
+            cursor: pointer;
+            text-transform: uppercase;
+            user-select: none;
+            transition: transform 0.12s, box-shadow 0.12s, background 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
         .btn-sos {
             background: linear-gradient(90deg, #ff5f7d 0%, #ffb6c1 100%);
             color: #7a0022;
+            border: none;
             border-radius: 10px;
-            min-width: 64px;
-            font-size: 13px;
             box-shadow: 0 2px 8px #ff5f7d44, 0 1.5px 0 #7a0022 inset;
+            font-weight: bold;
+            font-size: 12px;
+            padding: 7px 10px;
+            min-width: 48px;
+            cursor: pointer;
+            text-transform: uppercase;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            gap: 5px;
         }
-        .btn-gps {
-            background: linear-gradient(90deg, #6bffaf 0%, #2bdcff 100%);
+        .btn-ctrl {
+            background: linear-gradient(90deg, #2bdcff 0%, #0a1a2f 100%);
             color: #0a1a2f;
+            border: none;
             border-radius: 10px;
-            min-width: 64px;
-            font-size: 13px;
             box-shadow: 0 2px 8px #2bdcff44, 0 1.5px 0 #0a1a2f inset;
+            font-weight: bold;
+            font-size: 12px;
+            padding: 7px 10px;
+            min-width: 48px;
+            cursor: pointer;
+            text-transform: uppercase;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            gap: 5px;
         }
         .btn-active {
             background: linear-gradient(90deg, #0f0 0%, #2bdcff 100%) !important;
@@ -328,30 +350,36 @@
                 // Limpia botones previos para evitar duplicados
                 const btns = Array.from(actions.querySelectorAll('button'));
                 btns.forEach(btn => btn.remove());
-                // Botón REC
+                // Botón REC (grande, a la izquierda)
                 const recBtn = document.createElement('button');
                 recBtn.className = 'btn-record';
                 recBtn.onclick = function() { toggleRecord(this, idx); };
-                recBtn.innerHTML = '<span class="rec-dot"></span> REC';
+                recBtn.innerHTML = `<svg width="20" height="20" viewBox="0 0 20 20" style="margin-right:5px;vertical-align:middle;" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="9" stroke="#fff" stroke-width="2"/><circle cx="10" cy="10" r="6" fill="#f00"/></svg>REC`;
                 actions.appendChild(recBtn);
-                // Botón SOS
-                const sosBtn = document.createElement('button');
-                sosBtn.className = 'btn-sos';
-                sosBtn.innerHTML = 'SOS';
-                sosBtn.onclick = function() { /* Acción SOS aquí */ alert('SOS enviado'); };
-                actions.appendChild(sosBtn);
-                // Botón GPS
+                // Botón GPS (grande, a la izquierda)
                 const gpsBtn = document.createElement('button');
                 gpsBtn.className = 'btn-gps';
-                gpsBtn.innerHTML = 'GPS';
+                gpsBtn.innerHTML = `<svg width="20" height="20" viewBox="0 0 20 20" style="margin-right:5px;vertical-align:middle;" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="8" stroke="#2bdcff" stroke-width="2"/><circle cx="10" cy="10" r="3" fill="#2bdcff"/><line x1="10" y1="2" x2="10" y2="0" stroke="#2bdcff" stroke-width="2"/><line x1="10" y1="20" x2="10" y2="18" stroke="#2bdcff" stroke-width="2"/><line x1="2" y1="10" x2="0" y2="10" stroke="#2bdcff" stroke-width="2"/><line x1="20" y1="10" x2="18" y2="10" stroke="#2bdcff" stroke-width="2"/></svg>GPS`;
                 gpsBtn.onclick = function() { /* Acción GPS aquí */ alert('GPS solicitado'); };
                 actions.appendChild(gpsBtn);
-                // Botón BLOQUEAR
+                // Contenedor para los botones chicos a la derecha
+                const rightGroup = document.createElement('div');
+                rightGroup.style.display = 'flex';
+                rightGroup.style.gap = '6px';
+                rightGroup.style.marginLeft = 'auto';
+                // Botón SOS (chico)
+                const sosBtn = document.createElement('button');
+                sosBtn.className = 'btn-sos';
+                sosBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 20 20" style="margin-right:3px;vertical-align:middle;" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="8" stroke="#ff5f7d" stroke-width="2"/><text x="10" y="15" text-anchor="middle" font-size="11" fill="#ff5f7d" font-family="Arial" font-weight="bold">!</text></svg>SOS`;
+                sosBtn.onclick = function() { /* Acción SOS aquí */ alert('SOS enviado'); };
+                rightGroup.appendChild(sosBtn);
+                // Botón BLOQUEAR (chico)
                 const bloquearBtn = document.createElement('button');
                 bloquearBtn.className = 'btn-ctrl';
-                bloquearBtn.innerHTML = 'BLOQUEAR';
+                bloquearBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 20 20" style="margin-right:3px;vertical-align:middle;" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="8" width="12" height="8" rx="2" fill="#2bdcff"/><rect x="7" y="4" width="6" height="6" rx="3" fill="#0a1a2f"/></svg>BLOQ`;
                 bloquearBtn.onclick = function() { /* Acción BLOQUEAR aquí */ alert('Bloqueado'); };
-                actions.appendChild(bloquearBtn);
+                rightGroup.appendChild(bloquearBtn);
+                actions.appendChild(rightGroup);
             });
         }
         // Observa cambios en el grid de monitores y agrega el botón REC automáticamente
