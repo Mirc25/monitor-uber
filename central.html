@@ -462,11 +462,7 @@
     const units = {};
     const pendingUnitStreams = {};
     const CENTRAL_ID = 'PABLO-CENTRAL-MASTER-2026';
-    const PEER_OPTS = {
-        host: '0.peerjs.com',
-        port: 443,
-        secure: true,
-        path: '/',
+    const PEER_BASE_CONFIG = {
         config: {
             iceServers: [
                 { urls: 'stun:stun.l.google.com:19302' },
@@ -484,6 +480,11 @@
             ]
         }
     };
+    const PEER_ENDPOINTS = [
+        { host: '0.peerjs.com', port: 443, secure: true, path: '/' },
+        { host: '0.peerjs.com', port: 80, secure: false, path: '/' }
+    ];
+    let peerEndpointIndex = 0;
     const RISK_ZONES_KEY = 'pablo_risk_zones_v1';
     const DEFAULT_ZONE_RADIUS_METERS = 700;
     const MIN_ZONE_RADIUS_METERS = 450;
@@ -884,16 +885,25 @@
             try { peer.destroy(); } catch (e) {}
         }
 
-        setStatusCentral(false, 'CONECTANDO...');
+        const endpoint = PEER_ENDPOINTS[peerEndpointIndex % PEER_ENDPOINTS.length];
+        const peerOpts = {
+            ...PEER_BASE_CONFIG,
+            host: endpoint.host,
+            port: endpoint.port,
+            secure: endpoint.secure,
+            path: endpoint.path
+        };
 
-        peer = new Peer(CENTRAL_ID, PEER_OPTS);
+        setStatusCentral(false, `CONECTANDO ${endpoint.secure ? 'WSS' : 'WS'}...`);
+
+        peer = new Peer(CENTRAL_ID, peerOpts);
         const activePeer = peer;
 
         peer.on('open', (id) => {
             if (peer !== activePeer) return;
             centralConnecting = false;
             console.log('Central conectada con ID:', id);
-            setStatusCentral(true, 'EN LÍNEA - ' + id);
+            setStatusCentral(true, 'EN LÍNEA - ' + id + ` (${endpoint.secure ? 'WSS' : 'WS'})`);
         });
 
         peer.on('connection', (conn) => {
@@ -931,6 +941,11 @@
             if (peer !== activePeer) return;
             centralConnecting = false;
             console.error('Error central:', err.type, err.message);
+
+            if (err.type === 'network' || err.type === 'server-error' || err.type === 'socket-error' || err.type === 'socket-closed') {
+                peerEndpointIndex = (peerEndpointIndex + 1) % PEER_ENDPOINTS.length;
+            }
+
             if (err.type === 'unavailable-id') {
                 scheduleCentralReconnect(10000, 'ID OCUPADO - ESPERANDO 10s...');
             } else if (err.type === 'network' || err.type === 'server-error' || err.type === 'socket-error' || err.type === 'socket-closed') {
@@ -944,6 +959,7 @@
             if (peer !== activePeer) return;
             centralConnecting = false;
             console.warn('Central desconectada del servidor PeerJS, reconectando...');
+            peerEndpointIndex = (peerEndpointIndex + 1) % PEER_ENDPOINTS.length;
             scheduleCentralReconnect(5000, 'DESCONECTADA - RECONECTANDO...');
         });
 
