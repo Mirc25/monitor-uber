@@ -253,27 +253,30 @@
         function renderRecordButtons() {
             const grid = document.getElementById('monitorGrid');
             if (!grid) return;
-            setTimeout(() => {
-                const cards = grid.querySelectorAll('.unit-card');
-                cards.forEach((card, idx) => {
-                    const actions = card.querySelector('.unit-actions');
-                    if (!actions || actions.querySelector('.btn-record')) return;
-                    // Encuentra el botón BLOQUEAR (asumimos que es el segundo botón)
-                    const btns = actions.querySelectorAll('button');
-                    if (btns.length < 2) return;
-                    const bloquearBtn = btns[1];
-                    // Crea el botón GRABAR reducido
-                    const recBtn = document.createElement('button');
-                    recBtn.className = 'btn-record btn-record-mini';
-                    recBtn.onclick = function() { toggleRecord(this, idx); };
-                    recBtn.innerHTML = '<span class="rec-dot"></span> REC';
-                    // Inserta el botón GRABAR al lado de BLOQUEAR
-                    bloquearBtn.parentNode.insertBefore(recBtn, bloquearBtn.nextSibling);
-                });
-            }, 500);
+            const cards = grid.querySelectorAll('.unit-card');
+            cards.forEach((card, idx) => {
+                const actions = card.querySelector('.unit-actions');
+                if (!actions || actions.querySelector('.btn-record')) return;
+                // Encuentra el botón BLOQUEAR (asumimos que es el segundo botón)
+                const btns = actions.querySelectorAll('button');
+                if (btns.length < 2) return;
+                const bloquearBtn = btns[1];
+                // Crea el botón GRABAR reducido
+                const recBtn = document.createElement('button');
+                recBtn.className = 'btn-record btn-record-mini';
+                recBtn.onclick = function() { toggleRecord(this, idx); };
+                recBtn.innerHTML = '<span class="rec-dot"></span> REC';
+                bloquearBtn.parentNode.insertBefore(recBtn, bloquearBtn.nextSibling);
+            });
         }
-        // Llama esto después de renderizar los monitores
-        document.addEventListener('DOMContentLoaded', renderRecordButtons);
+        // Observa cambios en el grid de monitores y agrega el botón REC automáticamente
+        document.addEventListener('DOMContentLoaded', () => {
+            renderRecordButtons();
+            const grid = document.getElementById('monitorGrid');
+            if (!grid) return;
+            const observer = new MutationObserver(() => renderRecordButtons());
+            observer.observe(grid, { childList: true, subtree: true });
+        });
         // --- Botón y animación ---
         // --- Grabación de video y GPS ---
         const recordings = [];
