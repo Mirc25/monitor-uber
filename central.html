@@ -29,11 +29,17 @@
             box-shadow: 0 2px 12px #0008;
         }
         .top-bar .logo-mundo {
-            width: 28px;
-            height: 28px;
+            width: 32px;
+            height: 32px;
             vertical-align: middle;
             filter: drop-shadow(0 0 4px #2bdcff);
             margin-right: 8px;
+            animation: girar-mundo 2.5s linear infinite;
+        }
+
+        @keyframes girar-mundo {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
         .top-bar-title {
             font-size: 18px;
@@ -226,7 +232,12 @@
 
 <div class="top-bar">
     <div style="display:flex;align-items:center;gap:10px;">
-        <img src="https://cdn-icons-png.flaticon.com/512/854/854878.png" alt="Mundo" class="logo-mundo">
+        <svg class="logo-mundo" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="32" cy="32" r="30" fill="#2bdcff" stroke="#0a1a2f" stroke-width="4"/>
+          <ellipse cx="32" cy="32" rx="24" ry="12" fill="#1e355c" opacity="0.7"/>
+          <ellipse cx="32" cy="32" rx="20" ry="28" fill="none" stroke="#fff" stroke-width="2" opacity="0.5"/>
+          <ellipse cx="32" cy="32" rx="28" ry="8" fill="none" stroke="#fff" stroke-width="1.2" opacity="0.3"/>
+        </svg>
         <span class="top-bar-title">MUNDO SEGURIDAD</span>
         <span id="statusCentral" style="margin-left:12px;">● CONECTANDO...</span>
     </div>
