@@ -347,39 +347,35 @@
             cards.forEach((card, idx) => {
                 const actions = card.querySelector('.unit-actions');
                 if (!actions) return;
-                // Limpia botones previos para evitar duplicados
-                const btns = Array.from(actions.querySelectorAll('button'));
-                btns.forEach(btn => btn.remove());
-                // Botón REC (grande, a la izquierda)
-                const recBtn = document.createElement('button');
-                recBtn.className = 'btn-record';
-                recBtn.onclick = function() { toggleRecord(this, idx); };
-                recBtn.innerHTML = `<svg width="20" height="20" viewBox="0 0 20 20" style="margin-right:5px;vertical-align:middle;" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="9" stroke="#fff" stroke-width="2"/><circle cx="10" cy="10" r="6" fill="#f00"/></svg>REC`;
-                actions.appendChild(recBtn);
-                // Botón GPS (grande, a la izquierda)
-                const gpsBtn = document.createElement('button');
-                gpsBtn.className = 'btn-gps';
-                gpsBtn.innerHTML = `<svg width="20" height="20" viewBox="0 0 20 20" style="margin-right:5px;vertical-align:middle;" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="8" stroke="#2bdcff" stroke-width="2"/><circle cx="10" cy="10" r="3" fill="#2bdcff"/><line x1="10" y1="2" x2="10" y2="0" stroke="#2bdcff" stroke-width="2"/><line x1="10" y1="20" x2="10" y2="18" stroke="#2bdcff" stroke-width="2"/><line x1="2" y1="10" x2="0" y2="10" stroke="#2bdcff" stroke-width="2"/><line x1="20" y1="10" x2="18" y2="10" stroke="#2bdcff" stroke-width="2"/></svg>GPS`;
-                gpsBtn.onclick = function() { /* Acción GPS aquí */ alert('GPS solicitado'); };
-                actions.appendChild(gpsBtn);
-                // Contenedor para los botones chicos a la derecha
-                const rightGroup = document.createElement('div');
-                rightGroup.style.display = 'flex';
-                rightGroup.style.gap = '6px';
-                rightGroup.style.marginLeft = 'auto';
-                // Botón SOS (chico)
-                const sosBtn = document.createElement('button');
-                sosBtn.className = 'btn-sos';
-                sosBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 20 20" style="margin-right:3px;vertical-align:middle;" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="8" stroke="#ff5f7d" stroke-width="2"/><text x="10" y="15" text-anchor="middle" font-size="11" fill="#ff5f7d" font-family="Arial" font-weight="bold">!</text></svg>SOS`;
-                sosBtn.onclick = function() { /* Acción SOS aquí */ alert('SOS enviado'); };
-                rightGroup.appendChild(sosBtn);
-                // Botón BLOQUEAR (chico)
-                const bloquearBtn = document.createElement('button');
-                bloquearBtn.className = 'btn-ctrl';
-                bloquearBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 20 20" style="margin-right:3px;vertical-align:middle;" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="8" width="12" height="8" rx="2" fill="#2bdcff"/><rect x="7" y="4" width="6" height="6" rx="3" fill="#0a1a2f"/></svg>BLOQ`;
-                bloquearBtn.onclick = function() { /* Acción BLOQUEAR aquí */ alert('Bloqueado'); };
-                rightGroup.appendChild(bloquearBtn);
-                actions.appendChild(rightGroup);
+                // Solo agrega los botones si no existen
+                if (!actions.querySelector('.btn-record')) {
+                    const recBtn = document.createElement('button');
+                    recBtn.className = 'btn-record';
+                    recBtn.onclick = function() { toggleRecord(this, idx); };
+                    recBtn.innerHTML = `<svg width="20" height="20" viewBox="0 0 20 20" style="margin-right:5px;vertical-align:middle;" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="9" stroke="#fff" stroke-width="2"/><circle cx="10" cy="10" r="6" fill="#f00"/></svg>REC`;
+                    actions.appendChild(recBtn);
+                }
+                if (!actions.querySelector('.btn-gps')) {
+                    const gpsBtn = document.createElement('button');
+                    gpsBtn.className = 'btn-gps';
+                    gpsBtn.innerHTML = `<svg width="20" height="20" viewBox="0 0 20 20" style="margin-right:5px;vertical-align:middle;" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="8" stroke="#2bdcff" stroke-width="2"/><circle cx="10" cy="10" r="3" fill="#2bdcff"/><line x1="10" y1="2" x2="10" y2="0" stroke="#2bdcff" stroke-width="2"/><line x1="10" y1="20" x2="10" y2="18" stroke="#2bdcff" stroke-width="2"/><line x1="2" y1="10" x2="0" y2="10" stroke="#2bdcff" stroke-width="2"/><line x1="20" y1="10" x2="18" y2="10" stroke="#2bdcff" stroke-width="2"/></svg>GPS`;
+                    gpsBtn.onclick = function() { /* Acción GPS aquí */ alert('GPS solicitado'); };
+                    actions.appendChild(gpsBtn);
+                }
+                if (!actions.querySelector('.btn-sos')) {
+                    const sosBtn = document.createElement('button');
+                    sosBtn.className = 'btn-sos';
+                    sosBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 20 20" style="margin-right:3px;vertical-align:middle;" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="8" stroke="#ff5f7d" stroke-width="2"/><text x="10" y="15" text-anchor="middle" font-size="11" fill="#ff5f7d" font-family="Arial" font-weight="bold">!</text></svg>SOS`;
+                    sosBtn.onclick = function() { /* Acción SOS aquí */ alert('SOS enviado'); };
+                    actions.appendChild(sosBtn);
+                }
+                if (!actions.querySelector('.btn-ctrl')) {
+                    const bloquearBtn = document.createElement('button');
+                    bloquearBtn.className = 'btn-ctrl';
+                    bloquearBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 20 20" style="margin-right:3px;vertical-align:middle;" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="8" width="12" height="8" rx="2" fill="#2bdcff"/><rect x="7" y="4" width="6" height="6" rx="3" fill="#0a1a2f"/></svg>BLOQ`;
+                    bloquearBtn.onclick = function() { /* Acción BLOQUEAR aquí */ alert('Bloqueado'); };
+                    actions.appendChild(bloquearBtn);
+                }
             });
         }
         // Observa cambios en el grid de monitores y agrega el botón REC automáticamente
