@@ -1,4 +1,4 @@
-import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Filesystem, Directory } from './capacitor-shim.js';
 
 export class RecordingStore {
   constructor() {

@@ -1,7 +1,4 @@
-import { App } from '@capacitor/app';
-import { Camera } from '@capacitor/camera';
-import { Geolocation } from '@capacitor/geolocation';
-import { LocalNotifications } from '@capacitor/local-notifications';
+import { App, Camera, Geolocation, LocalNotifications } from './capacitor-shim.js';
 
 export class PermissionsManager {
   static async requestCorePermissions() {

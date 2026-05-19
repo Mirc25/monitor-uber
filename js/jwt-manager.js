@@ -1,4 +1,4 @@
-import { Preferences } from '@capacitor/preferences';
+import { Preferences } from './capacitor-shim.js';
 
 export class JWTManager {
   constructor(apiBaseUrl) {
