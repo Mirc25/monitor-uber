@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Informe Comercial y Funcional - Mundo Seguridad</title>
+  <style>
+    :root {
+      --bg: #f3f6fb;
+      --ink: #15243a;
+      --muted: #4c5b73;
+      --brand: #0f3b78;
+      --brand-2: #0f8b8d;
+      --card: #ffffff;
+      --line: #d8e2f1;
+      --ok: #1d9d5c;
+      --warn: #d88400;
+      --danger: #bf2e2e;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Arial, sans-serif;
+      background: radial-gradient(circle at 0% 0%, #eaf1ff 0%, var(--bg) 55%);
+      color: var(--ink);
+      line-height: 1.45;
+    }
+    .page {
+      max-width: 980px;
+      margin: 20px auto;
+      padding: 0 14px 30px;
+    }
+    .header {
+      background: linear-gradient(135deg, var(--brand) 0%, var(--brand-2) 100%);
+      color: #fff;
+      padding: 24px;
+      border-radius: 16px;
+      box-shadow: 0 8px 24px rgba(18, 48, 92, 0.24);
+    }
+    h1 { margin: 0 0 8px; font-size: 30px; }
+    h2 {
+      margin: 26px 0 10px;
+      color: #0f315f;
+      border-bottom: 2px solid #d9e7ff;
+      padding-bottom: 6px;
+      font-size: 22px;
+    }
+    h3 { margin: 14px 0 6px; font-size: 18px; color: #13345f; }
+    p { margin: 7px 0; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 16px;
+      margin-top: 14px;
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .pill {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 5px 10px;
+      border: 1px solid #cfe0ff;
+      background: #f6f9ff;
+      font-weight: 700;
+      margin: 4px 4px 0 0;
+      font-size: 13px;
+    }
+    ul { margin: 8px 0; padding-left: 18px; }
+    li { margin: 4px 0; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 8px;
+      font-size: 14px;
+    }
+    th, td {
+      border: 1px solid var(--line);
+      text-align: left;
+      padding: 8px;
+      vertical-align: top;
+    }
+    th {
+      background: #ecf4ff;
+      color: #143864;
+    }
+    .state-ok { color: var(--ok); font-weight: 700; }
+    .state-warn { color: var(--warn); font-weight: 700; }
+    .state-danger { color: var(--danger); font-weight: 700; }
+    .timeline {
+      border-left: 3px solid #b8cff3;
+      padding-left: 12px;
+      margin-left: 4px;
+    }
+    .timeline p { margin: 8px 0; }
+    .small { font-size: 12px; color: var(--muted); }
+    .footer {
+      margin-top: 28px;
+      text-align: center;
+      font-size: 12px;
+      color: #617389;
+    }
+    @media (max-width: 760px) {
+      .grid-2 { grid-template-columns: 1fr; }
+      h1 { font-size: 25px; }
+      h2 { font-size: 20px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="header">
+      <h1>MUNDO SEGURIDAD</h1>
+      <p><b>Informe comercial y funcional completo</b></p>
+      <p>Documento orientado a ventas y demostración para clientes no técnicos.</p>
+      <p class="small">Versión relevada: abril 2026 | Fuente: código real del proyecto web + APK</p>
+    </div>
+
+    <h2>1. Resumen Ejecutivo</h2>
+    <div class="card">
+      <p>Mundo Seguridad es una solución de monitoreo en tiempo real que integra una central de control web, una app móvil Android para chofer/operador de campo, y un modo de visualización remota para compartir un viaje en vivo.</p>
+      <p>El sistema está pensado para transporte, seguridad privada, logística o patrullaje, con foco en <b>prevención</b>, <b>respuesta inmediata</b> y <b>evidencia</b>.</p>
+      <div>
+        <span class="pill">Monitoreo en vivo</span>
+        <span class="pill">Ubicación GPS</span>
+        <span class="pill">Botón SOS</span>
+        <span class="pill">Grabación de video</span>
+        <span class="pill">Zonas peligrosas</span>
+        <span class="pill">IA de reconocimiento facial</span>
+      </div>
+    </div>
+
+    <h2>2. Qué ve y hace la Central</h2>
+    <div class="grid-2">
+      <div class="card">
+        <h3>Panel de monitores</h3>
+        <ul>
+          <li>Cada unidad conectada crea una tarjeta en la grilla.</li>
+          <li>Se muestra video en vivo por unidad.</li>
+          <li>Estados visuales de alerta por color y parpadeo.</li>
+          <li>Acciones directas por botones en cada tarjeta.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Mapa de control</h3>
+        <ul>
+          <li>Mapa general con marcadores de todas las unidades.</li>
+          <li>Vista maximizada para operación táctica.</li>
+          <li>Capas de mapa (OpenStreetMap, Esri, Carto).</li>
+          <li>Detección de ingreso/salida de zonas de riesgo.</li>
+        </ul>
+      </div>
+    </div>
+
+    <h2>3. Funciones Operativas por Botón (Central)</h2>
+    <div class="card">
+      <table>
+        <thead>
+          <tr>
+            <th>Botón</th>
+            <th>Para qué sirve</th>
+            <th>Resultado en operación</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><b>HABLAR</b></td>
+            <td>Envía audio desde la central hacia la unidad (modo pulsar para hablar).</td>
+            <td>El operador puede dar instrucciones inmediatas al chofer.</td>
+          </tr>
+          <tr>
+            <td><b>ESCUCHAR</b></td>
+            <td>Activa/desactiva audio de retorno del monitor remoto.</td>
+            <td>Permite oír el entorno real para validar incidentes.</td>
+          </tr>
+          <tr>
+            <td><b>GPS</b></td>
+            <td>Abre el mapa dedicado de esa unidad con seguimiento y HUD.</td>
+            <td>Ubicación exacta, traza de recorrido y referencias de interés.</td>
+          </tr>
+          <tr>
+            <td><b>SOS</b></td>
+            <td>Dispara alerta operativa desde la central hacia la unidad.</td>
+            <td>Escalamiento inmediato del evento de emergencia.</td>
+          </tr>
+          <tr>
+            <td><b>BLOQUEAR</b></td>
+            <td>Envía comando remoto de bloqueo de pantalla.</td>
+            <td>Control rápido ante uso indebido o contingencia.</td>
+          </tr>
+          <tr>
+            <td><b>REC</b></td>
+            <td>Inicia/detiene grabación de video del monitor y registra puntos GPS.</td>
+            <td>Genera evidencia descargable y compartible por evento.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2>4. Funciones de Alto Valor Comercial</h2>
+    <div class="grid-2">
+      <div class="card">
+        <h3>4.1 IA + Carpeta Negra</h3>
+        <p>La central permite cargar rostros sospechosos en una base local. Al activar IA, el sistema compara caras detectadas en video con esa base y genera alerta automática.</p>
+        <ul>
+          <li>Alta de sospechosos con foto y alias.</li>
+          <li>Análisis periódico de los monitores.</li>
+          <li>Activación de alarma sonora y alerta visual.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>4.2 Zonas Peligrosas</h3>
+        <p>Se pueden crear zonas de riesgo por búsqueda de barrio o referencia (geocodificación), definir radio y guardar todo localmente.</p>
+        <ul>
+          <li>Persistencia de zonas en el navegador.</li>
+          <li>Marcación visual en mapa normal y expandido.</li>
+          <li>Detección automática de ingreso/salida por unidad.</li>
+        </ul>
+      </div>
+    </div>
+
+    <h2>5. Gestión de Videos y Evidencia</h2>
+    <div class="card">
+      <p>La central dispone de una sección <b>VIDEOS</b> para administrar todas las grabaciones realizadas.</p>
+      <ul>
+        <li>Listado por nombre y fecha/hora de archivo.</li>
+        <li>Reproducción inmediata en modal.</li>
+        <li>Descarga de evidencia.</li>
+        <li>Compartir archivo desde el dispositivo compatible.</li>
+        <li>Borrado individual con confirmación.</li>
+        <li>Registro de puntos GPS asociados a cada grabación.</li>
+      </ul>
+    </div>
+
+    <h2>6. Agenda y Control de Accesos</h2>
+    <div class="card">
+      <p>El módulo <b>Agenda y Tokens</b> permite altas temporales de abonados con validez por horas/días/mes, usando nombre y token de acceso.</p>
+      <ul>
+        <li>Generación de token aleatorio por usuario.</li>
+        <li>Vencimiento automático por tiempo configurado.</li>
+        <li>Validación de login en central contra base local.</li>
+        <li>Baja manual de abonados desde listado visual.</li>
+      </ul>
+    </div>
+
+    <h2>7. Flujo de Emergencia (Operación Real)</h2>
+    <div class="card timeline">
+      <p><b>Paso 1:</b> La unidad activa evento SOS (o la central lo dispara).</p>
+      <p><b>Paso 2:</b> La tarjeta cambia a estado de emergencia y suena alarma.</p>
+      <p><b>Paso 3:</b> El marcador en mapa cambia a icono de alerta.</p>
+      <p><b>Paso 4:</b> Operador puede abrir GPS, hablar, escuchar, grabar y bloquear.</p>
+      <p><b>Paso 5:</b> Al finalizar, se limpia alerta y queda evidencia de video.</p>
+    </div>
+
+    <h2>8. App Android (APK) - Funciones detectadas</h2>
+    <div class="card">
+      <table>
+        <thead>
+          <tr>
+            <th>Componente</th>
+            <th>Capacidad</th>
+            <th>Valor para cliente</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Permisos multimedia</td>
+            <td>Cámara, micrófono, lectura de video y servicios en primer plano.</td>
+            <td>Video continuo y evidencia confiable.</td>
+          </tr>
+          <tr>
+            <td>Permisos de ubicación</td>
+            <td>Ubicación fina, gruesa y background location.</td>
+            <td>Seguimiento aun fuera de primer plano.</td>
+          </tr>
+          <tr>
+            <td>Servicios Android</td>
+            <td>Servicio flotante y servicio de grabación de emergencia.</td>
+            <td>Resiliencia operativa en incidentes críticos.</td>
+          </tr>
+          <tr>
+            <td>Build release firmada</td>
+            <td>Configuración de firma y nombre de APK final.</td>
+            <td>Entrega lista para distribución oficial.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2>9. Viewer Compartible para Terceros</h2>
+    <div class="card">
+      <p>Existe una vista web liviana para compartir un viaje en vivo mediante link temporal con token.</p>
+      <ul>
+        <li>Muestra video en vivo y ubicación en mapa.</li>
+        <li>Incluye control de expiración/validación de enlace.</li>
+        <li>Permite seguimiento para familiares, cliente final o supervisión externa.</li>
+      </ul>
+    </div>
+
+    <h2>10. Arquitectura y Tecnologías</h2>
+    <div class="card">
+      <p><b>Frontend Web:</b> HTML, CSS, JavaScript.</p>
+      <p><b>Transmisión en vivo:</b> PeerJS/WebRTC con STUN/TURN.</p>
+      <p><b>Mapas:</b> Leaflet + capas OpenStreetMap/Esri/Carto + Overpass + Nominatim.</p>
+      <p><b>IA:</b> face-api.js para detección y comparación facial local.</p>
+      <p><b>Persistencia local:</b> localStorage e IndexedDB.</p>
+      <p><b>App móvil:</b> Capacitor + Android nativo (Gradle).</p>
+    </div>
+
+    <h2>11. Estado General Relevado</h2>
+    <div class="card">
+      <p><span class="state-ok">OK:</span> Build release de Android ejecutado correctamente.</p>
+      <p><span class="state-ok">OK:</span> Módulos principales de central, viewer y operaciones están implementados.</p>
+      <p><span class="state-warn">ATENCION:</span> Las bases de datos locales (tokens, carpeta negra, zonas) dependen del navegador/dispositivo usado.</p>
+      <p><span class="state-warn">ATENCION:</span> La calidad de stream depende de conectividad de campo y servidor PeerJS.</p>
+    </div>
+
+    <h2>12. Propuesta de Valor para Venta</h2>
+    <div class="card">
+      <ul>
+        <li>Control centralizado de flota y personal en una sola pantalla.</li>
+        <li>Respuesta más rápida ante incidentes gracias a botones operativos directos.</li>
+        <li>Evidencia audiovisual con trazabilidad de ubicación.</li>
+        <li>Escalabilidad: múltiples unidades conectadas al mismo tiempo.</li>
+        <li>Diferencial tecnológico: IA + geocercas + visualización compartible.</li>
+      </ul>
+    </div>
+
+    <h2>13. Aclaración de Privacidad del Informe</h2>
+    <div class="card">
+      <p>Este documento <b>no incluye capturas personales</b> ni fotografías privadas del usuario. El contenido está construido exclusivamente a partir de funcionalidades detectadas en el código fuente del sistema.</p>
+    </div>
+
+    <div class="footer">
+      Informe generado para presentación comercial - Abril 2026
+    </div>
+  </div>
+</body>
+</html>
