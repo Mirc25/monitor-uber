@@ -55,7 +55,7 @@
 
     function setStatusCentral(online, texto) {
         const el = document.getElementById('statusCentral');
-        el.innerText = 'â— ' + texto;
+        el.innerText = '* ' + texto;
         el.className = online ? 'online' : '';
     }
 
@@ -153,19 +153,19 @@
 
     function modernMapLayers(targetMap) {
         const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: 'Â© OpenStreetMap contributors',
+            attribution: '(c) OpenStreetMap contributors',
             maxZoom: 19
         });
         const esri = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
-            attribution: 'Tiles Â© Esri'
+            attribution: 'Tiles (c) Esri'
         });
         const carto = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-            attribution: 'Â© OpenStreetMap contributors Â© CARTO',
+            attribution: '(c) OpenStreetMap contributors (c) CARTO',
             subdomains: 'abcd',
             maxZoom: 20
         });
         const esriSat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-            attribution: 'Tiles Â© Esri'
+            attribution: 'Tiles (c) Esri'
         });
         osm.addTo(targetMap);
         L.control.layers({
@@ -744,8 +744,8 @@
     function toggleEscucha(pid) { 
         const v = document.getElementById('v-' + pid); 
         const btn = document.getElementById('btn-escuchar-' + pid); 
-        if (v.muted) { v.muted = false; btn.classList.add('btn-active'); btn.innerText = "ðŸ”Š ON"; } 
-        else { v.muted = true; btn.classList.remove('btn-active'); btn.innerText = "ðŸ”ˆ ESCUCHAR"; } 
+        if (v.muted) { v.muted = false; btn.classList.add('btn-active'); btn.innerText = "AUDIO ON"; } 
+        else { v.muted = true; btn.classList.remove('btn-active'); btn.innerText = "ESCUCHAR"; } 
     }
 
     function bloquearPantalla(pid) { 
@@ -787,7 +787,7 @@
         if (!nom || !file) return; 
         const img = await faceapi.bufferToImage(file); 
         const det = await faceapi.detectSingleFace(img, new faceapi.TinyFaceDetectorOptions({ inputSize: 224 })).withFaceDescriptor(); 
-        if (!det) { alert('No se detectÃ³ cara en la foto'); return; }
+        if (!det) { alert('No se detecto cara en la foto'); return; }
         dbIndexed.transaction(["delincuentes"], "readwrite").objectStore("delincuentes").add({ nombre: nom.toUpperCase(), descriptor: Array.from(det.descriptor), foto: await toBase64(file) }); 
         cargarListaNegraVisual(); 
     }

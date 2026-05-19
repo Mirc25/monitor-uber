@@ -9,10 +9,13 @@
     <script src="./vendor/leaflet.js"></script>
     <script src="./js/config.js"></script>
     <script type="module" src="./js/app.js"></script>
-    <script type="module" src="./js/central-main.js"></script>
     <style>
         body { background: #000; color: #0f0; font-family: sans-serif; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
-        .top-bar { background: #000; border-bottom: 1px solid #0f0; padding: 5px 15px; display: flex; justify-content: space-between; align-items: center; height: 45px; }
+        .top-bar { background: linear-gradient(90deg, #061427 0%, #0b1f3a 40%, #061427 100%); border-bottom: 1px solid #18b8ff; padding: 6px 15px; display: flex; justify-content: space-between; align-items: center; height: 52px; box-shadow: 0 2px 18px rgba(0, 200, 255, 0.14); }
+        .brand-wrap { display: flex; align-items: center; gap: 10px; }
+        .logo-badge { width: 34px; height: 34px; border-radius: 10px; background: radial-gradient(circle at 30% 30%, #39e4ff, #0077c9 60%, #063866 100%); border: 1px solid #82eeff; box-shadow: 0 0 12px rgba(62, 210, 255, 0.45); position: relative; }
+        .logo-badge::after { content: ''; position: absolute; inset: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.35); }
+        .top-bar-title { color: #7ef0ff; font-size: 14px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; text-shadow: 0 0 8px rgba(0, 225, 255, 0.35); }
         .main-layout { display: flex; flex: 1; overflow: hidden; position: relative; }
         .main-layout-bg {
             position: absolute;
@@ -85,13 +88,8 @@
 <body>
 
 <div class="top-bar">
-    <div style="display:flex;align-items:center;gap:10px;">
-        <svg class="logo-mundo" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="32" cy="32" r="30" fill="#2bdcff" stroke="#0a1a2f" stroke-width="4"/>
-          <ellipse cx="32" cy="32" rx="24" ry="12" fill="#1e355c" opacity="0.7"/>
-          <ellipse cx="32" cy="32" rx="20" ry="28" fill="none" stroke="#fff" stroke-width="2" opacity="0.5"/>
-          <ellipse cx="32" cy="32" rx="28" ry="8" fill="none" stroke="#fff" stroke-width="1.2" opacity="0.3"/>
-        </svg>
+    <div class="brand-wrap">
+        <div class="logo-badge"></div>
         <span class="top-bar-title">MUNDO SEGURIDAD</span>
         <span id="statusCentral" style="margin-left:12px;">* CONECTANDO...</span>
     </div>
@@ -135,10 +133,10 @@
             </div>
         </div>
         <div class="tools-area p-3">
-            <button class="btn-3d btn-zona w-100 mb-3" onclick="toggleCarpetaZonas(true)"><span style="font-size:1.1em;">[Z]</span> <b>ZONAS PELIGROSAS</b></button>
-            <button class="btn-3d agenda-btn w-100 mb-3" onclick="toggleAgenda(true)"><span style="font-size:1.1em;">[A]</span> <b>AGENDA Y TOKENS</b></button>
-            <button class="btn-3d btn-negra w-100 mb-3" onclick="toggleCarpetaNegra(true)"><span style="font-size:1.1em;">[N]</span> <b>CARPETA NEGRA</b></button>
-            <button class="btn-3d btn-videos w-100 mb-3" onclick="toggleVideosModal(true)"><span style="font-size:1.1em;">[V]</span> <b>VIDEOS</b></button>
+            <button class="btn-3d btn-zona w-100 mb-3" onclick="toggleCarpetaZonas(true)"><b>ZONAS PELIGROSAS</b></button>
+            <button class="btn-3d agenda-btn w-100 mb-3" onclick="toggleAgenda(true)"><b>AGENDA Y TOKENS</b></button>
+            <button class="btn-3d btn-negra w-100 mb-3" onclick="toggleCarpetaNegra(true)"><b>CARPETA NEGRA</b></button>
+            <button class="btn-3d btn-videos w-100 mb-3" onclick="toggleVideosModal(true)"><b>VIDEOS</b></button>
             <div id="videosModal" class="modales">
                 <div class="modal-container" style="border-color: #2bdcff; max-width: 900px;">
                     <div class="d-flex justify-content-between mb-3 border-bottom border-info pb-2">
