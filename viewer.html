@@ -1,24 +1,48 @@
-{
-  "redirects": [
-    {
-      "source": "/",
-      "destination": "/www/central.html",
-      "permanent": false
+import { defineConfig } from 'vite';
+import { resolve } from 'path';
+
+// VITE_API_URL se inyecta en CI para GitHub Pages.
+// En desarrollo usa el valor de config.js (localStorage o localhost:8080).
+export default defineConfig({
+  root: './www',
+  // base: '/' funciona en GitHub Pages cuando el repo se llama igual que el usuario
+  // o cuando configurás un dominio custom. Si el repo tiene otro nombre,
+  // cambiá base a '/<nombre-repo>/'.
+  base: process.env.GITHUB_PAGES_BASE || '/',
+  define: {
+    __API_URL__: JSON.stringify(process.env.VITE_API_URL || '')
+  },
+  build: {
+    outDir: '../dist',
+    target: 'esnext',
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true
+      }
     },
-    {
-      "source": "/central",
-      "destination": "/www/central.html",
-      "permanent": false
+    rollupOptions: {
+      input: {
+        index: resolve(__dirname, 'www/index.html'),
+        central: resolve(__dirname, 'www/central.html'),
+        viewer: resolve(__dirname, 'www/viewer.html')
+      },
+      output: {
+        manualChunks: {
+          peerjs: ['peerjs'],
+          leaflet: ['leaflet'],
+          'face-api': ['@vladmandic/face-api']
+        }
+      }
     },
-    {
-      "source": "/unidad",
-      "destination": "/www/index.html",
-      "permanent": false
-    },
-    {
-      "source": "/viewer",
-      "destination": "/www/viewer.html",
-      "permanent": false
-    }
-  ]
-}
+    sourcemap: false,
+    reportCompressedSize: true
+  },
+  server: {
+    port: 8100,
+    strictPort: false
+  },
+  preview: {
+    port: 4173
+  }
+});
