@@ -1,0 +1,246 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>PABLO SECURITY - CENTRAL MAESTRA IA</title>
+    <script src="./vendor/peerjs.min.js"></script>
+    <link href="./vendor/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="./vendor/leaflet.css" />
+    <script src="./vendor/leaflet.js"></script>
+    <script src="./js/config.js"></script>
+    <script type="module" src="./js/app.js"></script>
+    <script type="module" src="./js/central-main.js"></script>
+    <style>
+        body { background: #000; color: #0f0; font-family: sans-serif; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        .top-bar { background: #000; border-bottom: 1px solid #0f0; padding: 5px 15px; display: flex; justify-content: space-between; align-items: center; height: 45px; }
+        .main-layout { display: flex; flex: 1; overflow: hidden; position: relative; }
+        .main-layout-bg {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            z-index: 0;
+            pointer-events: none;
+            background: url('https://cdn.pixabay.com/photo/2017/01/31/13/14/earth-2029147_1280.png') center center no-repeat;
+            background-size: 55% auto;
+            opacity: 0.18;
+        }
+        .grid-fleet { flex: 1; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; padding: 8px; overflow-y: auto; background: #111; }
+        .grid-fleet::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: url('https://cdn.pixabay.com/photo/2017/01/31/13/14/earth-2029147_1280.png') center center no-repeat;
+            background-size: 60% auto;
+            opacity: 0.18;
+            pointer-events: none;
+            z-index: 0;
+        }
+        .unit-card { background: #000; border: 1px solid #333; display: flex; flex-direction: column; height: 350px; position: relative; transition: 0.3s; z-index: 1; }
+        .alerta-ia { border: 5px solid #f00 !important; box-shadow: 0 0 25px #f00; animation: parpadeo-ia 0.4s infinite alternate; z-index: 1000; cursor: pointer; }
+        @keyframes parpadeo-ia { 0% { background: #000; } 100% { background: #400; } }
+        .alerta-emergencia { border: 5px solid #ff6a00 !important; box-shadow: 0 0 25px #ff6a00; animation: parpadeo-emergencia 0.35s infinite alternate; z-index: 1001; cursor: pointer; }
+        @keyframes parpadeo-emergencia { 0% { background: #000; } 100% { background: #4a1f00; } }
+        .unit-header.emergency { background: #ff6a00; color: #000; animation: parpadeo-emergencia 0.35s infinite alternate; }
+
+        .pausa-activa { border-bottom: 3px solid #00f !important; }
+        .unit-header { background: #1a1a1a; font-size: 10px; padding: 2px; text-align: center; color: #0f0; font-weight: bold; }
+        
+        .video-box { flex: 1; background: #000; position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        video { height: 100%; width: auto; object-fit: contain; }
+        
+        .unit-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 4px; background: #000; border-top: 1px solid #0f0; }
+        .btn-ctrl { font-size: 9px; padding: 8px 0; background: #fff; color: #000; border: none; font-weight: bold; cursor: pointer; text-transform: uppercase; user-select: none; }
+        .btn-gps { background: #007bff; color: #fff; }
+        .btn-active { background: #0f0 !important; color: #000 !important; }
+        .btn-talking { background: #f0f !important; color: #fff !important; }
+
+        .side-panel { width: 320px; background: #222; display: flex; flex-direction: column; border-left: 2px solid #0f0; }
+        .map-shell { position: relative; border-bottom: 2px solid #0f0; }
+        #mainMap { height: 280px; background: #111; }
+        .map-actions { position: absolute; top: 8px; right: 8px; display: flex; flex-direction: column; gap: 6px; z-index: 1200; }
+        .btn-map-mini { background: rgba(7, 14, 24, 0.88); color: #9fe9ff; border: 1px solid #2f6993; font-size: 10px; font-weight: bold; padding: 4px 8px; border-radius: 6px; cursor: pointer; }
+        .btn-map-mini.active { background: #7a2800; color: #ffd8ad; border-color: #ff8a3c; }
+        .btn-map-mini.ref-on { background: #143e66; color: #d7f0ff; border-color: #6fb7ff; }
+        .zone-list-item { border: 1px solid #2b435e; border-radius: 8px; background: #0d1724; padding: 8px; margin-bottom: 8px; color: #cde5ff; }
+        .zone-list-item .meta { font-size: 12px; color: #94c8ff; }
+        
+        .modales { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.96); z-index: 2000; padding: 25px; }
+        .modal-container { max-width: 800px; margin: 0 auto; background: #111; border: 1px solid #0f0; padding: 20px; border-radius: 8px; color: #0f0; position: relative; }
+        
+        #mapaFlotanteContainer { height: 500px; width: 100%; background: #222; margin-top: 10px; border: 1px solid #0f0; }
+        #mainMapExpandedContainer { height: calc(100vh - 140px); width: 100%; background: #111; border: 1px solid #1f6e94; }
+        .gps-toolbar { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+        .gps-mini-btn { border: 1px solid #246ea0; background: #10263b; color: #8fd3ff; font-size: 11px; font-weight: bold; border-radius: 6px; padding: 5px 10px; cursor: pointer; }
+        .gps-mini-btn.on { background: #1f5f34; border-color: #46c77a; color: #d9ffe9; }
+        .gps-mini-btn.poi { background: #3a2a11; border-color: #d09a4f; color: #ffd89e; }
+        .gps-hud { margin-top: 8px; border: 1px solid #1a5075; border-radius: 8px; background: #08151f; padding: 8px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12px; color: #bfe7ff; }
+        .gps-hud b { color: #77ceff; }
+
+        #statusCentral { font-size: 11px; padding: 2px 10px; border-radius: 10px; background: #f00; color: #fff; font-weight: bold; }
+        #statusCentral.online { background: #0a0; }
+
+        .alerta-zona { border: 5px solid #ffc107 !important; box-shadow: 0 0 25px #ffc107; animation: parpadeo-zona 0.5s infinite alternate; z-index: 1002; }
+        @keyframes parpadeo-zona { 0% { background: #111; } 100% { background: #4b3805; } }
+    </style>
+</head>
+<body>
+
+<div class="top-bar">
+    <div style="display:flex;align-items:center;gap:10px;">
+        <svg class="logo-mundo" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="32" cy="32" r="30" fill="#2bdcff" stroke="#0a1a2f" stroke-width="4"/>
+          <ellipse cx="32" cy="32" rx="24" ry="12" fill="#1e355c" opacity="0.7"/>
+          <ellipse cx="32" cy="32" rx="20" ry="28" fill="none" stroke="#fff" stroke-width="2" opacity="0.5"/>
+          <ellipse cx="32" cy="32" rx="28" ry="8" fill="none" stroke="#fff" stroke-width="1.2" opacity="0.3"/>
+        </svg>
+        <span class="top-bar-title">MUNDO SEGURIDAD</span>
+        <span id="statusCentral" style="margin-left:12px;">â— CONECTANDO...</span>
+    </div>
+    <!-- Eliminar botÃ³n duplicado de AGENDA Y TOKENS en la barra superior -->
+</div>
+
+<div class="main-layout">
+    <img src="https://img.freepik.com/fotos-premium/mapa-mundo-lineas-conexion-red-internet_177415-3114.jpg?w=2000" alt="Decorativo" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;opacity:0.18;z-index:0;pointer-events:none;" />
+        <div class="grid-fleet" id="monitorGrid" style="position:relative; z-index:1;"></div>
+        <style>
+        .btn-record {
+            background: #222;
+            color: #fff;
+            border: 2px solid #2bdcff;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 11px;
+            padding: 3px 8px;
+            margin-left: 4px;
+            margin-bottom: 0;
+            cursor: pointer;
+            position: relative;
+            transition: background 0.2s, color 0.2s;
+            display: flex; align-items: center; gap: 5px;
+        }
+        .btn-record-mini { font-size: 10px; padding: 2px 7px; }
+        .btn-record .rec-dot {
+            width: 9px; height: 9px; border-radius: 50%; background: #f00; display: inline-block; box-shadow: 0 0 6px #f004;
+            animation: rec-blink 1s steps(1) infinite;
+        }
+        .btn-record:not(.recording) .rec-dot { opacity: 0.5; animation: none; }
+        .btn-record.recording { background: #f00; color: #fff; border-color: #fff; }
+        .btn-record.recording .rec-dot { animation: rec-blink 0.6s steps(1) infinite; }
+        @keyframes rec-blink { 0%,100%{opacity:1;} 50%{opacity:0.2;} }
+        </style>
+    <div class="side-panel" style="position:relative; z-index:2;">
+        <div class="map-shell">
+            <div id="mainMap"></div>
+            <div class="map-actions">
+                <button class="btn-map-mini" onclick="toggleMainMapExpanded(true)">MAXIMIZAR</button>
+            </div>
+        </div>
+        <div class="tools-area p-3">
+            <button class="btn-3d btn-zona w-100 mb-3" onclick="toggleCarpetaZonas(true)"><span style="font-size:1.4em;">ðŸ—‚ï¸</span> <b>ZONAS PELIGROSAS</b></button>
+            <button class="btn-3d agenda-btn w-100 mb-3" onclick="toggleAgenda(true)"><span style="font-size:1.4em;">ðŸŒ</span> <b>AGENDA Y TOKENS</b></button>
+            <button class="btn-3d btn-negra w-100 mb-3" onclick="toggleCarpetaNegra(true)"><span style="font-size:1.4em;">ðŸ‘¤</span> <b>CARPETA NEGRA</b></button>
+            <button class="btn-3d btn-videos w-100 mb-3" onclick="toggleVideosModal(true)"><span style="font-size:1.4em;">ðŸŽ¥</span> <b>VIDEOS</b></button>
+            <div id="videosModal" class="modales">
+                <div class="modal-container" style="border-color: #2bdcff; max-width: 900px;">
+                    <div class="d-flex justify-content-between mb-3 border-bottom border-info pb-2">
+                        <h4>VIDEOS GRABADOS</h4>
+                        <button class="btn btn-sm btn-danger" onclick="toggleVideosModal(false)">CERRAR</button>
+                    </div>
+                    <div id="videosList" class="bg-black p-2" style="max-height: 500px; overflow-y: auto; border: 1px solid #333;">
+                        <!-- AquÃ­ se listarÃ¡n los videos grabados -->
+                        <div class="text-info">No hay videos grabados aÃºn.</div>
+                    </div>
+                </div>
+            </div>
+            <div id="ia-toggle" style="width:70px; height:30px; background:#444; border-radius:20px; margin:10px auto; position:relative; cursor:pointer;" onclick="toggleIA()">
+                <div id="ia-dot" style="position:absolute; left:5px; top:4px; width:22px; height:22px; background:#ddd; border-radius:50%; transition: 0.3s;"></div>
+            </div>
+            <div id="ia-text" style="font-weight:bold; font-size:13px; color:#555; text-align:center;">IA DESACTIVADA</div>
+        </div>
+    </div>
+</div>
+
+<div id="agendaModal" class="modales">
+    <div class="modal-container" style="border-color: #0f0;">
+        <div class="d-flex justify-content-between mb-3 border-bottom border-success pb-2">
+            <h4>GESTIÃ“N DE ABONADOS</h4>
+            <button class="btn btn-sm btn-danger" onclick="toggleAgenda(false)">CERRAR</button>
+        </div>
+        <div class="row g-2 mb-3">
+            <div class="col-md-4"><input type="text" id="regNombre" class="form-control bg-dark text-white border-success" placeholder="NOMBRE"></div>
+            <div class="col-md-4">
+                <select id="regTiempo" class="form-select bg-dark text-white border-success">
+                    <option value="24">24 HORAS</option>
+                    <option value="168">7 DÃAS</option>
+                    <option value="720">1 MES</option>
+                </select>
+            </div>
+            <div class="col-md-4"><button class="btn btn-success w-100 fw-bold" onclick="generarAlta()">DAR DE ALTA</button></div>
+        </div>
+        <div id="listaAbonadosVisual" class="bg-black p-2" style="max-height: 400px; overflow-y: auto; border: 1px solid #333;"></div>
+    </div>
+</div>
+
+<div id="gpsModal" class="modales">
+    <div class="modal-container">
+        <div class="d-flex justify-content-between align-items:center;">
+            <h4 id="gpsModalTitle">UBICACIÃ“N GPS</h4>
+            <button class="btn btn-sm btn-danger" onclick="cerrarMapaGPS()">CERRAR</button>
+        </div>
+        <div class="gps-toolbar">
+            <button class="gps-mini-btn" onclick="centrarMapaChofer()">CENTRAR</button>
+            <button id="btnFollowDriver" class="gps-mini-btn on" onclick="toggleSeguirChofer()">SEGUIR ON</button>
+            <button id="btnPoiDriver" class="gps-mini-btn poi" onclick="togglePoiChofer()">REFERENCIAS OFF</button>
+        </div>
+        <div class="gps-hud">
+            <div><b>Chofer:</b> <span id="hudChofer">-</span></div>
+            <div><b>Ultima act.:</b> <span id="hudHora">-</span></div>
+            <div><b>Lat:</b> <span id="hudLat">-</span></div>
+            <div><b>Lng:</b> <span id="hudLng">-</span></div>
+        </div>
+        <div id="mapaFlotanteContainer"></div>
+    </div>
+</div>
+
+<div id="mainMapModal" class="modales">
+    <div class="modal-container" style="max-width: 96vw; border-color: #1f6e94;">
+        <div class="d-flex justify-content-between align-items:center;">
+            <h4>MAPA GENERAL AMPLIADO</h4>
+            <button class="btn btn-sm btn-danger" onclick="toggleMainMapExpanded(false)">CERRAR</button>
+        </div>
+        <div id="mainMapExpandedContainer"></div>
+    </div>
+</div>
+
+<div id="zoneFolderModal" class="modales">
+    <div class="modal-container" style="border-color:#2f6993; max-width: 900px;">
+        <div class="d-flex justify-content-between mb-3 border-bottom border-info pb-2">
+            <h4>CARPETA DE ZONAS PELIGROSAS</h4>
+            <button class="btn btn-sm btn-danger" onclick="toggleCarpetaZonas(false)">CERRAR</button>
+        </div>
+        <div class="d-flex gap-2 mb-2">
+            <input id="zoneSearch" class="form-control form-control-sm bg-dark text-info border-info" placeholder="Ej: Barrio La Estacion, San Juan">
+            <button class="btn btn-sm btn-info fw-bold" onclick="buscarLugarParaZona()">AGREGAR</button>
+            <button class="btn btn-sm btn-outline-warning fw-bold" onclick="clearRiskZones()">LIMPIAR TODO</button>
+        </div>
+        <div id="zoneList" style="max-height:320px; overflow-y:auto;"></div>
+    </div>
+</div>
+
+<div id="blackFolderModal" class="modales">
+    <div class="modal-container" style="border-color: #f00;">
+        <div class="d-flex justify-content-between mb-3 border-bottom border-danger pb-2">
+            <h4>CARPETA NEGRA</h4>
+            <button class="btn btn-sm btn-outline-danger" onclick="toggleCarpetaNegra(false)">CERRAR</button>
+        </div>
+        <div class="row g-2 mb-4 bg-dark p-2 rounded">
+            <div class="col-md-5"><input type="file" id="fotoDelincuente" class="form-control bg-black text-danger border-danger" accept="image/*"></div>
+            <div class="col-md-4"><input type="text" id="nombreDelincuente" class="form-control bg-black text-danger border-danger" placeholder="ALIAS"></div>
+            <div class="col-md-3"><button class="btn btn-danger w-100 fw-bold" onclick="guardarDelincuente()">AÃ‘ADIR</button></div>
+        </div>
+        <div id="listaNegra" class="row g-2" style="max-height: 400px; overflow-y: auto;"></div>
+    </div>
+</div>
+
+<script src="./js/central-inline-1.js"></script>
+</body>
+</html>
