@@ -93,9 +93,9 @@
           <ellipse cx="32" cy="32" rx="28" ry="8" fill="none" stroke="#fff" stroke-width="1.2" opacity="0.3"/>
         </svg>
         <span class="top-bar-title">MUNDO SEGURIDAD</span>
-        <span id="statusCentral" style="margin-left:12px;">â— CONECTANDO...</span>
+        <span id="statusCentral" style="margin-left:12px;">* CONECTANDO...</span>
     </div>
-    <!-- Eliminar botÃ³n duplicado de AGENDA Y TOKENS en la barra superior -->
+    <!-- Eliminar boton duplicado de AGENDA Y TOKENS en la barra superior -->
 </div>
 
 <div class="main-layout">
@@ -135,10 +135,10 @@
             </div>
         </div>
         <div class="tools-area p-3">
-            <button class="btn-3d btn-zona w-100 mb-3" onclick="toggleCarpetaZonas(true)"><span style="font-size:1.4em;">ðŸ—‚ï¸</span> <b>ZONAS PELIGROSAS</b></button>
-            <button class="btn-3d agenda-btn w-100 mb-3" onclick="toggleAgenda(true)"><span style="font-size:1.4em;">ðŸŒ</span> <b>AGENDA Y TOKENS</b></button>
-            <button class="btn-3d btn-negra w-100 mb-3" onclick="toggleCarpetaNegra(true)"><span style="font-size:1.4em;">ðŸ‘¤</span> <b>CARPETA NEGRA</b></button>
-            <button class="btn-3d btn-videos w-100 mb-3" onclick="toggleVideosModal(true)"><span style="font-size:1.4em;">ðŸŽ¥</span> <b>VIDEOS</b></button>
+            <button class="btn-3d btn-zona w-100 mb-3" onclick="toggleCarpetaZonas(true)"><span style="font-size:1.1em;">[Z]</span> <b>ZONAS PELIGROSAS</b></button>
+            <button class="btn-3d agenda-btn w-100 mb-3" onclick="toggleAgenda(true)"><span style="font-size:1.1em;">[A]</span> <b>AGENDA Y TOKENS</b></button>
+            <button class="btn-3d btn-negra w-100 mb-3" onclick="toggleCarpetaNegra(true)"><span style="font-size:1.1em;">[N]</span> <b>CARPETA NEGRA</b></button>
+            <button class="btn-3d btn-videos w-100 mb-3" onclick="toggleVideosModal(true)"><span style="font-size:1.1em;">[V]</span> <b>VIDEOS</b></button>
             <div id="videosModal" class="modales">
                 <div class="modal-container" style="border-color: #2bdcff; max-width: 900px;">
                     <div class="d-flex justify-content-between mb-3 border-bottom border-info pb-2">
@@ -146,8 +146,8 @@
                         <button class="btn btn-sm btn-danger" onclick="toggleVideosModal(false)">CERRAR</button>
                     </div>
                     <div id="videosList" class="bg-black p-2" style="max-height: 500px; overflow-y: auto; border: 1px solid #333;">
-                        <!-- AquÃ­ se listarÃ¡n los videos grabados -->
-                        <div class="text-info">No hay videos grabados aÃºn.</div>
+                        <!-- Aqui se listaran los videos grabados -->
+                        <div class="text-info">No hay videos grabados aun.</div>
                     </div>
                 </div>
             </div>
@@ -162,7 +162,7 @@
 <div id="agendaModal" class="modales">
     <div class="modal-container" style="border-color: #0f0;">
         <div class="d-flex justify-content-between mb-3 border-bottom border-success pb-2">
-            <h4>GESTIÃ“N DE ABONADOS</h4>
+            <h4>GESTION DE ABONADOS</h4>
             <button class="btn btn-sm btn-danger" onclick="toggleAgenda(false)">CERRAR</button>
         </div>
         <div class="row g-2 mb-3">
@@ -170,7 +170,7 @@
             <div class="col-md-4">
                 <select id="regTiempo" class="form-select bg-dark text-white border-success">
                     <option value="24">24 HORAS</option>
-                    <option value="168">7 DÃAS</option>
+                    <option value="168">7 DIAS</option>
                     <option value="720">1 MES</option>
                 </select>
             </div>
@@ -183,7 +183,7 @@
 <div id="gpsModal" class="modales">
     <div class="modal-container">
         <div class="d-flex justify-content-between align-items:center;">
-            <h4 id="gpsModalTitle">UBICACIÃ“N GPS</h4>
+            <h4 id="gpsModalTitle">UBICACION GPS</h4>
             <button class="btn btn-sm btn-danger" onclick="cerrarMapaGPS()">CERRAR</button>
         </div>
         <div class="gps-toolbar">
