@@ -1,12 +1,15 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>V.I.P. SJ - Viaje en Vivo</title>
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <title>MUNDO SEGURIDAD - VIEWER</title>
+    <script src="./vendor/peerjs.min.js"></script>
+    <link rel="stylesheet" href="./vendor/leaflet.css" />
+    <script src="./vendor/leaflet.js"></script>
+    <script src="./js/config.js"></script>
+    <script type="module" src="./js/app.js"></script>
+    <script type="module" src="./js/viewer-main.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Rajdhani:wght@500;700&display=swap" rel="stylesheet">
@@ -132,198 +135,24 @@
 <div id="videoWrap">
     <video id="remoteVideo" autoplay playsinline></video>
     <div id="placeholder">
-        <div class="icon">📡</div>
+        <div class="icon">ðŸ“¡</div>
         <p>Esperando stream de video...</p>
     </div>
     <button id="audioHint" type="button">Tocar para activar audio</button>
 </div>
 
 <div id="mapWrap">
-    <div id="mapLabel">📍 UBICACIÓN EN TIEMPO REAL</div>
+    <div id="mapLabel">ðŸ“ UBICACIÃ“N EN TIEMPO REAL</div>
     <div id="map"></div>
 </div>
 
 <div id="endMsg" role="alert">
-    <div class="big">🔴</div>
-    <h2>Sesión finalizada</h2>
-    <p>El conductor terminó el viaje compartido o la app se cerró.</p>
+    <div class="big">ðŸ”´</div>
+    <h2>SesiÃ³n finalizada</h2>
+    <p>El conductor terminÃ³ el viaje compartido o la app se cerrÃ³.</p>
 </div>
 
-<script>
-    // --- Obtener token desde URL ---
-    const params = new URLSearchParams(location.search);
-    const token = params.get('v');
-    const UNIT_PEER_ID = params.get('u');
-    const PEER_OPTS = {
-        host: '0.peerjs.com',
-        port: 443,
-        secure: true,
-        path: '/',
-        config: {
-            iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' },
-                { urls: 'stun:stun2.l.google.com:19302' },
-                {
-                    urls: [
-                        'turn:openrelay.metered.ca:80',
-                        'turn:openrelay.metered.ca:443',
-                        'turn:openrelay.metered.ca:443?transport=tcp'
-                    ],
-                    username: 'openrelayproject',
-                    credential: 'openrelayproject'
-                }
-            ]
-        }
-    };
-
-    const dot       = document.getElementById('dot');
-    const statusTxt = document.getElementById('statusText');
-    const video     = document.getElementById('remoteVideo');
-    const placeholder = document.getElementById('placeholder');
-    const endMsg    = document.getElementById('endMsg');
-    const audioHint = document.getElementById('audioHint');
-
-    function setStatus(online, texto) {
-        dot.className = online ? 'on' : '';
-        statusTxt.textContent = texto;
-    }
-
-    // --- Mapa ---
-    const map = L.map('map', { zoomControl: true }).setView([-31.5375, -68.5364], 14);
-    const esri = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
-        attribution: 'Tiles © Esri'
-    });
-    const carto = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-        attribution: '© OpenStreetMap contributors © CARTO',
-        subdomains: 'abcd',
-        maxZoom: 20
-    });
-    esri.addTo(map);
-    L.control.layers({ 'Esri Streets + POI': esri, 'Carto Voyager': carto }, null, { position: 'bottomright' }).addTo(map);
-
-    const carIcon = L.icon({
-        iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png',
-        iconSize: [28, 28]
-    });
-    let marker = null;
-
-    function moverMarcador(lat, lng) {
-        const pos = [lat, lng];
-        if (!marker) {
-            marker = L.marker(pos, { icon: carIcon }).addTo(map);
-        } else {
-            marker.setLatLng(pos);
-        }
-        map.panTo(pos);
-    }
-
-    // --- Sin token válido ---
-    if (!token || token.length < 4 || !UNIT_PEER_ID) {
-        setStatus(false, 'Link inválido o expirado.');
-        endMsg.style.display = 'flex';
-    } else {
-        iniciarViewer();
-    }
-
-    function iniciarViewer(retryCount = 0) {
-        // Peer con ID aleatorio para el viewer
-        const viewerPeerId = 'VWR-' + Math.random().toString(36).substr(2, 8).toUpperCase();
-        let peerV = new Peer(viewerPeerId, PEER_OPTS);
-        let streamReceived = false;
-
-        peerV.on('open', () => {
-            setStatus(false, 'Conectando con unidad...');
-
-            // 1. Conexión de datos para GPS
-            const conn = peerV.connect(UNIT_PEER_ID, { reliable: true });
-            conn.on('open', () => {
-                // Avisar que el viewer está listo para recibir stream
-                conn.send({ tipo: 'viewer_ready', token: token });
-            });
-            conn.on('data', (data) => {
-                if (data.tipo === 'gps') moverMarcador(data.lat, data.lng);
-                if (data.tipo === 'viewer_denied') {
-                    setStatus(false, 'Link inválido o expirado.');
-                    endMsg.style.display = 'flex';
-                }
-                if (data.tipo === 'viewer_ok') {
-                    setStatus(false, 'Conectado, esperando video...');
-                }
-            });
-            conn.on('error', () => {}); // GPS no crítico
-        });
-
-        // 2. La unidad inicia la llamada de video/audio cuando recibe viewer_ready
-        peerV.on('call', (call) => {
-            call.answer();
-            call.on('stream', (s) => {
-                streamReceived = true;
-                video.srcObject = s;
-                video.muted = true;
-                video.style.display = 'block';
-                placeholder.style.display = 'none';
-                setStatus(true, 'EN VIVO');
-                video.play()
-                    .then(() => { audioHint.style.display = 'block'; })
-                    .catch(() => { audioHint.style.display = 'block'; setStatus(true, 'EN VIVO (tocá para activar audio)'); });
-            });
-            call.on('close', () => {
-                if (streamReceived) mostrarFin();
-            });
-            call.on('error', () => {
-                if (!streamReceived) setStatus(false, 'Sin video - reintentando...');
-            });
-        });
-
-        peerV.on('error', (err) => {
-            if (err.type === 'peer-unavailable') {
-                if (retryCount < 30) {
-                    setStatus(false, 'Unidad preparando enlace... reintentando (' + (retryCount + 1) + '/30)');
-                    setTimeout(() => {
-                        try { peerV.destroy(); } catch(e) {}
-                        iniciarViewer(retryCount + 1);
-                    }, 2000);
-                } else {
-                    setStatus(false, 'Unidad no disponible. ¿El link ya expiró?');
-                    endMsg.style.display = 'flex';
-                }
-            } else if (err.type === 'network' || err.type === 'socket-error' || err.type === 'socket-closed') {
-                setStatus(false, 'Sin conexión - reintentando...');
-                setTimeout(() => { peerV.destroy(); iniciarViewer(retryCount + 1); }, 5000);
-            }
-        });
-
-        peerV.on('disconnected', () => {
-            if (!peerV.destroyed) peerV.reconnect();
-        });
-
-        peerV.on('close', () => {
-            if (streamReceived) mostrarFin();
-            else {
-                setStatus(false, 'Reintentando conexión de video...');
-                setTimeout(() => iniciarViewer(retryCount + 1), 3000);
-            }
-        });
-    }
-
-    function mostrarFin() {
-        setStatus(false, 'Sesión finalizada');
-        video.pause();
-        video.srcObject = null;
-        endMsg.style.display = 'flex';
-    }
-
-    audioHint.addEventListener('click', async () => {
-        try {
-            video.muted = false;
-            await video.play();
-            audioHint.style.display = 'none';
-            setStatus(true, 'EN VIVO');
-        } catch (e) {
-            setStatus(true, 'EN VIVO (audio bloqueado)');
-        }
-    });
-</script>
+<script src="./js/viewer-inline-1.js"></script>
 </body>
 </html>
+
